@@ -254,7 +254,116 @@ export default function AddItem() {
     });
   };
 
-  // Pick image from gallery
+  // Request permissions for camera access
+  const requestCameraPermissions = async () => {
+    if (Platform.OS !== "web") {
+      try {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Camera Permission Needed",
+            "We need permission to access your camera so you can take photos for your listings.",
+            [{ text: "OK" }]
+          );
+          return false;
+        }
+        return true;
+      } catch (error) {
+        console.error("Error requesting camera permission:", error);
+        return false;
+      }
+    }
+    return false;
+  };
+
+  // Request all required permissions
+  const requestPermissions = async () => {
+    setIsLoading(true);
+    try {
+      // Request media library permissions
+      const libraryStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      // Request camera permissions
+      const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (libraryStatus.status !== "granted" || cameraStatus.status !== "granted") {
+        Alert.alert(
+          "Permissions Needed",
+          "We need permission to access your photo library and camera to select or take photos for your listings.",
+          [{ text: "OK" }]
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Request both permissions on component mount
+    requestPermissions();
+  }, []);
+
+  // Launch camera to take a photo
+  const takePicture = async () => {
+    if (images.length >= MAX_IMAGES) {
+      Alert.alert(
+        "Maximum Images",
+        `You can only upload up to ${MAX_IMAGES} images`
+      );
+      return;
+    }
+
+    const hasPermission = await requestCameraPermissions();
+    if (!hasPermission) return;
+
+    setIsPickingImage(true);
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedAsset = result.assets[0];
+        
+        // Check file size
+        if (selectedAsset.fileSize && selectedAsset.fileSize > MAX_IMAGE_SIZE) {
+          Alert.alert(
+            "Image Too Large",
+            "The photo you took exceeds the 5MB size limit. Please try again with a lower resolution."
+          );
+          return;
+        }
+
+        // Add the new image
+        const newImages = [...images, selectedAsset.uri];
+        setImages(newImages);
+
+        // If this is the first image, make it the main image
+        if (images.length === 0) {
+          setMainImageIndex(0);
+        }
+      }
+    } catch (error) {
+      console.error("Error taking picture:", error);
+      Alert.alert("Error", "Failed to take photo. Please try again.");
+    } finally {
+      setIsPickingImage(false);
+    }
+  };
+
+  // Show image source selection modal
+  const [imageSourceModalVisible, setImageSourceModalVisible] = useState(false);
+
+  // Open image picker with source selection
+  const openImagePicker = () => {
+    setImageSourceModalVisible(true);
+  };
+
+  // Modify the pickImage function to handle gallery selection
   const pickImage = async () => {
     if (images.length >= MAX_IMAGES) {
       Alert.alert(
@@ -513,6 +622,11 @@ export default function AddItem() {
     }
   };
 
+  // Add handler for "Go to Home" button in success screen
+  const handleGoToHome = () => {
+    router.push('/(tabs)/' as any);
+  };
+
   // Custom Dropdown component
   interface CustomDropdownProps {
     label: string;
@@ -617,6 +731,53 @@ export default function AddItem() {
     <SafeAreaViewContext style={styles.container} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
 
+      {/* Image Source Selection Modal */}
+      <Modal
+        transparent={true}
+        visible={imageSourceModalVisible}
+        animationType="fade"
+        onRequestClose={() => setImageSourceModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setImageSourceModalVisible(false)}
+        >
+          <View style={styles.imageSourceModal}>
+            <Text style={styles.imageSourceTitle}>Add Photos</Text>
+            
+            <TouchableOpacity
+              style={styles.imageSourceOption}
+              onPress={() => {
+                setImageSourceModalVisible(false);
+                setTimeout(() => takePicture(), 300);
+              }}
+            >
+              <Ionicons name="camera" size={24} color="#2528BE" />
+              <Text style={styles.imageSourceText}>Camera</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.imageSourceOption}
+              onPress={() => {
+                setImageSourceModalVisible(false);
+                setTimeout(() => pickImage(), 300);
+              }}
+            >
+              <Ionicons name="images" size={24} color="#2528BE" />
+              <Text style={styles.imageSourceText}>Photo Library</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setImageSourceModalVisible(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {currentStep === 1 && (
         // Step 1: New Add Item First Page
         <View style={styles.firstPageContainer}>
@@ -634,10 +795,10 @@ export default function AddItem() {
           <View style={styles.uploadContainer}>
             <TouchableOpacity
               style={styles.mainUploadButton}
-              onPress={pickImage}
+              onPress={openImagePicker}
             >
-              <Ionicons name="images" size={32} color="#666" />
-              <Text style={styles.uploadText}>Select Photos</Text>
+              <Ionicons name="cloud-upload-outline" size={32} color="#666" />
+              <Text style={styles.uploadText}>Upload Images</Text>
               <Text style={styles.uploadSubText}>Choose up to 5 images</Text>
             </TouchableOpacity>
 
@@ -766,8 +927,8 @@ export default function AddItem() {
 
             {/* Action buttons */}
             <View style={styles.previewActionButtons}>
-              <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
-                <Ionicons name="camera" size={24} color="#FFFFFF" />
+              <TouchableOpacity style={styles.cameraButton} onPress={openImagePicker}>
+                <Ionicons name="add-outline" size={24} color="#FFFFFF" />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1125,9 +1286,9 @@ export default function AddItem() {
             
             <TouchableOpacity
               style={[styles.exploreButton, { backgroundColor: '#fff', borderWidth: 1, borderColor: '#2528BE', marginTop: 12 }]}
-              onPress={() => router.push('/(tabs)/listings' as any)}
+              onPress={handleGoToHome}
             >
-              <Text style={[styles.exploreButtonText, { color: '#2528BE' }]}>Go to Listings</Text>
+              <Text style={[styles.exploreButtonText, { color: '#2528BE' }]}>Go to Home</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1756,5 +1917,53 @@ const styles = StyleSheet.create({
   },
   submitButtonIcon: {
     marginLeft: 8,
+  },
+  // New styles for image source selection modal
+  imageSourceModal: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  imageSourceTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
+  },
+  imageSourceOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 10,
+    marginVertical: 8,
+    width: '100%',
+    backgroundColor: '#f5f5f5',
+  },
+  imageSourceText: {
+    fontSize: 16,
+    marginLeft: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  cancelButton: {
+    marginTop: 16,
+    padding: 12,
+    width: '100%',
+    alignItems: 'center',
+    borderRadius: 10,
+    backgroundColor: '#f0f0f0',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
   },
 });
