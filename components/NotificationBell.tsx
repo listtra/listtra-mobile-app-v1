@@ -1,18 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
+import { usePushNotification } from '../context/PushNotificationContext';
 
 // Helper function to format timestamp relative to now
 const formatTimestamp = (dateString: string): string => {
@@ -54,33 +55,56 @@ const getNotificationIcon = (type: string): string => {
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, loading } = useNotifications();
+  const { notifications, unreadCount, markAsRead, loading, fetchNotifications } = useNotifications();
+  const { notification: liveNotification } = usePushNotification();
+  const { isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Handle notification click
+  // Refresh notifications when a new push notification arrives
+  useEffect(() => {
+    if (liveNotification) {
+      fetchNotifications();
+    }
+  }, [liveNotification]);
+
+  // Auto-refresh notifications periodically
+  useEffect(() => {
+    if (isAuthenticated) {
+      const interval = setInterval(() => {
+        fetchNotifications();
+      }, 30000); // Every 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  // Handle notification click with improved navigation
   const handleNotificationClick = async (notification: any) => {
     await markAsRead(notification.id);
     setIsOpen(false);
 
-    // Navigate based on notification type
-    if (
-      (notification.notification_type === 'like' ||
-        notification.notification_type === 'price_update' ||
-        notification.notification_type === 'review' ||
-        notification.notification_type === 'item_sold' ||
-        notification.notification_type === 'offer' ||
-        notification.notification_type === 'message') &&
-      notification.object_id
-    ) {
-      // Split the object_id to get slug and product_id
-      const [slug, product_id] = notification.object_id.split(':');
-      if (slug && product_id) {
-        router.push({
-          pathname: '/listings/[slug]/[product_id]/page',
-          params: { slug, product_id }
-        });
-      } else {
-        console.log('Invalid object_id format:', notification.object_id);
+    // Enhanced navigation logic
+    if (notification.object_id) {
+      try {
+        const [slug, product_id] = notification.object_id.split(':');
+        
+        if (notification.notification_type === 'message') {
+          // Navigate to chat
+          router.push({
+            pathname: '/chat/[conversationId]',
+            params: { conversationId: `${slug}-${product_id}` }
+          });
+        } else if (['like', 'offer', 'review', 'item_sold', 'price_update'].includes(notification.notification_type)) {
+          // Navigate to listing
+          if (slug && product_id) {
+            router.push({
+              pathname: '/listings/[slug]/[product_id]/page',
+              params: { slug, product_id }
+            });
+          }
+        }
+      } catch (error) {
+        console.log('Navigation error:', error);
       }
     }
   };
@@ -94,19 +118,58 @@ export default function NotificationBell() {
   // Sort notifications by created_at in descending order
   const sortedNotifications = [...notifications].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  ).slice(0, 5); // Show only recent 5 notifications in dropdown
+
+  const renderNotificationItem = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={[
+        styles.notificationItem,
+        !item.is_read && styles.unreadNotification
+      ]}
+      onPress={() => handleNotificationClick(item)}
+    >
+      <View style={styles.notificationContent}>
+        <View style={styles.notificationHeader}>
+          <Text style={styles.notificationIcon}>
+            {getNotificationIcon(item.notification_type)}
+          </Text>
+          <View style={styles.notificationTextContainer}>
+            <Text style={[
+              styles.notificationText,
+              !item.is_read && styles.unreadText
+            ]} numberOfLines={2}>
+              {item.message || item.text}
+            </Text>
+                                      <Text style={styles.notificationTime}>
+                {formatTimestamp(item.created_at)}
+             </Text>
+          </View>
+          {item.product_image && (
+            <Image 
+              source={{ uri: item.product_image }} 
+              style={styles.productImage}
+              resizeMode="cover"
+            />
+          )}
+        </View>
+        {!item.is_read && <View style={styles.unreadDot} />}
+      </View>
+    </TouchableOpacity>
   );
 
+  if (!isAuthenticated) return null;
+
   return (
-    <View>
-      <TouchableOpacity
-        onPress={() => setIsOpen(!isOpen)}
-        style={styles.bellButton}
+    <>
+      <TouchableOpacity 
+        style={styles.bellContainer} 
+        onPress={() => setIsOpen(true)}
       >
         <Ionicons name="notifications-outline" size={24} color="#333" />
         {unreadCount > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {unreadCount > 99 ? '99+' : unreadCount}
             </Text>
           </View>
         )}
@@ -114,87 +177,64 @@ export default function NotificationBell() {
 
       <Modal
         visible={isOpen}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setIsOpen(false)}
       >
-        <TouchableWithoutFeedback onPress={() => setIsOpen(false)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Notifications</Text>
-                  <TouchableOpacity onPress={() => setIsOpen(false)}>
-                    <Ionicons name="close" size={24} color="#333" />
-                  </TouchableOpacity>
-                </View>
-
-                {loading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#2528be" />
-                  </View>
-                ) : sortedNotifications.length === 0 ? (
-                  <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>No notifications yet</Text>
-                  </View>
-                ) : (
-                  <FlatList
-                    data={sortedNotifications.slice(0, 5)}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.notificationItem}
-                        onPress={() => handleNotificationClick(item)}
-                      >
-                        <View style={styles.notificationIcon}>
-                          {item.product_image ? (
-                            <Image
-                              source={{ uri: item.product_image }}
-                              style={styles.productImage}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <View style={styles.imagePlaceholder}>
-                              <Text style={styles.iconText}>
-                                {getNotificationIcon(item.notification_type)}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <View style={styles.notificationContent}>
-                          <Text style={styles.notificationText} numberOfLines={2}>
-                            {item.text || item.message}
-                          </Text>
-                        </View>
-                        <View style={styles.rightContent}>
-                          <Text style={styles.timestamp}>
-                            {formatTimestamp(item.created_at)}
-                          </Text>
-                          {!item.is_read && <View style={styles.unreadDot} />}
-                        </View>
-                      </TouchableOpacity>
-                    )}
-                    showsVerticalScrollIndicator={false}
-                  />
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsOpen(false)}
+        >
+          <View style={styles.dropdown}>
+            <TouchableOpacity activeOpacity={1}>
+              <View style={styles.dropdownHeader}>
+                <Text style={styles.dropdownTitle}>Notifications</Text>
+                {unreadCount > 0 && (
+                  <Text style={styles.unreadCountText}>
+                    {unreadCount} unread
+                  </Text>
                 )}
+              </View>
 
-                <TouchableOpacity
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#007AFF" />
+                  <Text style={styles.loadingText}>Loading...</Text>
+                </View>
+              ) : sortedNotifications.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="notifications-off-outline" size={32} color="#999" />
+                  <Text style={styles.emptyText}>No notifications yet</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={sortedNotifications}
+                  renderItem={renderNotificationItem}
+                  keyExtractor={(item) => item.id.toString()}
+                  showsVerticalScrollIndicator={false}
+                  style={styles.notificationsList}
+                />
+              )}
+
+              <View style={styles.dropdownFooter}>
+                <TouchableOpacity 
                   style={styles.viewAllButton}
                   onPress={viewAllNotifications}
                 >
-                  <Text style={styles.viewAllText}>View all notifications</Text>
+                  <Text style={styles.viewAllText}>View All</Text>
                 </TouchableOpacity>
               </View>
-            </TouchableWithoutFeedback>
+            </TouchableOpacity>
           </View>
-        </TouchableWithoutFeedback>
+        </TouchableOpacity>
       </Modal>
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  bellButton: {
+  bellContainer: {
     position: 'relative',
     padding: 8,
   },
@@ -202,38 +242,40 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: '#ff3b30',
+    backgroundColor: '#FF3B30',
     borderRadius: 10,
-    minWidth: 18,
-    height: 18,
+    minWidth: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
   },
   badgeText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 100,
+    paddingRight: 16,
   },
-  modalContent: {
-    width: '90%',
-    maxHeight: '70%',
+  dropdown: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    overflow: 'hidden',
+    borderRadius: 12,
+    width: 320,
+    maxWidth: '90%',
+    maxHeight: '70%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  modalHeader: {
+  dropdownHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -241,86 +283,100 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  modalTitle: {
-    fontSize: 17,
+  dropdownTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  unreadCountText: {
+    fontSize: 14,
+    color: '#007AFF',
     fontWeight: '600',
-    color: '#000',
   },
-  loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    padding: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 16,
+  notificationsList: {
+    maxHeight: 300,
   },
   notificationItem: {
-    flexDirection: 'row',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    alignItems: 'center',
+    borderBottomColor: '#f5f5f5',
   },
-  notificationIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 4,
-    overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
-    marginRight: 15,
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconText: {
-    fontSize: 24,
-  },
-  productImage: {
-    width: '100%',
-    height: '100%',
+  unreadNotification: {
+    backgroundColor: '#f8f9ff',
   },
   notificationContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  notificationHeader: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  notificationIcon: {
+    fontSize: 20,
+    marginRight: 12,
+    marginTop: 2,
+  },
+  notificationTextContainer: {
+    flex: 1,
+    marginRight: 8,
   },
   notificationText: {
     fontSize: 14,
+    color: '#666',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  unreadText: {
     color: '#333',
-    lineHeight: 20,
+    fontWeight: '500',
   },
-  rightContent: {
-    alignItems: 'flex-end',
-    marginLeft: 10,
-    width: 45,
-  },
-  timestamp: {
+  notificationTime: {
     fontSize: 12,
     color: '#999',
-    marginBottom: 8,
+  },
+  productImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
   },
   unreadDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#2528be',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#007AFF',
+    marginLeft: 8,
   },
-  viewAllButton: {
-    padding: 14,
+  loadingContainer: {
+    padding: 32,
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 8,
+    color: '#999',
+  },
+  emptyContainer: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    marginTop: 8,
+    color: '#999',
+    textAlign: 'center',
+  },
+  dropdownFooter: {
+    padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
   },
+  viewAllButton: {
+    alignItems: 'center',
+    padding: 8,
+  },
   viewAllText: {
-    color: '#2528be',
+    color: '#007AFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 }); 

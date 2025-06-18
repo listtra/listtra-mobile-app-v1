@@ -50,4 +50,13 @@ export const notificationsAPI = {
       token: deviceToken,
     });
   },
+
+  sendTestNotification: async (token: string, message?: string, type?: string) => {
+    const api = await getApiInstance(token);
+    const response = await api.post('/api/notifications_new/send-test/', {
+      message: message || 'Test notification from Listtra backend!',
+      type: type || 'test'
+    });
+    return response.data;
+  },
 }; 

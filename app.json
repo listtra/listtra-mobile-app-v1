@@ -37,7 +37,8 @@
               "NSExceptionRequiresForwardSecrecy": true
             }
           }
-        }
+        },
+        "googleServicesFile": "./ios/GoogleService-Info.plist"
       }
     },
     "android": {
@@ -46,7 +47,8 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.listtra.app",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "bundler": "metro",
@@ -69,7 +71,8 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.317016913725-8epml8s6q7skce4t5ufk1vtev6rfn32t"
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

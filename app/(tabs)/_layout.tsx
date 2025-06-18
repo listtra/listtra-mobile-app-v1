@@ -130,6 +130,12 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           size: isFocused ? 22 : 24,
           solid: isFocused,
         };
+      case 'test':
+        return {
+          iconType: 'ionicons' as const,
+          name: 'notifications',
+          size: isFocused ? 22 : 24,
+        };
       default:
         return {
           iconType: 'fa5' as const,
@@ -201,137 +207,89 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             style={styles.tabItem}
             accessibilityRole="button"
             accessibilityState={isFocused ? { selected: true } : {}}
+            accessibilityLabel={options.tabBarAccessibilityLabel}
           >
             <TabBarIcon
               iconType={tabIcon.iconType}
               name={tabIcon.name}
-              color="#333333"
+              color={isFocused ? '#FF5757' : '#666'}
               size={tabIcon.size}
-              style={styles.inactiveIcon}
               solid={tabIcon.solid}
               animatedStyle={iconAnimatedStyle}
             />
           </Pressable>
         );
       })}
-      <View style={styles.bottomIndicator} />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarContainer: {
+    flexDirection: 'row',
+    height: 70,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
+    paddingBottom: 10,
+    paddingHorizontal: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  tabItem: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 10,
+  },
+  floatingBubble: {
+    position: 'absolute',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FF5757',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF5757',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 10,
+  },
+  activeIcon: {
+    // Additional styles for active icon if needed
+  },
+});
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
     <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-      }}>
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          display: 'none', // Hide the default tab bar
+        },
+      }}
+      tabBar={props => <CustomTabBar {...props} />}
+    >
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="liked" />
+      <Tabs.Screen name="add" />
+      <Tabs.Screen name="chats" />
+      <Tabs.Screen name="profile" />
       <Tabs.Screen
-        name="index"
+        name="test"
         options={{
-          title: 'Listings',
-        }}
-      />
-      
-      <Tabs.Screen
-        name="liked"
-        options={{
-          title: 'Liked',
-        }}
-      />
-      
-      <Tabs.Screen
-        name="add"
-        options={{
-          title: 'Add',
-        }}
-      />
-      
-      <Tabs.Screen
-        name="chats"
-        options={{
-          title: 'Chats',
-        }}
-      />
-      
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
+          title: "Test Notifications",
         }}
       />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBarContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    height: 75,
-    paddingHorizontal: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 5,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginTop: 22,
-    height: '100%',
-    width: 65,
-    position: 'relative',
-  },
-  floatingBubble: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#2528be',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2528be',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 5,
-    position: 'absolute',
-    top: -10,
-    left: 0,
-    zIndex: 10,
-  },
-  activeIcon: {
-    zIndex: 2,
-  },
-  inactiveIcon: {
-    opacity: 0.9,
-  },
-  bottomIndicator: {
-    width: 134,
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
-    position: 'absolute',
-    bottom: 8,
-    opacity: 0.7,
-  },
-});

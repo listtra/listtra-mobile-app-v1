@@ -2,6 +2,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
+import * as MediaLibrary from "expo-media-library";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -57,7 +58,7 @@ export default function AddItem() {
   const router = useRouter();
   const { user, tokens: { accessToken } } = useAuth();
 
-  // Step management
+  // Step management - simplified to just form and success
   const [currentStep, setCurrentStep] = useState(1);
 
   // Add state for WebView reference
@@ -98,6 +99,11 @@ export default function AddItem() {
   const [categoryDropdownVisible, setCategoryDropdownVisible] = useState(false);
   const [conditionDropdownVisible, setConditionDropdownVisible] =
     useState(false);
+
+  // Add state for category search and selection
+  const [categorySearchVisible, setCategorySearchVisible] = useState(false);
+  const [categorySearchText, setCategorySearchText] = useState("");
+  const [filteredCategories, setFilteredCategories] = useState(CATEGORIES);
 
   // Add state for new listing data
   const [newListing, setNewListing] = useState<{
@@ -172,23 +178,6 @@ export default function AddItem() {
     requestMediaLibraryPermissions();
   }, []);
 
-  // Add a safety guard for navigation
-  useEffect(() => {
-    // If we're on step 2 or beyond and no images, force back to step 1
-    if (currentStep > 1 && images.length === 0) {
-      console.log("Safety check: No images, resetting to step 1");
-      setCurrentStep(1);
-      // Show alert after a small delay to ensure it's visible
-      setTimeout(() => {
-        Alert.alert(
-          "Images Required",
-          "At least one image is required. Please select an image to continue.",
-          [{ text: "OK" }]
-        );
-      }, 100);
-    }
-  }, [images, currentStep]);
-
   // Request permissions for photo library access
   const requestMediaLibraryPermissions = async () => {
     if (Platform.OS !== "web") {
@@ -254,6 +243,25 @@ export default function AddItem() {
     });
   };
 
+  // Handle category search
+  const handleCategorySearch = (text: string) => {
+    setCategorySearchText(text);
+    if (text.trim() === "") {
+      setFilteredCategories(CATEGORIES);
+    } else {
+      const filtered = CATEGORIES.filter(category =>
+        category.toLowerCase().includes(text.toLowerCase())
+      );
+      setFilteredCategories(filtered);
+    }
+  };
+
+  // Clear category search
+  const clearCategorySearch = () => {
+    setCategorySearchText("");
+    setFilteredCategories(CATEGORIES);
+  };
+
   // Request permissions for camera access
   const requestCameraPermissions = async () => {
     if (Platform.OS !== "web") {
@@ -282,9 +290,15 @@ export default function AddItem() {
     try {
       // Request media library permissions
       const libraryStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('Image picker library status:', libraryStatus.status);
       
       // Request camera permissions
       const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+      console.log('Image picker camera status:', cameraStatus.status);
+      
+      // Request MediaLibrary permissions for recent photos
+      const mediaLibraryStatus = await MediaLibrary.requestPermissionsAsync();
+      console.log('MediaLibrary status:', mediaLibraryStatus.status);
       
       if (libraryStatus.status !== "granted" || cameraStatus.status !== "granted") {
         Alert.alert(
@@ -293,6 +307,8 @@ export default function AddItem() {
           [{ text: "OK" }]
         );
       }
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
     } finally {
       setIsLoading(false);
     }
@@ -321,8 +337,7 @@ export default function AddItem() {
     try {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
+        allowsEditing: false, // Disable cropping
         quality: 0.8,
       });
 
@@ -355,12 +370,125 @@ export default function AddItem() {
     }
   };
 
-  // Show image source selection modal
+  // Show image source selection modal and add photos modal
   const [imageSourceModalVisible, setImageSourceModalVisible] = useState(false);
+  const [addPhotosModalVisible, setAddPhotosModalVisible] = useState(false);
+  const [recentPhotos, setRecentPhotos] = useState<MediaLibrary.Asset[]>([]);
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
 
   // Open image picker with source selection
   const openImagePicker = () => {
-    setImageSourceModalVisible(true);
+    setAddPhotosModalVisible(true);
+    loadRecentPhotos();
+  };
+
+  // Load recent photos from gallery
+  const loadRecentPhotos = async () => {
+    setIsLoadingPhotos(true);
+    try {
+      // Request media library permissions first
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      console.log('MediaLibrary permission status:', status);
+      
+      if (status !== 'granted') {
+        console.log('Media library permission not granted, requesting...');
+        const requestResult = await MediaLibrary.requestPermissionsAsync();
+        console.log('Permission request result:', requestResult.status);
+        
+        if (requestResult.status !== 'granted') {
+          console.log('Permission denied, showing fallback');
+          setIsLoadingPhotos(false);
+          return;
+        }
+      }
+
+      console.log('Loading recent photos...');
+      // Try different approaches to get photos
+      let assets;
+      
+      // First attempt: Get all media types and filter
+      try {
+        assets = await MediaLibrary.getAssetsAsync({
+          first: 50,
+          sortBy: MediaLibrary.SortBy.modificationTime,
+        });
+        console.log('Method 1 - All assets loaded:', assets.assets.length);
+      } catch (error) {
+        console.log('Method 1 failed:', error);
+      }
+
+      // Second attempt: Specify photo media type
+      if (!assets || assets.assets.length === 0) {
+        try {
+          assets = await MediaLibrary.getAssetsAsync({
+            mediaType: [MediaLibrary.MediaType.photo],
+            first: 50,
+            sortBy: MediaLibrary.SortBy.modificationTime,
+          });
+          console.log('Method 2 - Photo assets loaded:', assets.assets.length);
+        } catch (error) {
+          console.log('Method 2 failed:', error);
+        }
+      }
+
+      // Third attempt: Basic query
+      if (!assets || assets.assets.length === 0) {
+        try {
+          assets = await MediaLibrary.getAssetsAsync({
+            first: 50,
+          });
+          console.log('Method 3 - Basic assets loaded:', assets.assets.length);
+        } catch (error) {
+          console.log('Method 3 failed:', error);
+        }
+      }
+
+      if (assets && assets.assets.length > 0) {
+        console.log('Successfully loaded photos:', assets.assets.length);
+        console.log('First photo URI sample:', assets.assets[0]?.uri);
+        setRecentPhotos(assets.assets);
+      } else {
+        console.log('No photos found with any method');
+        setRecentPhotos([]);
+      }
+      
+    } catch (error) {
+      console.error('Error loading recent photos:', error);
+      setRecentPhotos([]);
+    } finally {
+      setIsLoadingPhotos(false);
+    }
+  };
+
+  // Select photo from recent photos
+  const selectRecentPhoto = async (asset: MediaLibrary.Asset) => {
+    if (images.length >= MAX_IMAGES) {
+      Alert.alert(
+        "Maximum Images",
+        `You can only upload up to ${MAX_IMAGES} images`
+      );
+      return;
+    }
+
+    try {
+      // Get asset info to get the URI
+      const assetInfo = await MediaLibrary.getAssetInfoAsync(asset);
+      
+      // Add the image to our list
+      const newImages = [...images, assetInfo.localUri || assetInfo.uri];
+      setImages(newImages);
+
+      // If this is the first image, make it the main image
+      if (images.length === 0) {
+        setMainImageIndex(0);
+      }
+
+      // Close the modal
+      setAddPhotosModalVisible(false);
+    } catch (error) {
+      console.error('Error selecting photo:', error);
+      Alert.alert("Error", "Failed to select photo. Please try again.");
+    }
   };
 
   // Modify the pickImage function to handle gallery selection
@@ -378,8 +506,7 @@ export default function AddItem() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        aspect: [4, 3],
+        allowsEditing: false, // Disable cropping
         quality: 0.8,
         base64: false,
         allowsMultipleSelection: true,
@@ -593,7 +720,7 @@ export default function AddItem() {
           product_id: response.data.product_id || response.data.id,
         });
         // Show success screen
-        setCurrentStep(4);
+        setCurrentStep(2);
       }
     } catch (error) {
       console.error("Error creating listing:", error);
@@ -731,523 +858,358 @@ export default function AddItem() {
     <SafeAreaViewContext style={styles.container} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
 
-      {/* Image Source Selection Modal */}
+      {/* Add Photos Modal - Shows camera and recent photos */}
       <Modal
         transparent={true}
-        visible={imageSourceModalVisible}
-        animationType="fade"
-        onRequestClose={() => setImageSourceModalVisible(false)}
+        visible={addPhotosModalVisible}
+        animationType="slide"
+        onRequestClose={() => setAddPhotosModalVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setImageSourceModalVisible(false)}
-        >
-          <View style={styles.imageSourceModal}>
-            <Text style={styles.imageSourceTitle}>Add Photos</Text>
-            
+        <View style={styles.addPhotosModalContainer}>
+          <View style={styles.addPhotosHeader}>
             <TouchableOpacity
-              style={styles.imageSourceOption}
+              onPress={() => setAddPhotosModalVisible(false)}
+              style={styles.backButton}
+            >
+              <Ionicons name="chevron-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.addPhotosTitle}>Add Photos</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <View style={styles.addPhotosContent}>
+            <View style={styles.recentsHeader}>
+              <Text style={styles.recentsTitle}>Recents</Text>
+              <Ionicons name="chevron-down" size={20} color="#333" />
+            </View>
+
+            <View style={styles.photosGrid}>
+              {/* Camera option */}
+              <TouchableOpacity
+                style={styles.cameraGridItem}
+                onPress={() => {
+                  setAddPhotosModalVisible(false);
+                  setTimeout(() => takePicture(), 300);
+                }}
+              >
+                <Ionicons name="camera" size={40} color="#666" />
+                <Text style={styles.cameraText}>Camera</Text>
+              </TouchableOpacity>
+
+              {/* Recent photos from gallery */}
+              {isLoadingPhotos ? (
+                <View style={styles.loadingPhotosContainer}>
+                  <ActivityIndicator size="small" color="#666" />
+                  <Text style={styles.loadingPhotosText}>Loading photos...</Text>
+                </View>
+              ) : (
+                recentPhotos.map((asset, index) => (
+                  <TouchableOpacity
+                    key={asset.id}
+                    style={styles.photoGridItem}
+                    onPress={() => selectRecentPhoto(asset)}
+                  >
+                    <Image 
+                      source={{ uri: asset.uri }} 
+                      style={styles.recentPhotoImage}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ))
+              )}
+
+              {/* Browse More Photos option */}
+              {!isLoadingPhotos && (
+                <TouchableOpacity
+                  style={styles.browseMoreGridItem}
+                  onPress={() => {
+                    setAddPhotosModalVisible(false);
+                    setTimeout(() => pickImage(), 300);
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={30} color="#2528BE" />
+                  <Text style={styles.browseMoreText}>Browse More</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Fallback for when no photos are loaded */}
+              {!isLoadingPhotos && recentPhotos.length === 0 && (
+                <TouchableOpacity
+                  style={styles.photoGridItem}
+                  onPress={() => {
+                    setAddPhotosModalVisible(false);
+                    setTimeout(() => pickImage(), 300);
+                  }}
+                >
+                  <View style={styles.photoPlaceholder}>
+                    <Ionicons name="image" size={40} color="#ccc" />
+                    <Text style={styles.noPhotosText}>Tap to browse photos</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Category Search Modal */}
+      <Modal
+        transparent={true}
+        visible={categorySearchVisible}
+        animationType="slide"
+        onRequestClose={() => setCategorySearchVisible(false)}
+      >
+        <View style={styles.categoryModalContainer}>
+          <View style={styles.categoryModalHeader}>
+            <TouchableOpacity
               onPress={() => {
-                setImageSourceModalVisible(false);
-                setTimeout(() => takePicture(), 300);
+                setCategorySearchVisible(false);
+                clearCategorySearch();
+              }}
+              style={styles.backButton}
+            >
+              <Ionicons name="chevron-back" size={24} color="#333" />
+            </TouchableOpacity>
+            <Text style={styles.categoryModalTitle}>Select Categories</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setCategorySearchVisible(false);
+                clearCategorySearch();
               }}
             >
-              <Ionicons name="camera" size={24} color="#2528BE" />
-              <Text style={styles.imageSourceText}>Camera</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.imageSourceOption}
-              onPress={() => {
-                setImageSourceModalVisible(false);
-                setTimeout(() => pickImage(), 300);
-              }}
-            >
-              <Ionicons name="images" size={24} color="#2528BE" />
-              <Text style={styles.imageSourceText}>Photo Library</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setImageSourceModalVisible(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.doneButtonText}>Done</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+
+          <View style={styles.categorySearchContainer}>
+            <View style={styles.searchInputContainer}>
+              <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search categories..."
+                placeholderTextColor="#999"
+                value={categorySearchText}
+                onChangeText={handleCategorySearch}
+              />
+              {categorySearchText.length > 0 && (
+                <TouchableOpacity onPress={clearCategorySearch}>
+                  <Ionicons name="close-circle" size={20} color="#666" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          <ScrollView style={styles.categoryListContainer}>
+            {filteredCategories.map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={styles.categoryCheckboxItem}
+                onPress={() => handleCategoryToggle(category)}
+              >
+                <View style={styles.categoryCheckboxRow}>
+                  <View style={[
+                    styles.checkbox,
+                    formData.categories.includes(category) && styles.checkboxSelected
+                  ]}>
+                    {formData.categories.includes(category) && (
+                      <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                    )}
+                  </View>
+                  <Text style={styles.categoryCheckboxText}>{category}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       </Modal>
 
       {currentStep === 1 && (
-        // Step 1: New Add Item First Page
-        <View style={styles.firstPageContainer}>
+        // Single Page Form
+        <View style={styles.singlePageContainer}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => router.back()}
               style={styles.backButton}
             >
-              <Ionicons name="close" size={24} color="#333" />
+              <Ionicons name="chevron-back" size={24} color="#333" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>New Post</Text>
+            <Text style={styles.headerTitle}>Add Item</Text>
             <View style={{ width: 40 }} />
           </View>
 
-          <View style={styles.uploadContainer}>
-            <TouchableOpacity
-              style={styles.mainUploadButton}
-              onPress={openImagePicker}
-            >
-              <Ionicons name="cloud-upload-outline" size={32} color="#666" />
-              <Text style={styles.uploadText}>Upload Images</Text>
-              <Text style={styles.uploadSubText}>Choose up to 5 images</Text>
-            </TouchableOpacity>
-
-            <View style={styles.imagePreviewHeader}>
-              <Text style={styles.previewTitle}>
-                {images.length > 0
-                  ? "Selected Photos"
-                  : "No photos selected yet"}
-              </Text>
-              <Text style={styles.imageCounterText}>
-                {images.length}/{MAX_IMAGES} Photos
-              </Text>
-            </View>
-
-            {images.length > 0 ? (
-              <ScrollView
-                horizontal
-                style={styles.thumbnailScroll}
-                showsHorizontalScrollIndicator={false}
-              >
-                {images.map((uri, index) => (
-                  <View key={index} style={styles.thumbnailContainer}>
-                    <Image source={{ uri }} style={styles.thumbnail} />
-                    <TouchableOpacity
-                      style={styles.removeImageButton}
-                      onPress={() => removeImage(index)}
-                    >
-                      <Ionicons name="close-circle" size={20} color="#FF3B30" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            ) : null}
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.bottomButtonContainer}>
-            {images.length > 0 ? (
-              <TouchableOpacity
-                style={styles.nextPageButton}
-                onPress={() => setCurrentStep(2)}
-              >
-                <Text style={styles.nextPageButtonText}>Next</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.nextPageButton, styles.disabledButton]}
-                onPress={() => {
-                  Alert.alert(
-                    "Images Required",
-                    "You must select at least one image before continuing.",
-                    [{ text: "OK" }]
-                  );
-                }}
-              >
-                <Text style={styles.nextPageButtonText}>Next</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      )}
-
-      {currentStep === 2 && (
-        // Step 2: Image Preview and Navigation
-        <View style={[styles.secondPageContainer, { marginBottom: 16 }]}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => setCurrentStep(1)}
-              style={styles.backButton}
-            >
-              <Ionicons name="close" size={24} color="#000" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Preview</Text>
-            <View style={{ width: 40 }} />
-          </View>
-
-          {/* Main large image preview */}
-          <View style={styles.mainImageContainer}>
-            {images.length > 0 ? (
-              <View style={styles.mainImageWrapper}>
-                <Image
-                  source={{ uri: images[mainImageIndex] }}
-                  style={styles.mainImage}
-                  resizeMode="contain"
-                />
-              </View>
-            ) : (
-              <View style={styles.noImagePlaceholder}>
-                <Ionicons name="image-outline" size={80} color="#CCCCCC" />
-                <Text style={styles.noImageText}>No images selected</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Footer with thumbnails and action buttons */}
-          <View style={styles.previewFooter}>
-            {/* Thumbnail row */}
-            <ScrollView
-              horizontal
-              style={styles.previewThumbnailRow}
-              showsHorizontalScrollIndicator={false}
-            >
-              {images.map((uri, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.previewThumbnail,
-                    mainImageIndex === index && styles.selectedPreviewThumbnail,
-                  ]}
-                  onPress={() => setMainImage(index)}
-                >
-                  <Image source={{ uri }} style={styles.thumbnailImage} />
-                  <TouchableOpacity
-                    style={styles.removeThumbnailButton}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      removeImage(index);
-                    }}
-                  >
-                    <Ionicons name="close-circle" size={20} color="#FF3B30" />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Action buttons */}
-            <View style={styles.previewActionButtons}>
-              <TouchableOpacity style={styles.cameraButton} onPress={openImagePicker}>
-                <Ionicons name="add-outline" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.nextStepButton}
-                onPress={() => {
-                  // Double-check we have images before proceeding
-                  if (images.length === 0) {
-                    Alert.alert(
-                      "Images Required",
-                      "You must select at least one image before continuing.",
-                      [{ text: "OK" }]
-                    );
-                    // Force back to step 1
-                    setCurrentStep(1);
-                    return;
-                  }
-                  setCurrentStep(3);
-                }}
-              >
-                <Text style={styles.nextStepButtonText}>Next</Text>
-                <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {currentStep === 3 && (
-        // Step 3: Item Details (Title, Description, Price)
-        <>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons name="close" size={24} color="#333" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Item Details</Text>
-            <View style={{ width: 40 }} />
-          </View>
           <ScrollView
-            style={[styles.scrollView, { marginBottom: 12 }]}
+            style={styles.scrollView}
             contentContainerStyle={styles.scrollViewContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Images preview row (view only) */}
-            {images.length > 0 && (
-              <View style={styles.thirdPageImagesContainer}>
+            {/* Upload Section */}
+            <View style={styles.uploadSection}>
+              <TouchableOpacity
+                style={styles.uploadButton}
+                onPress={openImagePicker}
+              >
+                <Ionicons name="cloud-upload-outline" size={24} color="#666" />
+                <Text style={styles.uploadedText}>
+                  {images.length > 0 ? "Uploaded" : "Upload Images"}
+                </Text>
+              </TouchableOpacity>
+
+              {images.length > 0 && (
                 <ScrollView
                   horizontal
+                  style={styles.uploadedImagesScroll}
                   showsHorizontalScrollIndicator={false}
-                  style={styles.thirdPageImagesScroll}
                 >
                   {images.map((uri, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.thirdPageImageWrapper,
-                        index === mainImageIndex &&
-                          styles.thirdPageMainImageWrapper,
-                      ]}
-                    >
-                      <Image source={{ uri }} style={styles.thirdPageImage} />
-                      {index === mainImageIndex && (
-                        <View style={styles.mainImageBadge}>
-                          <Text style={styles.mainImageBadgeText}>Main</Text>
-                        </View>
-                      )}
+                    <View key={index} style={styles.uploadedImageContainer}>
+                      <Image source={{ uri }} style={styles.uploadedImage} />
+                      <TouchableOpacity
+                        style={styles.removeUploadedImageButton}
+                        onPress={() => removeImage(index)}
+                      >
+                        <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                      </TouchableOpacity>
                     </View>
                   ))}
                 </ScrollView>
-                <Text style={styles.imageCounterText}>
-                  {images.length} {images.length === 1 ? "Photo" : "Photos"}
-                </Text>
-              </View>
-            )}
+              )}
+            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Title*</Text>
-              <Animated.View style={[
-                styles.animatedInputContainer,
-                {
-                  borderColor: titleFocusAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['#DDDDDD', '#2528BE']
-                  }),
-                  transform: [
-                    {
-                      scale: titleFocusAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 1.02]
-                      })
-                    }
-                  ],
-                  shadowOpacity: titleFocusAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 0.2]
-                  })
-                }
-              ]}>
-                <Ionicons 
-                  name="pricetag-outline" 
-                  size={20} 
-                  color={focusedInput === 'title' ? '#2528BE' : '#999'} 
-                  style={styles.inputIcon}
-                />
+            {/* Form Fields */}
+            <View style={styles.formSection}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name</Text>
                 <TextInput
                   style={[
-                    styles.animatedInput,
+                    styles.input,
                     formErrors.title ? styles.inputError : null,
                   ]}
-                  placeholder="What are you selling?"
+                  placeholder="Enter item name"
                   placeholderTextColor="#999"
                   value={formData.title}
                   onChangeText={(value) => handleInputChange("title", value)}
                   maxLength={100}
-                  onFocus={() => handleInputFocus("title", titleFocusAnim)}
-                  onBlur={() => handleInputBlur(titleFocusAnim)}
                 />
-              </Animated.View>
-              {formErrors.title && (
-                <Text style={styles.errorText}>{formErrors.title}</Text>
-              )}
-            </View>
-            
-            {/* Categories Selection */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Categories* (select at least one)</Text>
-              {formErrors.categories && (
-                <Text style={styles.errorText}>{formErrors.categories}</Text>
-              )}
-              <View style={styles.categoriesContainer}>
-                {CATEGORIES.map((category) => (
-                  <TouchableOpacity
-                    key={category}
-                    style={[
-                      styles.categoryItem,
-                      formData.categories.includes(category) && styles.selectedCategoryItem
-                    ]}
-                    onPress={() => handleCategoryToggle(category)}
-                  >
-                    <Text 
-                      style={[
-                        styles.categoryText,
-                        formData.categories.includes(category) && styles.selectedCategoryText
-                      ]}
-                    >
-                      {category}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {formErrors.title && (
+                  <Text style={styles.errorText}>{formErrors.title}</Text>
+                )}
               </View>
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Description*</Text>
-              <Animated.View style={[
-                styles.animatedTextAreaContainer,
-                {
-                  borderColor: descriptionFocusAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['#DDDDDD', '#2528BE']
-                  }),
-                  transform: [
-                    {
-                      scale: descriptionFocusAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 1.02]
-                      })
-                    }
-                  ],
-                  shadowOpacity: descriptionFocusAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 0.2]
-                  })
-                }
-              ]}>
-                <Ionicons 
-                  name="document-text-outline" 
-                  size={20} 
-                  color={focusedInput === 'description' ? '#2528BE' : '#999'} 
-                  style={styles.textAreaIcon}
-                />
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Categories</Text>
+                <TouchableOpacity
+                  style={styles.categorySelector}
+                  onPress={() => setCategorySearchVisible(true)}
+                >
+                  <View style={styles.selectedCategoriesContainer}>
+                    {formData.categories.length === 0 ? (
+                      <Text style={styles.categoryPlaceholder}>Select categories</Text>
+                    ) : (
+                      <View style={styles.selectedCategoriesWrapper}>
+                        {formData.categories.slice(0, 2).map((category, index) => (
+                          <View key={category} style={styles.selectedCategoryChip}>
+                            <Text style={styles.selectedCategoryText}>{category}</Text>
+                          </View>
+                        ))}
+                        {formData.categories.length > 2 && (
+                          <Text style={styles.moreCategoriesText}>
+                            +{formData.categories.length - 2} more
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-down" size={20} color="#777" />
+                </TouchableOpacity>
+                {formErrors.categories && (
+                  <Text style={styles.errorText}>{formErrors.categories}</Text>
+                )}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Price</Text>
                 <TextInput
                   style={[
-                    styles.animatedTextArea,
-                    formErrors.description ? styles.inputError : null,
-                  ]}
-                  placeholder="Describe your item (condition, features, etc.)"
-                  placeholderTextColor="#999"
-                  value={formData.description}
-                  onChangeText={(value) =>
-                    handleInputChange("description", value)
-                  }
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                  onFocus={() => handleInputFocus("description", descriptionFocusAnim)}
-                  onBlur={() => handleInputBlur(descriptionFocusAnim)}
-                />
-              </Animated.View>
-              {formErrors.description && (
-                <Text style={styles.errorText}>{formErrors.description}</Text>
-              )}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Price (₹)*</Text>
-              <Animated.View style={[
-                styles.animatedInputContainer,
-                {
-                  borderColor: priceFocusAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['#DDDDDD', '#2528BE']
-                  }),
-                  transform: [
-                    {
-                      scale: priceFocusAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 1.02]
-                      })
-                    }
-                  ],
-                  shadowOpacity: priceFocusAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 0.2]
-                  })
-                }
-              ]}>
-                <Text style={[
-                  styles.currencySymbol,
-                  focusedInput === 'price' ? styles.currencySymbolFocused : null
-                ]}>$</Text>
-                <TextInput
-                  style={[
-                    styles.animatedInput,
-                    styles.priceInput,
+                    styles.input,
                     formErrors.price ? styles.inputError : null,
                   ]}
-                  placeholder="0.00"
+                  placeholder="Enter price"
                   placeholderTextColor="#999"
                   value={formData.price}
                   onChangeText={(value) => handleInputChange("price", value)}
                   keyboardType="decimal-pad"
-                  onFocus={() => handleInputFocus("price", priceFocusAnim)}
-                  onBlur={() => handleInputBlur(priceFocusAnim)}
                 />
-              </Animated.View>
-              {formErrors.price && (
-                <Text style={styles.errorText}>{formErrors.price}</Text>
-              )}
-              
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Condition*</Text>
-              <View style={styles.pickerContainer}>
-                <CustomDropdown
-                  label="Condition"
-                  options={CONDITIONS}
-                  selectedValue={formData.condition}
-                  onValueChange={(value: string) =>
-                    handleInputChange("condition", value)
-                  }
-                  isVisible={conditionDropdownVisible}
-                  setIsVisible={setConditionDropdownVisible}
-                />
+                {formErrors.price && (
+                  <Text style={styles.errorText}>{formErrors.price}</Text>
+                )}
               </View>
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Pickup Location*</Text>
-              <Animated.View style={[
-                styles.animatedInputContainer,
-                {
-                  borderColor: locationFocusAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['#DDDDDD', '#2528BE']
-                  }),
-                  transform: [
-                    {
-                      scale: locationFocusAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 1.02]
-                      })
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Condition</Text>
+                <View style={styles.pickerContainer}>
+                  <CustomDropdown
+                    label="Condition"
+                    options={CONDITIONS}
+                    selectedValue={formData.condition}
+                    onValueChange={(value: string) =>
+                      handleInputChange("condition", value)
                     }
-                  ],
-                  shadowOpacity: locationFocusAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 0.2]
-                  })
-                }
-              ]}>
-                <Ionicons 
-                  name="location-outline" 
-                  size={20} 
-                  color={focusedInput === 'location' ? '#2528BE' : '#999'} 
-                  style={styles.inputIcon}
-                />
+                    isVisible={conditionDropdownVisible}
+                    setIsVisible={setConditionDropdownVisible}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Description</Text>
                 <TextInput
                   style={[
-                    styles.animatedInput,
+                    styles.textArea,
+                    formErrors.description ? styles.inputError : null,
+                  ]}
+                  placeholder="Describe your item"
+                  placeholderTextColor="#999"
+                  value={formData.description}
+                  onChangeText={(value) => handleInputChange("description", value)}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+                {formErrors.description && (
+                  <Text style={styles.errorText}>{formErrors.description}</Text>
+                )}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Pickup</Text>
+                <TextInput
+                  style={[
+                    styles.input,
                     formErrors.location ? styles.inputError : null,
                   ]}
-                  placeholder="Where can buyers pick this up?"
+                  placeholder="Enter pickup location"
                   placeholderTextColor="#999"
                   value={formData.location}
                   onChangeText={(value) => handleInputChange("location", value)}
-                  onFocus={() => handleInputFocus("location", locationFocusAnim)}
-                  onBlur={() => handleInputBlur(locationFocusAnim)}
                 />
-              </Animated.View>
-              {formErrors.location && (
-                <Text style={styles.errorText}>{formErrors.location}</Text>
-              )}
+                {formErrors.location && (
+                  <Text style={styles.errorText}>{formErrors.location}</Text>
+                )}
+              </View>
             </View>
+          </ScrollView>
 
+          {/* Bottom Buttons */}
+          <View style={styles.bottomButtons}>
             <TouchableOpacity
-              style={styles.submitButton}
+              style={styles.cancelButton}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.saveButton}
               onPress={handleSubmit}
               disabled={isSubmitting}
               activeOpacity={0.8}
@@ -1255,40 +1217,39 @@ export default function AddItem() {
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <>
-                  <Text style={styles.submitButtonText}>List Item</Text>
-                  <Ionicons name="arrow-forward-circle" size={20} color="#FFF" style={styles.submitButtonIcon} />
-                </>
+                <Text style={styles.saveButtonText}>Save</Text>
               )}
             </TouchableOpacity>
-          </ScrollView>
-        </>
+          </View>
+        </View>
       )}
 
-      {currentStep === 4 && (
-        // Step 4: Success Screen
+      {currentStep === 2 && (
+        // Success Screen
         <View style={styles.successContainer}>
           <View style={styles.successContent}>
             <View style={styles.successIconContainer}>
-              <Ionicons name="checkmark-circle" size={80} color="#4BB543" />
+              <View style={styles.thumbsUpIcon}>
+                <Text style={styles.thumbsUpEmoji}>👍</Text>
+              </View>
             </View>
-            <Text style={styles.successTitle}>Listed Successfully!</Text>
+            <Text style={styles.successTitle}>Awesome!</Text>
             <Text style={styles.successMessage}>
-              Your item has been listed and is now visible to potential buyers.
+              Your item is added to the list
             </Text>
 
             <TouchableOpacity
-              style={styles.exploreButton}
+              style={styles.viewItemButton}
               onPress={handleViewItem}
             >
-              <Text style={styles.exploreButtonText}>View Item</Text>
+              <Text style={styles.viewItemButtonText}>View item</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={[styles.exploreButton, { backgroundColor: '#fff', borderWidth: 1, borderColor: '#2528BE', marginTop: 12 }]}
+              style={styles.homeButton}
               onPress={handleGoToHome}
             >
-              <Text style={[styles.exploreButtonText, { color: '#2528BE' }]}>Go to Home</Text>
+              <Text style={styles.homeButtonText}>Home</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1847,10 +1808,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333333',
   },
-  selectedCategoryText: {
-    color: '#2528BE',
-    fontWeight: '500',
-  },
+
   animatedInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1918,52 +1876,345 @@ const styles = StyleSheet.create({
   submitButtonIcon: {
     marginLeft: 8,
   },
-  // New styles for image source selection modal
-  imageSourceModal: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    width: '80%',
-    maxWidth: 400,
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+  // Add Photos Modal styles
+  addPhotosModalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  imageSourceTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
-  },
-  imageSourceOption: {
+  addPhotosHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 10,
-    marginVertical: 8,
-    width: '100%',
-    backgroundColor: '#f5f5f5',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
   },
-  imageSourceText: {
-    fontSize: 16,
-    marginLeft: 16,
+  addPhotosTitle: {
+    fontSize: 18,
+    fontWeight: '600',
     color: '#333',
+  },
+  addPhotosContent: {
+    flex: 1,
+    padding: 16,
+  },
+  recentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  recentsTitle: {
+    fontSize: 16,
     fontWeight: '500',
+    color: '#333',
+  },
+  photosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  cameraGridItem: {
+    width: (windowWidth - 48) / 3,
+    height: (windowWidth - 48) / 3,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cameraText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  photoGridItem: {
+    width: (windowWidth - 48) / 3,
+    height: (windowWidth - 48) / 3,
+    borderRadius: 8,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  photoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Single page form styles
+  singlePageContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  uploadSection: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    backgroundColor: '#F9F9F9',
+    marginBottom: 16,
+  },
+  uploadedText: {
+    fontSize: 16,
+    color: '#666',
+    marginLeft: 8,
+  },
+  uploadedImagesScroll: {
+    flexDirection: 'row',
+  },
+  uploadedImageContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  uploadedImage: {
+    width: '100%',
+    height: '100%',
+  },
+  removeUploadedImageButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  formSection: {
+    padding: 20,
+  },
+  bottomButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
+    backgroundColor: '#FFFFFF',
   },
   cancelButton: {
-    marginTop: 16,
-    padding: 12,
-    width: '100%',
+    flex: 1,
+    paddingVertical: 12,
+    marginRight: 8,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: '#f0f0f0',
   },
   cancelButtonText: {
     fontSize: 16,
     color: '#666',
     fontWeight: '500',
+  },
+  saveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: '#2528BE',
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  
+  // Updated success screen styles
+  thumbsUpIcon: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 40,
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  thumbsUpEmoji: {
+    fontSize: 40,
+  },
+  viewItemButton: {
+    backgroundColor: '#2528BE',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewItemButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  homeButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+    alignItems: 'center',
+  },
+  homeButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  loadingPhotosContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingPhotosText: {
+    color: '#666',
+    fontSize: 14,
+    marginTop: 8,
+  },
+  noPhotosText: {
+    color: '#999',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  recentPhotoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  browseMoreGridItem: {
+    width: (windowWidth - 48) / 3,
+    height: (windowWidth - 48) / 3,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  browseMoreText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  categoryModalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  categoryModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  categoryModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  doneButtonText: {
+    fontSize: 16,
+    color: '#2528BE',
+    fontWeight: 'bold',
+  },
+  categorySearchContainer: {
+    padding: 16,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 8,
+    backgroundColor: '#FAFAFA',
+    paddingHorizontal: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  categoryListContainer: {
+    padding: 16,
+  },
+  categoryCheckboxItem: {
+    padding: 8,
+  },
+  categoryCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  checkboxSelected: {
+    backgroundColor: '#2528BE',
+  },
+  categoryCheckboxText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  categorySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 8,
+    backgroundColor: '#FAFAFA',
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+  },
+  categoryPlaceholder: {
+    fontSize: 16,
+    color: '#999',
+  },
+  selectedCategoriesContainer: {
+    flex: 1,
+  },
+  selectedCategoriesWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  selectedCategoryChip: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  selectedCategoryText: {
+    fontSize: 12,
+    color: '#2528BE',
+    fontWeight: '500',
+  },
+  moreCategoriesText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
   },
 });
