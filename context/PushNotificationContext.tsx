@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { pushNotificationService } from '../services/pushNotificationService';
 import { useAuth } from './AuthContext';
@@ -30,6 +31,7 @@ export const PushNotificationProvider = ({ children }: { children: React.ReactNo
   const auth = useAuth();
   const { tokens, isAuthenticated } = auth;
   const authToken = tokens.accessToken;
+  const router = useRouter();
 
   // Request permissions and register for push notifications
   const requestPermissions = async (): Promise<boolean> => {
@@ -75,7 +77,17 @@ export const PushNotificationProvider = ({ children }: { children: React.ReactNo
     responseListener.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         console.log('Notification response received', response);
-        // Handle deep linking or navigation here
+        
+        // Navigate to main listings page when user taps any push notification
+        try {
+          console.log('Navigating to main listings page...');
+          router.push('/(tabs)/');
+        } catch (error) {
+          console.error('Navigation error:', error);
+        }
+        
+        // Reset notification state
+        setNotification(null);
       }
     );
 
@@ -92,7 +104,7 @@ export const PushNotificationProvider = ({ children }: { children: React.ReactNo
           .catch(error => console.error('Failed to unregister push token:', error));
       }
     };
-  }, [isAuthenticated, authToken]);
+  }, [isAuthenticated, authToken, router]);
 
   // Reset unread count
   const resetUnreadCount = () => {

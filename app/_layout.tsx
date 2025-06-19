@@ -16,7 +16,7 @@ export default function RootLayout() {
   });
 
   if (!loaded) {
-    // Async font loading only occurs in development.
+    // Async font loading only occurs in development
     return null;
   }
 
@@ -33,12 +33,27 @@ export default function RootLayout() {
                 <Stack.Screen name="notifications" options={{ headerShown: false }} />
                 <Stack.Screen name="search/page" options={{ headerShown: false }} />
                 <Stack.Screen 
+                  name="web" 
+                  options={{ 
+                    headerShown: false,
+                    title: "",
+                    headerTitle: "",
+                    headerBackTitle: "",
+                    headerBackVisible: false,
+                    headerTransparent: true,
+                    presentation: 'card'
+                  }} 
+                />
+                <Stack.Screen 
                   name="listings/[slug]/[product_id]/page" 
                   options={{ 
                     headerShown: false, 
-                    title: "", 
+                    title: "",
+                    headerTitle: "",
+                    headerBackTitle: "",
+                    headerBackVisible: false,
                     headerTransparent: true,
-                    presentation: 'modal'
+                    presentation: 'card'
                   }} 
                 />
                 <Stack.Screen name="+not-found" />

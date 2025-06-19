@@ -8,6 +8,7 @@ export default function ListingsLayout() {
   return (
     <Stack
       screenOptions={{
+        headerShown: false, // Hide all headers by default
         headerStyle: {
           backgroundColor: '#FFFFFF',
         },
@@ -15,6 +16,9 @@ export default function ListingsLayout() {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        title: "",
+        headerTitle: "",
+        headerBackTitle: "",
         animation: 'slide_from_right',
       }}
     >
@@ -23,6 +27,10 @@ export default function ListingsLayout() {
         name="[slug]/[product_id]/page" 
         options={{ 
           headerShown: false,
+          title: "",
+          headerTitle: "",
+          headerBackTitle: "",
+          headerBackVisible: false,
           animation: 'slide_from_right'
         }} 
       />

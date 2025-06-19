@@ -130,12 +130,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           size: isFocused ? 22 : 24,
           solid: isFocused,
         };
-      case 'test':
-        return {
-          iconType: 'ionicons' as const,
-          name: 'notifications',
-          size: isFocused ? 22 : 24,
-        };
+
       default:
         return {
           iconType: 'fa5' as const,
@@ -212,7 +207,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             <TabBarIcon
               iconType={tabIcon.iconType}
               name={tabIcon.name}
-              color={isFocused ? '#FF5757' : '#666'}
+              color={isFocused ? '#2528be' : '#666'}
               size={tabIcon.size}
               solid={tabIcon.solid}
               animatedStyle={iconAnimatedStyle}
@@ -250,10 +245,10 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#FF5757',
+    backgroundColor: '#2528be',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FF5757',
+    shadowColor: '#2528be',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -284,12 +279,6 @@ export default function TabLayout() {
       <Tabs.Screen name="add" />
       <Tabs.Screen name="chats" />
       <Tabs.Screen name="profile" />
-      <Tabs.Screen
-        name="test"
-        options={{
-          title: "Test Notifications",
-        }}
-      />
     </Tabs>
   );
 }

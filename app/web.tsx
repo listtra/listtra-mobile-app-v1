@@ -610,14 +610,18 @@ export default function WebScreen() {
   const arrangedImages = getArrangedImages();
   
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'right', 'left']}>
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       <Stack.Screen 
         options={{
           headerShown: false,
           title: "",
+          headerTitle: "",
+          headerBackTitle: "",
           headerBackVisible: false,
-          animation: 'slide_from_right',
+          headerShadowVisible: false,
+          headerTransparent: true,
+          presentation: 'card',
         }} 
       />
       

@@ -90,49 +90,40 @@ const formatTimestamp = (dateString: string): string => {
 const NotificationItem = ({ item, onPress }: { item: any, onPress: (item: any) => void }) => {
   return (
     <TouchableOpacity
-      style={[
-        styles.notificationItem,
-        !item.is_read && styles.unreadNotification
-      ]}
+      style={styles.notificationItem}
       onPress={() => onPress(item)}
       activeOpacity={0.7}
     >
       <View style={styles.notificationContent}>
-        <View style={styles.notificationIcon}>
-          <Text style={styles.iconEmoji}>
-            {getNotificationIcon(item.notification_type)}
-          </Text>
-        </View>
-        
-        <View style={styles.notificationDetails}>
-          <Text style={[
-            styles.notificationText,
-            !item.is_read && styles.unreadText
-          ]} numberOfLines={3}>
-            {item.message || item.text}
-          </Text>
-          
-          <View style={styles.notificationMeta}>
-            <Text style={styles.notificationTime}>
-              {formatTimestamp(item.created_at)}
-            </Text>
-            {item.notification_type && (
-              <Text style={styles.notificationType}>
-                {item.notification_type.charAt(0).toUpperCase() + item.notification_type.slice(1)}
-              </Text>
-            )}
-          </View>
-        </View>
-        
-        {item.product_image && (
+        {/* Product Image */}
+        {item.product_image ? (
           <Image 
             source={{ uri: item.product_image }} 
             style={styles.productImage}
             resizeMode="cover"
           />
+        ) : (
+          <View style={styles.placeholderImage}>
+            <Text style={styles.placeholderText}>
+              {getNotificationIcon(item.notification_type)}
+            </Text>
+          </View>
         )}
         
-        {!item.is_read && <View style={styles.unreadDot} />}
+        {/* Notification Text */}
+        <View style={styles.notificationTextContainer}>
+          <Text style={styles.notificationText} numberOfLines={2}>
+            {item.message || item.text}
+          </Text>
+        </View>
+        
+        {/* Right side: Time and unread indicator */}
+        <View style={styles.rightContainer}>
+          <Text style={styles.notificationTime}>
+            {formatTimestamp(item.created_at)}
+          </Text>
+          {!item.is_read && <View style={styles.unreadDot} />}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -301,7 +292,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
   },
   headerContainer: {
     flexDirection: 'row',
@@ -329,80 +320,55 @@ const styles = StyleSheet.create({
   },
   notificationItem: {
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginVertical: 4,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  unreadNotification: {
-    backgroundColor: '#f0f8ff',
-    borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   notificationContent: {
     flexDirection: 'row',
-    padding: 16,
-    alignItems: 'flex-start',
-  },
-  notificationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-  },
-  iconEmoji: {
-    fontSize: 20,
-  },
-  notificationDetails: {
-    flex: 1,
-    marginRight: 8,
-  },
-  notificationText: {
-    fontSize: 15,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 6,
-  },
-  unreadText: {
-    color: '#333',
-    fontWeight: '500',
-  },
-  notificationMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  notificationTime: {
-    fontSize: 13,
-    color: '#999',
-  },
-  notificationType: {
-    fontSize: 12,
-    color: '#007AFF',
-    fontWeight: '500',
-    textTransform: 'capitalize',
   },
   productImage: {
     width: 50,
     height: 50,
     borderRadius: 8,
-    marginLeft: 8,
+    marginRight: 12,
+  },
+  placeholderImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  placeholderText: {
+    fontSize: 18,
+  },
+  notificationTextContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  notificationText: {
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 20,
+  },
+  rightContainer: {
+    alignItems: 'flex-end',
+  },
+  notificationTime: {
+    fontSize: 13,
+    color: '#999',
+    marginBottom: 4,
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#007AFF',
-    position: 'absolute',
-    top: 16,
-    right: 16,
   },
   loadingContainer: {
     flex: 1,

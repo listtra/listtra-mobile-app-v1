@@ -1,32 +1,34 @@
 import {
-    Manrope_400Regular,
-    Manrope_500Medium,
-    Manrope_600SemiBold,
-    Manrope_700Bold,
-    useFonts,
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  useFonts,
 } from '@expo-google-fonts/manrope';
 import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { Image } from 'expo-image';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Image,
-    Modal,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    Share,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  Share,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Carousel from 'react-native-snap-carousel';
 import { useAuth } from '../../../../context/AuthContext';
+import { getPlaceholderImage, optimizeCloudinaryUrl } from '../../../../utils/imageUtils';
 
 // Primary color constant
 const PRIMARY_COLOR = '#2528be';
@@ -204,7 +206,22 @@ export default function ListingDetailScreen() {
   const [conversationCount, setConversationCount] = useState(0);
   const carouselRef = useRef<any>(null);
   const modalCarouselRef = useRef<any>(null);
+  const autoplayIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
+  const navigation = useNavigation();
+  
+  // Dynamically hide header when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      navigation.setOptions({
+        headerShown: false,
+        title: '',
+        headerTitle: '',
+        headerBackTitle: '',
+        headerBackVisible: false,
+      });
+    }, [navigation])
+  );
   
   // Fetch listing data and check ownership
   useEffect(() => {
@@ -247,6 +264,32 @@ export default function ListingDetailScreen() {
     
     fetchListingData();
   }, [isInitializing, isAuthenticated, user, product_id, tokens]);
+  
+  // Manage autoplay lifecycle
+  useEffect(() => {
+    if (!isLoading && listingData && listingData.images && listingData.images.length > 1) {
+      // Start autoplay after a short delay
+      const timeoutId = setTimeout(() => {
+        startAutoplay();
+      }, 2000); // Wait 2 seconds before starting autoplay
+      
+      return () => {
+        clearTimeout(timeoutId);
+        stopAutoplay();
+      };
+    }
+    
+    return () => {
+      stopAutoplay();
+    };
+  }, [isLoading, listingData]);
+  
+  // Stop autoplay when user interacts with carousel
+  useEffect(() => {
+    return () => {
+      stopAutoplay();
+    };
+  }, [activeSlide]);
   
   // Handle updating listing status
   const updateListingStatus = async (newStatus: 'available' | 'pending' | 'sold') => {
@@ -449,29 +492,27 @@ export default function ListingDetailScreen() {
     return [primaryImage, ...arrangedImages];
   };
   
-  // Get safe image URL (matching web implementation)
-  const getImageUrl = (image?: ListingImage, useMainImage = false): string => {
+  // Get safe image URL with higher quality for listing details
+  const getImageUrl = (image?: ListingImage, useMainImage = false, isModal = false): string => {
     // First check for main image if requested
     if (useMainImage && listingData?.main_image) {
-      return listingData.main_image;
+      // Use higher quality for listing details - 800px width, 95% quality
+      return optimizeCloudinaryUrl(listingData.main_image, isModal ? 1200 : 800, 95);
     }
     
     // Check for valid image object
     if (image && image.image_url) {
-      const url = image.image_url;
-      if (url.startsWith('http') || url.startsWith('/')) {
-        return url;
-      } else {
-        return `/${url}`;
-      }
+      // Use higher quality for listing details - 800px width, 95% quality
+      return optimizeCloudinaryUrl(image.image_url, isModal ? 1200 : 800, 95);
     }
     
     // Fallback to placeholder
-    return 'https://via.placeholder.com/400x400?text=No+Image';
+    return getPlaceholderImage();
   };
   
   // Carousel render item
   const renderCarouselItem = ({ item }: { item: any; index: number }) => {
+    const imageUrl = getImageUrl(item);
     return (
       <TouchableOpacity 
         style={styles.carouselItem}
@@ -483,9 +524,14 @@ export default function ListingDetailScreen() {
       >
         <View style={styles.imageContainer}>
           <Image 
-            source={{ uri: getImageUrl(item) }} 
+            source={{ uri: imageUrl }} 
             style={styles.carouselImage}
-            resizeMode="contain"
+            contentFit="contain"
+            transition={200}
+            cachePolicy="memory-disk"
+            recyclingKey={imageUrl}
+            placeholder={{ uri: getPlaceholderImage() }}
+            onError={() => console.log('Failed to load carousel image:', imageUrl)}
           />
         </View>
       </TouchableOpacity>
@@ -494,13 +540,19 @@ export default function ListingDetailScreen() {
   
   // Modal carousel render item
   const renderModalCarouselItem = ({ item }: { item: any; index: number }) => {
+    const imageUrl = getImageUrl(item, false, true); // Use higher quality for modal
     return (
       <View style={styles.modalCarouselItem}>
         <View style={styles.modalImageContainer}>
           <Image 
-            source={{ uri: getImageUrl(item) }} 
+            source={{ uri: imageUrl }} 
             style={styles.modalCarouselImage}
-            resizeMode="contain"
+            contentFit="contain"
+            transition={200}
+            cachePolicy="memory-disk"
+            recyclingKey={imageUrl}
+            placeholder={{ uri: getPlaceholderImage() }}
+            onError={() => console.log('Failed to load modal image:', imageUrl)}
           />
         </View>
       </View>
@@ -509,6 +561,7 @@ export default function ListingDetailScreen() {
   
   // Render thumbnail item for the modal gallery
   const renderThumbnailItem = (item: ListingImage, index: number) => {
+    const imageUrl = getImageUrl(item);
     return (
       <TouchableOpacity 
         key={index}
@@ -524,9 +577,14 @@ export default function ListingDetailScreen() {
         }}
       >
         <Image 
-          source={{ uri: getImageUrl(item) }} 
+          source={{ uri: imageUrl }} 
           style={styles.thumbnailImage}
-          resizeMode="cover"
+          contentFit="cover"
+          transition={200}
+          cachePolicy="memory-disk"
+          recyclingKey={imageUrl}
+          placeholder={{ uri: getPlaceholderImage() }}
+          onError={() => console.log('Failed to load thumbnail image:', imageUrl)}
         />
       </TouchableOpacity>
     );
@@ -559,6 +617,31 @@ export default function ListingDetailScreen() {
     if (modalCarouselRef.current && modalImageIndex > 0) {
       modalCarouselRef.current.snapToPrev();
       setModalImageIndex(modalImageIndex - 1);
+    }
+  };
+  
+  // Start autoplay for main carousel
+  const startAutoplay = () => {
+    if (arrangedImages.length > 1) {
+      console.log('Starting autoplay with', arrangedImages.length, 'images');
+      autoplayIntervalRef.current = setInterval(() => {
+        if (carouselRef.current) {
+          setActiveSlide(currentSlide => {
+            const nextIndex = (currentSlide + 1) % arrangedImages.length;
+            //console.log(`Autoplay: moving from slide ${currentSlide} to ${nextIndex}`);
+            carouselRef.current.snapToItem(nextIndex);
+            return nextIndex;
+          });
+        }
+      }, 3000); // Change image every 3 seconds
+    }
+  };
+  
+  // Stop autoplay
+  const stopAutoplay = () => {
+    if (autoplayIntervalRef.current) {
+      clearInterval(autoplayIntervalRef.current);
+      autoplayIntervalRef.current = null;
     }
   };
   
@@ -656,11 +739,16 @@ export default function ListingDetailScreen() {
       <Stack.Screen 
         options={{
           headerShown: false,
-          title: "",  // Set empty title just in case
+          title: undefined,
+          headerTitle: undefined,
+          headerBackTitle: undefined,
+          headerBackVisible: false,
+          headerLeft: () => null,
+          headerRight: () => null,
           headerShadowVisible: false,
-          headerTransparent: true, // Make transparent as fallback
+          headerTransparent: true,
           animation: 'slide_from_right',
-          presentation: 'modal',
+          presentation: 'card',
         }} 
       />
       
@@ -710,10 +798,27 @@ export default function ListingDetailScreen() {
                 renderItem={renderCarouselItem}
                 sliderWidth={SCREEN_WIDTH}
                 itemWidth={SCREEN_WIDTH}
-                onSnapToItem={(index: number) => setActiveSlide(index)}
+                onSnapToItem={(index: number) => {
+                  setActiveSlide(index);
+                  // Restart autoplay when user manually changes slide
+                  if (arrangedImages.length > 1) {
+                    stopAutoplay();
+                    setTimeout(() => startAutoplay(), 1000);
+                  }
+                }}
                 inactiveSlideScale={1}
-                loop={false}
+                loop={true}
                 vertical={false}
+                onTouchStart={() => {
+                  // Pause autoplay when user touches carousel
+                  stopAutoplay();
+                }}
+                onTouchEnd={() => {
+                  // Resume autoplay after user stops touching
+                  if (arrangedImages.length > 1) {
+                    setTimeout(() => startAutoplay(), 2000);
+                  }
+                }}
               />
               
               {/* Carousel navigation arrows */}
@@ -772,6 +877,8 @@ export default function ListingDetailScreen() {
                   {getStatusDisplayText(status)}
                 </Text>
               </View>
+              
+
             </View>
           ) : (
             <View style={styles.noImageContainer}>

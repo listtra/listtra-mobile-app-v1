@@ -81,13 +81,25 @@ export const NotificationTest = () => {
     try {
       const success = await requestPermissions();
       if (success) {
-        setStatus('Push token registration successful! ✅');
+        // Check if we have a token but we're in Expo Go
+        const isExpoGo = Constants.executionEnvironment === 'storeClient';
+        if (isExpoGo && expoPushToken) {
+          setStatus('✅ Push permissions granted. Token registration simulated (Expo Go limitation)');
+        } else {
+          setStatus('Push token registration successful! ✅');
+        }
       } else {
         setStatus('Push token registration failed ❌ (This is expected in Expo Go)');
       }
     } catch (error: any) {
       console.error('Error testing token registration:', error);
-      setStatus(`Registration error: ${error?.message || 'Unknown error'}`);
+      
+      // Handle iOS entitlement error specifically
+      if (error?.message?.includes('aps-environment') || error?.message?.includes('entitlement')) {
+        setStatus('⚠️ iOS entitlement error - this is normal in development. Push will work in production builds.');
+      } else {
+        setStatus(`Registration error: ${error?.message || 'Unknown error'}`);
+      }
     }
   };
 

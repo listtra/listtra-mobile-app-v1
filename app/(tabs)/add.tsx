@@ -701,6 +701,17 @@ export default function AddItem() {
         });
       });
 
+      // Debug: Log what we're sending
+      console.log("Sending data:");
+      console.log("- Title:", formData.title);
+      console.log("- Description:", formData.description.substring(0, 50) + "...");
+      console.log("- Price:", formData.price);
+      console.log("- Condition:", formData.condition);
+      console.log("- Location:", formData.location);
+      console.log("- Categories:", formData.categories);
+      console.log("- Slug:", slug);
+      console.log("- Images count:", images.length);
+
       // Make the API request
       const response = await axios.post(
         "https://backend.listtra.com/api/listings/create/",
@@ -722,12 +733,42 @@ export default function AddItem() {
         // Show success screen
         setCurrentStep(2);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating listing:", error);
-      Alert.alert(
-        "Error",
-        "Failed to create listing. Please try again."
-      );
+      
+      // Log detailed error information
+      if (error.response) {
+        console.error("Error status:", error.response.status);
+        console.error("Error data:", error.response.data);
+        console.error("Error headers:", error.response.headers);
+        
+        // Show more detailed error message
+        let errorMessage = "Failed to create listing. ";
+        if (error.response.data) {
+          if (typeof error.response.data === 'string') {
+            errorMessage += error.response.data;
+          } else if (typeof error.response.data === 'object') {
+            // Handle field-specific errors
+            const errors = [];
+            for (const [field, messages] of Object.entries(error.response.data)) {
+              if (Array.isArray(messages)) {
+                errors.push(`${field}: ${messages.join(', ')}`);
+              } else {
+                errors.push(`${field}: ${messages}`);
+              }
+            }
+            errorMessage += errors.join('\n');
+          }
+        }
+        
+        Alert.alert("Error", errorMessage);
+      } else {
+        console.error("Network error:", error.message);
+        Alert.alert(
+          "Error",
+          "Network error. Please check your connection and try again."
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -735,18 +776,8 @@ export default function AddItem() {
 
   // Add handler for "View Item" button in success screen
   const handleViewItem = () => {
-    if (newListing) {
-      // Navigate directly to listing details page
-      router.push({
-        pathname: '/listings/[slug]/[id]',
-        params: { 
-          slug: newListing.slug, 
-          id: newListing.product_id 
-        }
-      } as any);
-    } else {
-      router.push('/(tabs)/listings' as any);
-    }
+    // Just navigate to the main listings page for now
+    router.push('/(tabs)/' as any);
   };
 
   // Add handler for "Go to Home" button in success screen
@@ -860,12 +891,13 @@ export default function AddItem() {
 
       {/* Add Photos Modal - Shows camera and recent photos */}
       <Modal
-        transparent={true}
+        transparent={false}
         visible={addPhotosModalVisible}
         animationType="slide"
         onRequestClose={() => setAddPhotosModalVisible(false)}
+        statusBarTranslucent={true}
       >
-        <View style={styles.addPhotosModalContainer}>
+        <View style={[styles.addPhotosModalContainer, { paddingTop: Platform.OS === 'ios' ? 50 : 30 }]}>
           <View style={styles.addPhotosHeader}>
             <TouchableOpacity
               onPress={() => setAddPhotosModalVisible(false)}
@@ -954,12 +986,13 @@ export default function AddItem() {
 
       {/* Category Search Modal */}
       <Modal
-        transparent={true}
+        transparent={false}
         visible={categorySearchVisible}
         animationType="slide"
         onRequestClose={() => setCategorySearchVisible(false)}
+        statusBarTranslucent={true}
       >
-        <View style={styles.categoryModalContainer}>
+        <View style={[styles.categoryModalContainer, { paddingTop: Platform.OS === 'ios' ? 50 : 30 }]}>
           <View style={styles.categoryModalHeader}>
             <TouchableOpacity
               onPress={() => {
@@ -1127,6 +1160,22 @@ export default function AddItem() {
               </View>
 
               <View style={styles.inputGroup}>
+                <Text style={styles.label}>Condition</Text>
+                <View style={styles.pickerContainer}>
+                  <CustomDropdown
+                    label="Condition"
+                    options={CONDITIONS}
+                    selectedValue={formData.condition}
+                    onValueChange={(value: string) =>
+                      handleInputChange("condition", value)
+                    }
+                    isVisible={conditionDropdownVisible}
+                    setIsVisible={setConditionDropdownVisible}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
                 <Text style={styles.label}>Price</Text>
                 <TextInput
                   style={[
@@ -1142,22 +1191,6 @@ export default function AddItem() {
                 {formErrors.price && (
                   <Text style={styles.errorText}>{formErrors.price}</Text>
                 )}
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Condition</Text>
-                <View style={styles.pickerContainer}>
-                  <CustomDropdown
-                    label="Condition"
-                    options={CONDITIONS}
-                    selectedValue={formData.condition}
-                    onValueChange={(value: string) =>
-                      handleInputChange("condition", value)
-                    }
-                    isVisible={conditionDropdownVisible}
-                    setIsVisible={setConditionDropdownVisible}
-                  />
-                </View>
               </View>
 
               <View style={styles.inputGroup}>

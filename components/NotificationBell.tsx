@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    FlatList,
+    Image,
+    Modal,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -122,37 +122,39 @@ export default function NotificationBell() {
 
   const renderNotificationItem = ({ item }: { item: any }) => (
     <TouchableOpacity
-      style={[
-        styles.notificationItem,
-        !item.is_read && styles.unreadNotification
-      ]}
+      style={styles.notificationItem}
       onPress={() => handleNotificationClick(item)}
     >
       <View style={styles.notificationContent}>
-        <View style={styles.notificationHeader}>
-          <Text style={styles.notificationIcon}>
-            {getNotificationIcon(item.notification_type)}
-          </Text>
-          <View style={styles.notificationTextContainer}>
-            <Text style={[
-              styles.notificationText,
-              !item.is_read && styles.unreadText
-            ]} numberOfLines={2}>
-              {item.message || item.text}
+        {/* Product Image or Icon */}
+        {item.product_image ? (
+          <Image 
+            source={{ uri: item.product_image }} 
+            style={styles.productImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.placeholderImage}>
+            <Text style={styles.placeholderText}>
+              {getNotificationIcon(item.notification_type)}
             </Text>
-                                      <Text style={styles.notificationTime}>
-                {formatTimestamp(item.created_at)}
-             </Text>
           </View>
-          {item.product_image && (
-            <Image 
-              source={{ uri: item.product_image }} 
-              style={styles.productImage}
-              resizeMode="cover"
-            />
-          )}
+        )}
+        
+        {/* Notification Text */}
+        <View style={styles.notificationTextContainer}>
+          <Text style={styles.notificationText} numberOfLines={2}>
+            {item.message || item.text}
+          </Text>
         </View>
-        {!item.is_read && <View style={styles.unreadDot} />}
+        
+        {/* Right side: Time and unread indicator */}
+        <View style={styles.rightContainer}>
+          <Text style={styles.notificationTime}>
+            {formatTimestamp(item.created_at)}
+          </Text>
+          {!item.is_read && <View style={styles.unreadDot} />}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -297,44 +299,29 @@ const styles = StyleSheet.create({
     maxHeight: 300,
   },
   notificationItem: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-  },
-  unreadNotification: {
-    backgroundColor: '#f8f9ff',
+    borderBottomColor: '#f0f0f0',
   },
   notificationContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  notificationHeader: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  notificationIcon: {
-    fontSize: 20,
-    marginRight: 12,
-    marginTop: 2,
-  },
   notificationTextContainer: {
     flex: 1,
+    marginLeft: 12,
     marginRight: 8,
   },
   notificationText: {
     fontSize: 14,
-    color: '#666',
-    lineHeight: 18,
-    marginBottom: 4,
-  },
-  unreadText: {
     color: '#333',
-    fontWeight: '500',
+    lineHeight: 18,
   },
   notificationTime: {
     fontSize: 12,
     color: '#999',
+    marginRight: 8,
   },
   productImage: {
     width: 40,
@@ -346,7 +333,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#007AFF',
-    marginLeft: 8,
   },
   loadingContainer: {
     padding: 32,
@@ -378,5 +364,20 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  placeholderImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#999',
+  },
+  rightContainer: {
+    alignItems: 'center',
   },
 }); 
