@@ -2,9 +2,11 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,9 +15,106 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+
+// Animated Input Component
+interface AnimatedInputProps {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  secureTextEntry?: boolean;
+  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  showPasswordToggle?: boolean;
+  onTogglePassword?: () => void;
+  showPassword?: boolean;
+  hasError?: boolean;
+}
+
+const AnimatedInput: React.FC<AnimatedInputProps> = ({ 
+  label, 
+  placeholder, 
+  value, 
+  onChangeText, 
+  secureTextEntry = false, 
+  keyboardType = 'default',
+  autoCapitalize = 'none',
+  showPasswordToggle = false,
+  onTogglePassword,
+  showPassword = false,
+  hasError = false
+}) => {
+  const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: isFocused || value ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [isFocused, value]);
+
+  const labelStyle = {
+    position: 'absolute' as const,
+    left: 16,
+    top: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [16, -8],
+    }),
+    fontSize: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [16, 12],
+    }),
+    color: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['#A0A0A0', '#2528be'],
+    }),
+    backgroundColor: 'white',
+    paddingHorizontal: 4,
+    zIndex: 1,
+  };
+
+  return (
+    <View style={styles.animatedInputContainer}>
+      <Animated.Text style={labelStyle}>
+        {label}
+      </Animated.Text>
+      <View style={[
+        styles.inputWrapper,
+        { borderColor: isFocused ? '#2528be' : (hasError ? '#F44336' : '#E0E0E0') }
+      ]}>
+        <TextInput
+          style={[styles.animatedInput, showPasswordToggle && { paddingRight: 50 }]}
+          placeholder={isFocused || value ? '' : placeholder}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          secureTextEntry={secureTextEntry}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          placeholderTextColor="#A0A0A0"
+        />
+        {showPasswordToggle && (
+          <Pressable 
+            onPress={onTogglePassword}
+            style={styles.passwordToggleIcon}
+          >
+            <Ionicons 
+              name={showPassword ? "eye-off" : "eye"} 
+              size={20} 
+              color="#A0A0A0" 
+            />
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+};
 
 export default function SignInScreen() {
   const { login, loginWithGoogle, isLoading, error, clearError } = useAuth();
@@ -23,6 +122,7 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showSignupPrompt, setShowSignupPrompt] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const router = useRouter();
 
   // Check for pending email from failed Google sign-in
@@ -44,6 +144,23 @@ export default function SignInScreen() {
       setShowSignupPrompt(true);
     }
   }, [error]);
+
+  // Handle keyboard events
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidHideListener?.remove();
+      keyboardDidShowListener?.remove();
+    };
+  }, []);
 
   // Handle sign-in with email/password
   const handleSignIn = async () => {
@@ -75,10 +192,16 @@ export default function SignInScreen() {
     router.back();
   };
 
+  // Check if form is complete
+  const isFormValid = () => {
+    return email.trim() !== '' && password.trim() !== '';
+  };
+
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'height' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
     >
       <StatusBar style="light" />
       
@@ -94,8 +217,12 @@ export default function SignInScreen() {
       </View>
 
       <ScrollView 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          keyboardVisible && { paddingBottom: 100 }
+        ]}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         {/* Form Card */}
         <View style={styles.formCard}>
@@ -115,42 +242,26 @@ export default function SignInScreen() {
           )}
 
           {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholderTextColor="#A0A0A0"
-            />
-            <View style={styles.inputIcon}>
-              <FontAwesome name="envelope-o" size={20} color="#A0A0A0" />
-            </View>
-          </View>
+          <AnimatedInput
+            label="Email"
+            placeholder=""
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
 
           {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              placeholderTextColor="#A0A0A0"
-            />
-            <Pressable 
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.inputIcon}
-            >
-              <Ionicons 
-                name={showPassword ? "eye-off" : "eye"} 
-                size={20} 
-                color="#A0A0A0" 
-              />
-            </Pressable>
-          </View>
+          <AnimatedInput
+            label="Password"
+            placeholder=""
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            showPasswordToggle={true}
+            onTogglePassword={() => setShowPassword(!showPassword)}
+            showPassword={showPassword}
+          />
 
           {/* Forgot Password Link */}
           <TouchableOpacity
@@ -162,9 +273,12 @@ export default function SignInScreen() {
 
           {/* Sign In Button */}
           <TouchableOpacity
-            style={styles.signInButton}
+            style={[
+              styles.signInButton,
+              { backgroundColor: isFormValid() ? '#2528be' : '#A0A0A0' }
+            ]}
             onPress={handleSignIn}
-            disabled={isLoading}
+            disabled={isLoading || !isFormValid()}
             activeOpacity={0.8}
           >
             {isLoading ? (
@@ -172,24 +286,6 @@ export default function SignInScreen() {
             ) : (
               <Text style={styles.buttonText}>Sign In</Text>
             )}
-          </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Google Sign In Button */}
-          <TouchableOpacity
-            style={styles.googleButton}
-            onPress={handleGoogleSignIn}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            <FontAwesome name="google" size={18} color="#DB4437" style={styles.googleIcon} />
-            <Text style={styles.googleButtonText}>Sign in with Google</Text>
           </TouchableOpacity>
 
           {/* Sign Up Link */}
@@ -200,6 +296,36 @@ export default function SignInScreen() {
                 <Text style={styles.signupLink}>Sign Up</Text>
               </TouchableOpacity>
             </Link>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>Or with</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Social Login Buttons */}
+          <View style={styles.socialContainer}>
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={handleGoogleSignIn}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <FontAwesome name="google" size={20} color="#DB4437" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={() => {
+                // Apple sign-in functionality to be implemented later
+                console.log('Apple sign-in pressed');
+              }}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <FontAwesome name="apple" size={20} color="#000000" />
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -214,8 +340,8 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#2528be',
-    paddingTop: Platform.OS === 'ios' ? 90 : 90,
-    paddingBottom: 80,
+    paddingTop: Platform.OS === 'ios' ? 80 : 80,
+    paddingBottom: 60,
     position: 'relative',
     zIndex: 1,
   },
@@ -289,6 +415,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
+  // Animated Input Styles
+  animatedInputContainer: {
+    marginBottom: 20,
+    position: 'relative',
+  },
+  inputWrapper: {
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: 'white',
+  },
+  animatedInput: {
+    padding: 16,
+    fontSize: 16,
+    color: '#333',
+  },
+  passwordToggleIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 16,
+  },
+  // Legacy styles (keeping for compatibility)
   inputContainer: {
     marginBottom: 20,
     position: 'relative',
@@ -308,7 +455,6 @@ const styles = StyleSheet.create({
     top: 15,
   },
   signInButton: {
-    backgroundColor: '#2528be',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -327,7 +473,7 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginVertical: 16,
   },
   dividerLine: {
     flex: 1,
@@ -339,33 +485,33 @@ const styles = StyleSheet.create({
     color: '#9E9E9E',
     fontSize: 14,
   },
-  googleButton: {
+  socialContainer: {
     flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  socialButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    borderRadius: 12,
-    padding: 15,
-    backgroundColor: 'white',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 1,
   },
-  googleIcon: {
-    marginRight: 10,
-  },
-  googleButtonText: {
-    color: '#424242',
-    fontSize: 16,
-    fontWeight: '500',
-  },
   signupContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
+    marginTop: 16,
+    marginBottom: 8,
   },
   signupText: {
     color: '#757575',
@@ -378,7 +524,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordContainer: {
     alignItems: 'flex-end',
-    marginBottom: 10,
+    marginBottom: 5,
   },
   forgotPasswordText: {
     color: '#2528be',

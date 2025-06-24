@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import {
@@ -13,6 +14,16 @@ import {
 
 export default function TermsPage() {
   const router = useRouter();
+
+  const handleDisagree = async () => {
+    await SecureStore.setItemAsync('termsStatus', 'rejected');
+    router.back();
+  };
+
+  const handleAgree = async () => {
+    await SecureStore.setItemAsync('termsStatus', 'accepted');
+    router.back();
+  };
 
   return (
     <View style={styles.container}>
@@ -33,7 +44,7 @@ export default function TermsPage() {
 
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
-          <Text style={styles.lastUpdated}>Last Updated: 16-May-2025</Text>
+          <Text style={styles.lastUpdated}>Last Updated: 5-Mar-2025</Text>
           
           <Text style={styles.paragraph}>
             Welcome to Listtra! These Terms and Conditions govern your access and
@@ -137,13 +148,13 @@ export default function TermsPage() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
           style={styles.disagreeButton}
-          onPress={() => router.back()}
+          onPress={handleDisagree}
         >
           <Text style={styles.disagreeButtonText}>Disagree</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.agreeButton}
-          onPress={() => router.back()}
+          onPress={handleAgree}
         >
           <Text style={styles.agreeButtonText}>Agree</Text>
         </TouchableOpacity>
