@@ -388,8 +388,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           params: { email: userData.email }
         });
       } else {
-        // If no verification required, log the user in
-      await login(userData.email, userData.password);
+        // If no verification required, go to success page instead of auto-login
+        router.replace('/auth/signup-success');
       }
     } catch (error: any) {
       console.error('Registration error:', error);

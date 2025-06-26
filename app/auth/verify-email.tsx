@@ -4,15 +4,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
@@ -101,19 +101,9 @@ export default function VerifyEmailScreen() {
       });
       
       if (response.data.access && response.data.refresh) {
-        // Store tokens and navigate to success screen
-        await setTokensDirectly(
-          response.data.access, 
-          response.data.refresh, 
-          {
-            id: response.data.user_id,
-            email: response.data.email,
-            nickname: response.data.nickname
-          }
-        );
-        
-        // Navigate to success screen
-        router.replace('/auth/success');
+        // Don't store tokens, just navigate to success screen
+        // User will need to sign in manually after verification
+        router.replace('/auth/signup-success');
       } else {
         setValidationError('Verification failed. Please try again.');
       }
