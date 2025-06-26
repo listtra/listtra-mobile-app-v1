@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "326716256066",
+    "project_id": "listtra-push-notifications",
+    "storage_bucket": "listtra-push-notifications.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:326716256066:android:5c5669d8a71410553522db",
+        "android_client_info": {
+          "package_name": "com.listtra.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_sWseeRTIvjLm6NWrz54mh1RNm8IU4JI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
