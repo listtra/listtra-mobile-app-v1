@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 export default {
   name: "listtra-mobile-app",
   scheme: "listtra",
@@ -5,6 +7,7 @@ export default {
   version: "1.0.0",
   extra: {
     apiUrl: "https://backend.listtra.com",
+    googleMapsApiKey:process.env.GOOGLE_MAPS_API_KEY,
     eas: {
       projectId: "820e18da-a912-4bce-b322-c20119032f5b"
     }
@@ -26,6 +29,5 @@ export default {
   web: {
     bundler: "metro",
   },
-  scheme: "listtra",
   owner: "pre_02",
 }; 

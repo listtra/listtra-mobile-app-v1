@@ -5,7 +5,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import Constants from "expo-constants";
 import {
   ActivityIndicator,
   Alert,
@@ -19,7 +21,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView as SafeAreaViewContext } from "react-native-safe-area-context";
 
@@ -54,9 +56,15 @@ const CONDITIONS = [
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
+const googleMapsApiKey = Constants?.expoConfig?.extra?.googleMapsApiKey ?? "";
+
 export default function AddItem() {
   const router = useRouter();
-  const { user, tokens: { accessToken } } = useAuth();
+  const placesRef = useRef<any>(null);
+  const {
+    user,
+    tokens: { accessToken },
+  } = useAuth();
 
   // Step management - simplified to just form and success
   const [currentStep, setCurrentStep] = useState(1);
@@ -200,6 +208,9 @@ export default function AddItem() {
 
   // Handle input changes
   const handleInputChange = (field: string, value: string) => {
+    if (field === "location") {
+      console.log("Location updated:", value);
+    }
     // Special handling for price field - only allow numbers and decimal
     if (field === "price") {
       // Validate price input (numbers and one decimal point only)
@@ -221,12 +232,12 @@ export default function AddItem() {
 
   // Add handler for category selection
   const handleCategoryToggle = (category: string) => {
-    setFormData(prevData => {
+    setFormData((prevData) => {
       const currentCategories = [...prevData.categories];
-      
+
       // Check if category is already selected
       const index = currentCategories.indexOf(category);
-      
+
       // Toggle selection
       if (index > -1) {
         // Remove category if already selected
@@ -235,10 +246,10 @@ export default function AddItem() {
         // Add category if not selected
         currentCategories.push(category);
       }
-      
+
       return {
         ...prevData,
-        categories: currentCategories
+        categories: currentCategories,
       };
     });
   };
@@ -249,7 +260,7 @@ export default function AddItem() {
     if (text.trim() === "") {
       setFilteredCategories(CATEGORIES);
     } else {
-      const filtered = CATEGORIES.filter(category =>
+      const filtered = CATEGORIES.filter((category) =>
         category.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredCategories(filtered);
@@ -289,18 +300,22 @@ export default function AddItem() {
     setIsLoading(true);
     try {
       // Request media library permissions
-      const libraryStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      console.log('Image picker library status:', libraryStatus.status);
-      
+      const libraryStatus =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log("Image picker library status:", libraryStatus.status);
+
       // Request camera permissions
       const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
-      console.log('Image picker camera status:', cameraStatus.status);
-      
+      console.log("Image picker camera status:", cameraStatus.status);
+
       // Request MediaLibrary permissions for recent photos
       const mediaLibraryStatus = await MediaLibrary.requestPermissionsAsync();
-      console.log('MediaLibrary status:', mediaLibraryStatus.status);
-      
-      if (libraryStatus.status !== "granted" || cameraStatus.status !== "granted") {
+      console.log("MediaLibrary status:", mediaLibraryStatus.status);
+
+      if (
+        libraryStatus.status !== "granted" ||
+        cameraStatus.status !== "granted"
+      ) {
         Alert.alert(
           "Permissions Needed",
           "We need permission to access your photo library and camera to select or take photos for your listings.",
@@ -308,7 +323,7 @@ export default function AddItem() {
         );
       }
     } catch (error) {
-      console.error('Error requesting permissions:', error);
+      console.error("Error requesting permissions:", error);
     } finally {
       setIsLoading(false);
     }
@@ -343,7 +358,7 @@ export default function AddItem() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const selectedAsset = result.assets[0];
-        
+
         // Check file size
         if (selectedAsset.fileSize && selectedAsset.fileSize > MAX_IMAGE_SIZE) {
           Alert.alert(
@@ -388,33 +403,33 @@ export default function AddItem() {
     try {
       // Request media library permissions first
       const { status } = await MediaLibrary.requestPermissionsAsync();
-      console.log('MediaLibrary permission status:', status);
-      
-      if (status !== 'granted') {
-        console.log('Media library permission not granted, requesting...');
+      console.log("MediaLibrary permission status:", status);
+
+      if (status !== "granted") {
+        console.log("Media library permission not granted, requesting...");
         const requestResult = await MediaLibrary.requestPermissionsAsync();
-        console.log('Permission request result:', requestResult.status);
-        
-        if (requestResult.status !== 'granted') {
-          console.log('Permission denied, showing fallback');
+        console.log("Permission request result:", requestResult.status);
+
+        if (requestResult.status !== "granted") {
+          console.log("Permission denied, showing fallback");
           setIsLoadingPhotos(false);
           return;
         }
       }
 
-      console.log('Loading recent photos...');
+      console.log("Loading recent photos...");
       // Try different approaches to get photos
       let assets;
-      
+
       // First attempt: Get all media types and filter
       try {
         assets = await MediaLibrary.getAssetsAsync({
           first: 50,
           sortBy: MediaLibrary.SortBy.modificationTime,
         });
-        console.log('Method 1 - All assets loaded:', assets.assets.length);
+        console.log("Method 1 - All assets loaded:", assets.assets.length);
       } catch (error) {
-        console.log('Method 1 failed:', error);
+        console.log("Method 1 failed:", error);
       }
 
       // Second attempt: Specify photo media type
@@ -425,9 +440,9 @@ export default function AddItem() {
             first: 50,
             sortBy: MediaLibrary.SortBy.modificationTime,
           });
-          console.log('Method 2 - Photo assets loaded:', assets.assets.length);
+          console.log("Method 2 - Photo assets loaded:", assets.assets.length);
         } catch (error) {
-          console.log('Method 2 failed:', error);
+          console.log("Method 2 failed:", error);
         }
       }
 
@@ -437,23 +452,22 @@ export default function AddItem() {
           assets = await MediaLibrary.getAssetsAsync({
             first: 50,
           });
-          console.log('Method 3 - Basic assets loaded:', assets.assets.length);
+          console.log("Method 3 - Basic assets loaded:", assets.assets.length);
         } catch (error) {
-          console.log('Method 3 failed:', error);
+          console.log("Method 3 failed:", error);
         }
       }
 
       if (assets && assets.assets.length > 0) {
-        console.log('Successfully loaded photos:', assets.assets.length);
-        console.log('First photo URI sample:', assets.assets[0]?.uri);
+        console.log("Successfully loaded photos:", assets.assets.length);
+        console.log("First photo URI sample:", assets.assets[0]?.uri);
         setRecentPhotos(assets.assets);
       } else {
-        console.log('No photos found with any method');
+        console.log("No photos found with any method");
         setRecentPhotos([]);
       }
-      
     } catch (error) {
-      console.error('Error loading recent photos:', error);
+      console.error("Error loading recent photos:", error);
       setRecentPhotos([]);
     } finally {
       setIsLoadingPhotos(false);
@@ -473,7 +487,7 @@ export default function AddItem() {
     try {
       // Get asset info to get the URI
       const assetInfo = await MediaLibrary.getAssetInfoAsync(asset);
-      
+
       // Add the image to our list
       const newImages = [...images, assetInfo.localUri || assetInfo.uri];
       setImages(newImages);
@@ -486,7 +500,7 @@ export default function AddItem() {
       // Close the modal
       setAddPhotosModalVisible(false);
     } catch (error) {
-      console.error('Error selecting photo:', error);
+      console.error("Error selecting photo:", error);
       Alert.alert("Error", "Failed to select photo. Please try again.");
     }
   };
@@ -620,7 +634,7 @@ export default function AddItem() {
     if (!formData.location.trim()) {
       errors.location = "Location is required";
     }
-    
+
     if (formData.categories.length === 0) {
       errors.categories = "At least one category is required";
     }
@@ -643,7 +657,7 @@ export default function AddItem() {
           {
             text: "OK",
             onPress: () => {
-              router.push('/(auth)/login' as any);
+              router.push("/(auth)/login" as any);
             },
           },
         ]
@@ -663,7 +677,7 @@ export default function AddItem() {
 
     try {
       // Validate token before proceeding
-      if (!await validateToken()) {
+      if (!(await validateToken())) {
         setIsSubmitting(false);
         return;
       }
@@ -675,9 +689,9 @@ export default function AddItem() {
       formDataToSend.append("price", formData.price);
       formDataToSend.append("condition", formData.condition);
       formDataToSend.append("location", formData.location);
-      
+
       // Add categories (multiple)
-      formData.categories.forEach(category => {
+      formData.categories.forEach((category) => {
         formDataToSend.append("categories", category);
       });
 
@@ -704,7 +718,10 @@ export default function AddItem() {
       // Debug: Log what we're sending
       console.log("Sending data:");
       console.log("- Title:", formData.title);
-      console.log("- Description:", formData.description.substring(0, 50) + "...");
+      console.log(
+        "- Description:",
+        formData.description.substring(0, 50) + "..."
+      );
       console.log("- Price:", formData.price);
       console.log("- Condition:", formData.condition);
       console.log("- Location:", formData.location);
@@ -735,32 +752,34 @@ export default function AddItem() {
       }
     } catch (error: any) {
       console.error("Error creating listing:", error);
-      
+
       // Log detailed error information
       if (error.response) {
         console.error("Error status:", error.response.status);
         console.error("Error data:", error.response.data);
         console.error("Error headers:", error.response.headers);
-        
+
         // Show more detailed error message
         let errorMessage = "Failed to create listing. ";
         if (error.response.data) {
-          if (typeof error.response.data === 'string') {
+          if (typeof error.response.data === "string") {
             errorMessage += error.response.data;
-          } else if (typeof error.response.data === 'object') {
+          } else if (typeof error.response.data === "object") {
             // Handle field-specific errors
             const errors = [];
-            for (const [field, messages] of Object.entries(error.response.data)) {
+            for (const [field, messages] of Object.entries(
+              error.response.data
+            )) {
               if (Array.isArray(messages)) {
-                errors.push(`${field}: ${messages.join(', ')}`);
+                errors.push(`${field}: ${messages.join(", ")}`);
               } else {
                 errors.push(`${field}: ${messages}`);
               }
             }
-            errorMessage += errors.join('\n');
+            errorMessage += errors.join("\n");
           }
         }
-        
+
         Alert.alert("Error", errorMessage);
       } else {
         console.error("Network error:", error.message);
@@ -777,12 +796,12 @@ export default function AddItem() {
   // Add handler for "View Item" button in success screen
   const handleViewItem = () => {
     // Just navigate to the main listings page for now
-    router.push('/(tabs)/' as any);
+    router.push("/(tabs)/" as any);
   };
 
   // Add handler for "Go to Home" button in success screen
   const handleGoToHome = () => {
-    router.push('/(tabs)/' as any);
+    router.push("/(tabs)/" as any);
   };
 
   // Custom Dropdown component
@@ -897,7 +916,12 @@ export default function AddItem() {
         onRequestClose={() => setAddPhotosModalVisible(false)}
         statusBarTranslucent={true}
       >
-        <View style={[styles.addPhotosModalContainer, { paddingTop: Platform.OS === 'ios' ? 50 : 30 }]}>
+        <View
+          style={[
+            styles.addPhotosModalContainer,
+            { paddingTop: Platform.OS === "ios" ? 50 : 30 },
+          ]}
+        >
           <View style={styles.addPhotosHeader}>
             <TouchableOpacity
               onPress={() => setAddPhotosModalVisible(false)}
@@ -932,7 +956,9 @@ export default function AddItem() {
               {isLoadingPhotos ? (
                 <View style={styles.loadingPhotosContainer}>
                   <ActivityIndicator size="small" color="#666" />
-                  <Text style={styles.loadingPhotosText}>Loading photos...</Text>
+                  <Text style={styles.loadingPhotosText}>
+                    Loading photos...
+                  </Text>
                 </View>
               ) : (
                 recentPhotos.map((asset, index) => (
@@ -941,8 +967,8 @@ export default function AddItem() {
                     style={styles.photoGridItem}
                     onPress={() => selectRecentPhoto(asset)}
                   >
-                    <Image 
-                      source={{ uri: asset.uri }} 
+                    <Image
+                      source={{ uri: asset.uri }}
                       style={styles.recentPhotoImage}
                       resizeMode="cover"
                     />
@@ -959,7 +985,11 @@ export default function AddItem() {
                     setTimeout(() => pickImage(), 300);
                   }}
                 >
-                  <Ionicons name="add-circle-outline" size={30} color="#2528BE" />
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={30}
+                    color="#2528BE"
+                  />
                   <Text style={styles.browseMoreText}>Browse More</Text>
                 </TouchableOpacity>
               )}
@@ -975,7 +1005,9 @@ export default function AddItem() {
                 >
                   <View style={styles.photoPlaceholder}>
                     <Ionicons name="image" size={40} color="#ccc" />
-                    <Text style={styles.noPhotosText}>Tap to browse photos</Text>
+                    <Text style={styles.noPhotosText}>
+                      Tap to browse photos
+                    </Text>
                   </View>
                 </TouchableOpacity>
               )}
@@ -992,7 +1024,12 @@ export default function AddItem() {
         onRequestClose={() => setCategorySearchVisible(false)}
         statusBarTranslucent={true}
       >
-        <View style={[styles.categoryModalContainer, { paddingTop: Platform.OS === 'ios' ? 50 : 30 }]}>
+        <View
+          style={[
+            styles.categoryModalContainer,
+            { paddingTop: Platform.OS === "ios" ? 50 : 30 },
+          ]}
+        >
           <View style={styles.categoryModalHeader}>
             <TouchableOpacity
               onPress={() => {
@@ -1016,7 +1053,12 @@ export default function AddItem() {
 
           <View style={styles.categorySearchContainer}>
             <View style={styles.searchInputContainer}>
-              <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+              <Ionicons
+                name="search"
+                size={20}
+                color="#666"
+                style={styles.searchIcon}
+              />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search categories..."
@@ -1040,10 +1082,13 @@ export default function AddItem() {
                 onPress={() => handleCategoryToggle(category)}
               >
                 <View style={styles.categoryCheckboxRow}>
-                  <View style={[
-                    styles.checkbox,
-                    formData.categories.includes(category) && styles.checkboxSelected
-                  ]}>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      formData.categories.includes(category) &&
+                        styles.checkboxSelected,
+                    ]}
+                  >
                     {formData.categories.includes(category) && (
                       <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                     )}
@@ -1074,6 +1119,8 @@ export default function AddItem() {
             style={styles.scrollView}
             contentContainerStyle={styles.scrollViewContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled={true}
           >
             {/* Upload Section */}
             <View style={styles.uploadSection}>
@@ -1100,7 +1147,11 @@ export default function AddItem() {
                         style={styles.removeUploadedImageButton}
                         onPress={() => removeImage(index)}
                       >
-                        <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                        <Ionicons
+                          name="close-circle"
+                          size={20}
+                          color="#FF3B30"
+                        />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -1127,7 +1178,6 @@ export default function AddItem() {
                   <Text style={styles.errorText}>{formErrors.title}</Text>
                 )}
               </View>
-
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Categories</Text>
                 <TouchableOpacity
@@ -1136,14 +1186,23 @@ export default function AddItem() {
                 >
                   <View style={styles.selectedCategoriesContainer}>
                     {formData.categories.length === 0 ? (
-                      <Text style={styles.categoryPlaceholder}>Select categories</Text>
+                      <Text style={styles.categoryPlaceholder}>
+                        Select categories
+                      </Text>
                     ) : (
                       <View style={styles.selectedCategoriesWrapper}>
-                        {formData.categories.slice(0, 2).map((category, index) => (
-                          <View key={category} style={styles.selectedCategoryChip}>
-                            <Text style={styles.selectedCategoryText}>{category}</Text>
-                          </View>
-                        ))}
+                        {formData.categories
+                          .slice(0, 2)
+                          .map((category, index) => (
+                            <View
+                              key={category}
+                              style={styles.selectedCategoryChip}
+                            >
+                              <Text style={styles.selectedCategoryText}>
+                                {category}
+                              </Text>
+                            </View>
+                          ))}
                         {formData.categories.length > 2 && (
                           <Text style={styles.moreCategoriesText}>
                             +{formData.categories.length - 2} more
@@ -1203,7 +1262,9 @@ export default function AddItem() {
                   placeholder="Describe your item"
                   placeholderTextColor="#999"
                   value={formData.description}
-                  onChangeText={(value) => handleInputChange("description", value)}
+                  onChangeText={(value) =>
+                    handleInputChange("description", value)
+                  }
                   multiline
                   numberOfLines={4}
                   textAlignVertical="top"
@@ -1215,16 +1276,111 @@ export default function AddItem() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Pickup</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    formErrors.location ? styles.inputError : null,
-                  ]}
+                {/* <View style={{ ...styles.input, padding: 0 }}> */}
+                <GooglePlacesAutocomplete
+                  ref={placesRef}
                   placeholder="Enter pickup location"
-                  placeholderTextColor="#999"
+                  minLength={2}
                   value={formData.location}
-                  onChangeText={(value) => handleInputChange("location", value)}
+                  fetchDetails={true}
+                  onPress={(data, details = null) => {
+                    if (details) {
+                      console.log(details);
+                      // Helper to get a component by type
+                      const getComponent = (type: any) =>
+                        details.address_components.find((c) =>
+                          c.types.includes(type)
+                        )?.long_name || "";
+                      // Try to get suburb (sublocality or locality)
+                      const suburb =
+                        getComponent("sublocality") ||
+                        getComponent("locality") ||
+                        getComponent("administrative_area_level_2") ||
+                        "";
+
+                      const state =
+                        getComponent("administrative_area_level_1") || "";
+                      const country = getComponent("country") || "";
+                      const postalCode = getComponent("postal_code") || "";
+
+                      // Format: "Suburb, Country, PostalCode"
+                      const locationString = [
+                        suburb,
+                        state,
+                        country,
+                        postalCode,
+                      ]
+                        .filter(Boolean)
+                        .join(", ");
+                      console.log(locationString);
+                      handleInputChange("location", locationString);
+                      placesRef.current?.setAddressText(locationString);
+                    } else {
+                      // fallback to description if details is missing
+                      handleInputChange("location", data.description);
+                      placesRef.current?.setAddressText(data.description);
+                    }
+                  }}
+                  query={{
+                    key: googleMapsApiKey,
+                    language: "en",
+                  }}
+                  styles={{
+                    container: {
+                      flex: 0,
+                    },
+                    textInputContainer: {
+                      backgroundColor: "transparent",
+                      borderTopWidth: 0,
+                      borderBottomWidth: 0,
+                      paddingHorizontal: 0,
+                      marginTop: 0,
+                      marginBottom: 0,
+                    },
+                    textInput: {
+                      marginLeft: 0,
+                      marginRight: 0,
+                      height: 48, // Adjust to match your input height
+                      color: "#333333",
+                      fontSize: 16,
+                      backgroundColor: "#FAFAFA",
+                      borderWidth: 1,
+                      borderColor: "#DDDDDD",
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 12,
+                    },
+                    predefinedPlacesDescription: {
+                      color: "#1faadb",
+                    },
+                    listView: {
+                      backgroundColor: "#FFFFFF",
+                      borderWidth: 1,
+                      borderColor: "#DDDDDD",
+                      borderRadius: 8,
+                      borderTopWidth: 0,
+                      borderTopLeftRadius: 0,
+                      borderTopRightRadius: 0,
+                      marginTop: -1,
+                      elevation: 3,
+                      shadowColor: "#000",
+                      shadowOffset: {
+                        width: 0,
+                        height: 2,
+                      },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 3.84,
+                    },
+                  }}
+                  textInputProps={{
+                    placeholderTextColor: "#999",
+                    autoCorrect: false,
+                    autoCapitalize: "none",
+                  }}
+                  enablePoweredByContainer={false}
+                  debounce={200}
                 />
+                {/* </View> */}
                 {formErrors.location && (
                   <Text style={styles.errorText}>{formErrors.location}</Text>
                 )}
@@ -1240,7 +1396,7 @@ export default function AddItem() {
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.saveButton}
               onPress={handleSubmit}
@@ -1277,7 +1433,7 @@ export default function AddItem() {
             >
               <Text style={styles.viewItemButtonText}>View item</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.homeButton}
               onPress={handleGoToHome}
@@ -1819,32 +1975,32 @@ const styles = StyleSheet.create({
   },
   // Category styles
   categoriesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginVertical: 8,
   },
   categoryItem: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: "#EEEEEE",
   },
   selectedCategoryItem: {
-    backgroundColor: '#E1F5FE',
-    borderColor: '#2528BE',
+    backgroundColor: "#E1F5FE",
+    borderColor: "#2528BE",
   },
   categoryText: {
     fontSize: 14,
-    color: '#333333',
+    color: "#333333",
   },
 
   animatedInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#DDDDDD",
     borderRadius: 12,
@@ -1868,7 +2024,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   animatedTextAreaContainer: {
-    position: 'relative',
+    position: "relative",
     borderWidth: 1,
     borderColor: "#DDDDDD",
     borderRadius: 12,
@@ -1912,54 +2068,54 @@ const styles = StyleSheet.create({
   // Add Photos Modal styles
   addPhotosModalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   addPhotosHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: "#EEEEEE",
   },
   addPhotosTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   addPhotosContent: {
     flex: 1,
     padding: 16,
   },
   recentsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   recentsTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: "500",
+    color: "#333",
   },
   photosGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   cameraGridItem: {
     width: (windowWidth - 48) / 3,
     height: (windowWidth - 48) / 3,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   cameraText: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
   },
   photoGridItem: {
@@ -1967,213 +2123,213 @@ const styles = StyleSheet.create({
     height: (windowWidth - 48) / 3,
     borderRadius: 8,
     marginBottom: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   photoPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#F5F5F5",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  
+
   // Single page form styles
   singlePageContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   uploadSection: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: "#EEEEEE",
   },
   uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderStyle: 'dashed',
+    borderColor: "#DDDDDD",
+    borderStyle: "dashed",
     borderRadius: 8,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: "#F9F9F9",
     marginBottom: 16,
   },
   uploadedText: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginLeft: 8,
   },
   uploadedImagesScroll: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   uploadedImageContainer: {
     width: 80,
     height: 80,
     borderRadius: 8,
     marginRight: 8,
-    position: 'relative',
-    overflow: 'hidden',
+    position: "relative",
+    overflow: "hidden",
   },
   uploadedImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   removeUploadedImageButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     borderRadius: 10,
     width: 20,
     height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   formSection: {
     padding: 20,
   },
   bottomButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: "#EEEEEE",
+    backgroundColor: "#FFFFFF",
   },
   cancelButton: {
     flex: 1,
     paddingVertical: 12,
     marginRight: 8,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
+    backgroundColor: "#F5F5F5",
+    alignItems: "center",
   },
   cancelButtonText: {
     fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
+    color: "#666",
+    fontWeight: "500",
   },
   saveButton: {
     flex: 1,
     paddingVertical: 12,
     marginLeft: 8,
     borderRadius: 8,
-    backgroundColor: '#2528BE',
-    alignItems: 'center',
+    backgroundColor: "#2528BE",
+    alignItems: "center",
   },
   saveButtonText: {
     fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
-  
+
   // Updated success screen styles
   thumbsUpIcon: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
     borderRadius: 40,
     width: 80,
     height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   thumbsUpEmoji: {
     fontSize: 40,
   },
   viewItemButton: {
-    backgroundColor: '#2528BE',
+    backgroundColor: "#2528BE",
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     marginBottom: 12,
   },
   viewItemButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   homeButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     paddingVertical: 14,
     paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
   },
   homeButtonText: {
-    color: '#666',
+    color: "#666",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   loadingPhotosContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   loadingPhotosText: {
-    color: '#666',
+    color: "#666",
     fontSize: 14,
     marginTop: 8,
   },
   noPhotosText: {
-    color: '#999',
+    color: "#999",
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 4,
   },
   recentPhotoImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   browseMoreGridItem: {
     width: (windowWidth - 48) / 3,
     height: (windowWidth - 48) / 3,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   browseMoreText: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
   },
   categoryModalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   categoryModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: "#EEEEEE",
   },
   categoryModalTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   doneButtonText: {
     fontSize: 16,
-    color: '#2528BE',
-    fontWeight: 'bold',
+    color: "#2528BE",
+    fontWeight: "bold",
   },
   categorySearchContainer: {
     padding: 16,
   },
   searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: "#DDDDDD",
     borderRadius: 8,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
     paddingHorizontal: 12,
   },
   searchIcon: {
@@ -2182,7 +2338,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   categoryListContainer: {
     padding: 16,
@@ -2191,49 +2347,49 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   categoryCheckboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   checkbox: {
     width: 20,
     height: 20,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: "#DDDDDD",
     borderRadius: 4,
     marginRight: 8,
   },
   checkboxSelected: {
-    backgroundColor: '#2528BE',
+    backgroundColor: "#2528BE",
   },
   categoryCheckboxText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   categorySelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: "#DDDDDD",
     borderRadius: 8,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
     paddingHorizontal: 12,
     paddingVertical: 14,
   },
   categoryPlaceholder: {
     fontSize: 16,
-    color: '#999',
+    color: "#999",
   },
   selectedCategoriesContainer: {
     flex: 1,
   },
   selectedCategoriesWrapper: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
   },
   selectedCategoryChip: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -2242,12 +2398,12 @@ const styles = StyleSheet.create({
   },
   selectedCategoryText: {
     fontSize: 12,
-    color: '#2528BE',
-    fontWeight: '500',
+    color: "#2528BE",
+    fontWeight: "500",
   },
   moreCategoriesText: {
     fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
+    color: "#666",
+    fontStyle: "italic",
   },
 });
