@@ -1433,8 +1433,6 @@ const WebViewScreen = React.forwardRef<{ injectJavaScript: (script: string) => v
   );
 });
 
-WebViewScreen.displayName = 'WebViewScreen';
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

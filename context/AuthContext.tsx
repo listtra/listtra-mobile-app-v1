@@ -352,7 +352,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      console.log(error.response.data)
       
       // Check if this is an email verification error
       if (error.response?.data?.require_verification) {
