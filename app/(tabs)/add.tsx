@@ -54,6 +54,105 @@ const CONDITIONS = [
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
+// Animated Input Component (fixed version)
+interface AnimatedInputProps {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' | 'decimal-pad';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  hasError?: boolean;
+  multiline?: boolean;
+  numberOfLines?: number;
+  maxLength?: number;
+}
+
+const AnimatedInput: React.FC<AnimatedInputProps> = ({ 
+  label, 
+  placeholder, 
+  value, 
+  onChangeText, 
+  keyboardType = 'default',
+  autoCapitalize = 'none',
+  hasError = false,
+  multiline = false,
+  numberOfLines = 1,
+  maxLength
+}) => {
+  const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: isFocused || value ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [isFocused, value]);
+
+  const labelStyle = {
+    position: 'absolute' as const,
+    left: 16,
+    top: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [multiline ? 20 : 16, -10],
+    }),
+    fontSize: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [16, 12],
+    }),
+    color: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['#A0A0A0', '#2528be'],
+    }),
+    backgroundColor: 'white',
+    paddingHorizontal: 4,
+    zIndex: 1,
+  };
+
+  const getBorderColor = () => {
+    if (hasError) return '#F44336';
+    if (isFocused) return '#2528be';
+    return '#E0E0E0';
+  };
+
+  // Only show placeholder when input is not focused and has no value
+  const shouldShowPlaceholder = !isFocused && !value;
+
+  return (
+    <View style={styles.modernInputContainer}>
+      <Animated.Text style={labelStyle}>
+        {label}
+      </Animated.Text>
+      <View style={[
+        multiline ? styles.modernTextAreaWrapper : styles.modernInputWrapper,
+        { borderColor: getBorderColor() },
+        isFocused && styles.focusedInput,
+        hasError && styles.errorInput
+      ]}>
+        <TextInput
+          style={[
+            multiline ? styles.modernTextArea : styles.modernInput
+          ]}
+          placeholder={shouldShowPlaceholder ? placeholder : ''}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          placeholderTextColor="#A0A0A0"
+          multiline={multiline}
+          numberOfLines={numberOfLines}
+          textAlignVertical={multiline ? "top" : "center"}
+          maxLength={maxLength}
+        />
+      </View>
+    </View>
+  );
+};
+
 export default function AddItem() {
   const router = useRouter();
   const { user, tokens: { accessToken } } = useAuth();
@@ -1111,17 +1210,13 @@ export default function AddItem() {
             {/* Form Fields */}
             <View style={styles.formSection}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Name</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    formErrors.title ? styles.inputError : null,
-                  ]}
-                  placeholder="Enter item name"
-                  placeholderTextColor="#999"
+                <AnimatedInput
+                  label="Name"
+                  placeholder=""
                   value={formData.title}
                   onChangeText={(value) => handleInputChange("title", value)}
                   maxLength={100}
+                  hasError={!!formErrors.title}
                 />
                 {formErrors.title && (
                   <Text style={styles.errorText}>{formErrors.title}</Text>
@@ -1129,64 +1224,64 @@ export default function AddItem() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Categories</Text>
-                <TouchableOpacity
-                  style={styles.categorySelector}
-                  onPress={() => setCategorySearchVisible(true)}
-                >
-                  <View style={styles.selectedCategoriesContainer}>
-                    {formData.categories.length === 0 ? (
-                      <Text style={styles.categoryPlaceholder}>Select categories</Text>
-                    ) : (
-                      <View style={styles.selectedCategoriesWrapper}>
-                        {formData.categories.slice(0, 2).map((category, index) => (
-                          <View key={category} style={styles.selectedCategoryChip}>
-                            <Text style={styles.selectedCategoryText}>{category}</Text>
-                          </View>
-                        ))}
-                        {formData.categories.length > 2 && (
-                          <Text style={styles.moreCategoriesText}>
-                            +{formData.categories.length - 2} more
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-down" size={20} color="#777" />
-                </TouchableOpacity>
+                <View style={styles.modernInputContainer}>
+                  <Text style={styles.floatingLabel}>Categories</Text>
+                  <TouchableOpacity
+                    style={[styles.categorySelector, formErrors.categories && styles.errorInput]}
+                    onPress={() => setCategorySearchVisible(true)}
+                  >
+                    <View style={styles.selectedCategoriesContainer}>
+                      {formData.categories.length === 0 ? (
+                        <Text style={styles.categoryPlaceholder}>Select categories</Text>
+                      ) : (
+                        <View style={styles.selectedCategoriesWrapper}>
+                          {formData.categories.slice(0, 2).map((category, index) => (
+                            <View key={category} style={styles.selectedCategoryChip}>
+                              <Text style={styles.selectedCategoryText}>{category}</Text>
+                            </View>
+                          ))}
+                          {formData.categories.length > 2 && (
+                            <Text style={styles.moreCategoriesText}>
+                              +{formData.categories.length - 2} more
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color="#777" />
+                  </TouchableOpacity>
+                </View>
                 {formErrors.categories && (
                   <Text style={styles.errorText}>{formErrors.categories}</Text>
                 )}
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Condition</Text>
-                <View style={styles.pickerContainer}>
-                  <CustomDropdown
-                    label="Condition"
-                    options={CONDITIONS}
-                    selectedValue={formData.condition}
-                    onValueChange={(value: string) =>
-                      handleInputChange("condition", value)
-                    }
-                    isVisible={conditionDropdownVisible}
-                    setIsVisible={setConditionDropdownVisible}
-                  />
+                <View style={styles.modernInputContainer}>
+                  <Text style={styles.floatingLabel}>Condition</Text>
+                  <View style={styles.pickerContainer}>
+                    <CustomDropdown
+                      label=""
+                      options={CONDITIONS}
+                      selectedValue={formData.condition}
+                      onValueChange={(value: string) =>
+                        handleInputChange("condition", value)
+                      }
+                      isVisible={conditionDropdownVisible}
+                      setIsVisible={setConditionDropdownVisible}
+                    />
+                  </View>
                 </View>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Price</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    formErrors.price ? styles.inputError : null,
-                  ]}
-                  placeholder="Enter price"
-                  placeholderTextColor="#999"
+                <AnimatedInput
+                  label="Price"
+                  placeholder=""
                   value={formData.price}
                   onChangeText={(value) => handleInputChange("price", value)}
                   keyboardType="decimal-pad"
+                  hasError={!!formErrors.price}
                 />
                 {formErrors.price && (
                   <Text style={styles.errorText}>{formErrors.price}</Text>
@@ -1194,19 +1289,14 @@ export default function AddItem() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Description</Text>
-                <TextInput
-                  style={[
-                    styles.textArea,
-                    formErrors.description ? styles.inputError : null,
-                  ]}
-                  placeholder="Describe your item"
-                  placeholderTextColor="#999"
+                <AnimatedInput
+                  label="Description"
+                  placeholder=""
                   value={formData.description}
                   onChangeText={(value) => handleInputChange("description", value)}
                   multiline
                   numberOfLines={4}
-                  textAlignVertical="top"
+                  hasError={!!formErrors.description}
                 />
                 {formErrors.description && (
                   <Text style={styles.errorText}>{formErrors.description}</Text>
@@ -1214,16 +1304,12 @@ export default function AddItem() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Pickup</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    formErrors.location ? styles.inputError : null,
-                  ]}
-                  placeholder="Enter pickup location"
-                  placeholderTextColor="#999"
+                <AnimatedInput
+                  label="Pickup"
+                  placeholder=""
                   value={formData.location}
                   onChangeText={(value) => handleInputChange("location", value)}
+                  hasError={!!formErrors.location}
                 />
                 {formErrors.location && (
                   <Text style={styles.errorText}>{formErrors.location}</Text>
@@ -1353,11 +1439,11 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 4,
   },
   label: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
     marginBottom: 8,
     color: "#333333",
   },
@@ -1378,18 +1464,24 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: "#E0E0E0",
+    borderRadius: 12,
     backgroundColor: "#FAFAFA",
     overflow: "hidden",
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    marginBottom: 20,
   },
   dropdownButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   dropdownButtonText: {
     fontSize: 16,
@@ -1842,50 +1934,57 @@ const styles = StyleSheet.create({
     color: '#333333',
   },
 
-  animatedInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 12,
-    backgroundColor: "#FAFAFA",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    shadowColor: "#2528BE",
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  animatedInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-    paddingLeft: 30,
-  },
-  inputIcon: {
-    position: "absolute",
-    left: 12,
-    zIndex: 1,
-  },
-  animatedTextAreaContainer: {
+  // Modern Animated Input Styles
+  modernInputContainer: {
+    marginBottom: 24,
     position: 'relative',
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
+  },
+  modernInputWrapper: {
+    borderWidth: 1.5,
     borderRadius: 12,
-    backgroundColor: "#FAFAFA",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    shadowColor: "#2528BE",
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    backgroundColor: '#FAFAFA',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     elevation: 2,
   },
-  animatedTextArea: {
+  modernTextAreaWrapper: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    backgroundColor: '#FAFAFA',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  modernInput: {
+    padding: 16,
     fontSize: 16,
-    color: "#333",
-    minHeight: 100,
-    textAlignVertical: "top",
-    paddingLeft: 30,
+    color: '#333',
+    fontWeight: '400',
+  },
+  modernTextArea: {
+    padding: 16,
+    fontSize: 16,
+    color: '#333',
+    minHeight: 120,
+    fontWeight: '400',
+  },
+  focusedInput: {
+    shadowColor: '#2528be',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  errorInput: {
+    shadowColor: '#F44336',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   textAreaIcon: {
     position: "absolute",
@@ -1908,6 +2007,17 @@ const styles = StyleSheet.create({
   },
   submitButtonIcon: {
     marginLeft: 8,
+  },
+  // Updated Animated Input Styles
+  animatedInputWrapper: {
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: 'white',
+  },
+  animatedTextAreaWrapper: {
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: 'white',
   },
   // Add Photos Modal styles
   addPhotosModalContainer: {
@@ -1991,18 +2101,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#E0E0E0',
     borderStyle: 'dashed',
-    borderRadius: 8,
-    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    backgroundColor: '#FAFAFA',
     marginBottom: 16,
   },
   uploadedText: {
     fontSize: 16,
     color: '#666',
     marginLeft: 8,
+    fontWeight: '500',
   },
   uploadedImagesScroll: {
     flexDirection: 'row',
@@ -2031,7 +2142,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   formSection: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  sectionHeader: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  floatingLabel: {
+    position: 'absolute',
+    left: 16,
+    top: -10,
+    fontSize: 12,
+    color: '#2528be',
+    backgroundColor: 'white',
+    paddingHorizontal: 4,
+    zIndex: 1,
   },
   bottomButtons: {
     flexDirection: 'row',
@@ -2213,12 +2342,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
     backgroundColor: '#FAFAFA',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    marginBottom: 20,
   },
   categoryPlaceholder: {
     fontSize: 16,

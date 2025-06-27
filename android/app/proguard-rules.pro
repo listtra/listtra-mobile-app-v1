@@ -11,19 +11,4 @@
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
-# Expo modules
--keep class expo.modules.** { *; }
-
-# Google Sign-In
--keep class com.google.android.gms.** { *; }
--keep class com.google.firebase.** { *; }
-
-# React Native
--keep class com.facebook.react.** { *; }
--keep class com.facebook.hermes.** { *; }
-
-# OkHttp
--keep class okhttp3.** { *; }
--keep class okio.** { *; }
-
 # Add any project specific keep options here:
