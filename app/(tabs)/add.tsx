@@ -6,6 +6,10 @@ import * as MediaLibrary from "expo-media-library";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
+<<<<<<< Updated upstream
+=======
+import Constants from "expo-constants";
+>>>>>>> Stashed changes
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Constants from "expo-constants";
 import {
@@ -16,6 +20,7 @@ import {
   Image,
   Modal,
   Platform,
+  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   Text,
@@ -57,6 +62,113 @@ const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const googleMapsApiKey = Constants?.expoConfig?.extra?.googleMapsApiKey ?? "";
+<<<<<<< Updated upstream
+=======
+
+// Animated Input Component (fixed version)
+interface AnimatedInputProps {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  keyboardType?:
+    | "default"
+    | "email-address"
+    | "numeric"
+    | "phone-pad"
+    | "decimal-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  hasError?: boolean;
+  multiline?: boolean;
+  numberOfLines?: number;
+  maxLength?: number;
+}
+
+const AnimatedInput: React.FC<AnimatedInputProps> = ({
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  keyboardType = "default",
+  autoCapitalize = "none",
+  hasError = false,
+  multiline = false,
+  numberOfLines = 1,
+  maxLength,
+}) => {
+  const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: isFocused || value ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [isFocused, value]);
+
+  const labelStyle = {
+    position: "absolute" as const,
+    left: 16,
+    top: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [16, -8],
+    }),
+    fontSize: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [16, 12],
+    }),
+    color: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: ["#A0A0A0", "#A0A0A0"],
+    }),
+    backgroundColor: "white",
+    paddingHorizontal: 4,
+    zIndex: 1,
+  };
+
+  const getBorderColor = () => {
+    if (hasError) return "#F44336";
+    if (isFocused) return "#2528be";
+    return "#E8E8E8";
+  };
+
+  return (
+    <View style={styles.inputFieldContainer}>
+      <Animated.Text style={labelStyle}>{label}</Animated.Text>
+      <TextInput
+        style={[
+          multiline ? styles.textAreaField : styles.inputField,
+          {
+            borderWidth: 1,
+            borderColor: getBorderColor(),
+            borderRadius: 12,
+            backgroundColor: "#FFFFFF",
+            paddingHorizontal: 16,
+            paddingVertical: 16,
+            fontSize: 16,
+            color: "#333",
+            minHeight: multiline ? 120 : 56,
+            textAlignVertical: multiline ? "top" : "center",
+          },
+          hasError && { borderColor: "#F44336" },
+        ]}
+        placeholder=""
+        value={value}
+        onChangeText={onChangeText}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        placeholderTextColor="#A0A0A0"
+        multiline={multiline}
+        numberOfLines={numberOfLines}
+        maxLength={maxLength}
+      />
+    </View>
+  );
+};
+>>>>>>> Stashed changes
 
 export default function AddItem() {
   const router = useRouter();
@@ -815,10 +927,29 @@ export default function AddItem() {
   }
 
   const formatConditionDisplay = (condition: string) => {
+<<<<<<< Updated upstream
     return condition
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
+=======
+    // Handle specific condition mappings for better display
+    const conditionMap: { [key: string]: string } = {
+      new: "New",
+      like_new: "Like New",
+      lightly_used: "Lightly Used",
+      well_used: "Well Used",
+      heavily_used: "Heavily Used",
+    };
+
+    return (
+      conditionMap[condition] ||
+      condition
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+    );
+>>>>>>> Stashed changes
   };
 
   const CustomDropdown = ({
@@ -1103,6 +1234,7 @@ export default function AddItem() {
 
       {currentStep === 1 && (
         // Single Page Form
+<<<<<<< Updated upstream
         <View style={styles.singlePageContainer}>
           <View style={styles.header}>
             <TouchableOpacity
@@ -1148,6 +1280,58 @@ export default function AddItem() {
                       <Image source={{ uri }} style={styles.uploadedImage} />
                       <TouchableOpacity
                         style={styles.removeUploadedImageButton}
+=======
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
+          <ScrollView
+            style={styles.container}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header */}
+            <View style={styles.headerSection}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backButton}
+              >
+                <Ionicons name="chevron-back" size={24} color="#333" />
+              </TouchableOpacity>
+              <Text style={styles.pageTitle}>Add Item</Text>
+            </View>
+
+            {/* Upload Section */}
+            <View style={styles.uploadContainer}>
+              <TouchableOpacity
+                style={styles.uploadArea}
+                onPress={openImagePicker}
+              >
+                <Ionicons name="cloud-upload-outline" size={24} color="#666" />
+                <Text style={styles.uploadText}>
+                  {images.length > 0
+                    ? `Uploaded (${images.length}/${MAX_IMAGES})`
+                    : "Upload Images"}
+                </Text>
+              </TouchableOpacity>
+
+              {images.length > 0 && (
+                <ScrollView
+                  horizontal
+                  style={styles.uploadedImagesContainer}
+                  showsHorizontalScrollIndicator={false}
+                >
+                  {images.map((uri, index) => (
+                    <View key={index} style={styles.uploadedImageWrapper}>
+                      <Image
+                        source={{ uri }}
+                        style={styles.uploadedImageThumb}
+                      />
+                      <TouchableOpacity
+                        style={styles.removeImageIcon}
+>>>>>>> Stashed changes
                         onPress={() => removeImage(index)}
                       >
                         <Ionicons
@@ -1163,6 +1347,7 @@ export default function AddItem() {
             </View>
 
             {/* Form Fields */}
+<<<<<<< Updated upstream
             <View style={styles.formSection}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Name</Text>
@@ -1175,11 +1360,26 @@ export default function AddItem() {
                   placeholderTextColor="#999"
                   value={formData.title}
                   onChangeText={(value) => handleInputChange("title", value)}
+=======
+            <View style={styles.formContainer}>
+              <View style={styles.fieldContainer}>
+                <AnimatedInput
+                  label="Name"
+                  placeholder="Enter item name"
+                  value={formData.title}
+                  onChangeText={(value) => handleInputChange("title", value)}
+                  keyboardType="default"
+                  autoCapitalize="sentences"
+                  hasError={!!formErrors.title}
+                  multiline={false}
+                  numberOfLines={1}
+>>>>>>> Stashed changes
                   maxLength={100}
                 />
                 {formErrors.title && (
                   <Text style={styles.errorText}>{formErrors.title}</Text>
                 )}
+<<<<<<< Updated upstream
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Categories</Text>
@@ -1264,27 +1464,117 @@ export default function AddItem() {
                   ]}
                   placeholder="Describe your item"
                   placeholderTextColor="#999"
+=======
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <View style={styles.inputFieldContainer}>
+                  <Text style={styles.floatingLabel}>Category</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.dropdownInput,
+                      formErrors.categories && styles.inputError,
+                    ]}
+                    onPress={() => setCategorySearchVisible(true)}
+                  >
+                    <View style={styles.categoryDisplayContainer}>
+                      {formData.categories.length === 0 ? (
+                        <Text style={styles.placeholderText}>
+                          Select categories
+                        </Text>
+                      ) : (
+                        <View style={styles.categoriesDisplay}>
+                          {formData.categories
+                            .slice(0, 2)
+                            .map((category, index) => (
+                              <View key={category} style={styles.categoryTag}>
+                                <Text style={styles.categoryTagText}>
+                                  {category}
+                                </Text>
+                              </View>
+                            ))}
+                          {formData.categories.length > 2 && (
+                            <Text style={styles.moreText}>
+                              +{formData.categories.length - 2} more
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color="#777" />
+                  </TouchableOpacity>
+                </View>
+                {formErrors.categories && (
+                  <Text style={styles.errorText}>{formErrors.categories}</Text>
+                )}
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <AnimatedInput
+                  label="Price"
+                  placeholder=""
+                  value={formData.price}
+                  onChangeText={(value) => handleInputChange("price", value)}
+                  keyboardType="decimal-pad"
+                  hasError={!!formErrors.price}
+                />
+                {formErrors.price && (
+                  <Text style={styles.errorText}>{formErrors.price}</Text>
+                )}
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <View style={styles.inputFieldContainer}>
+                  <Text style={styles.floatingLabel}>Condition</Text>
+                  <TouchableOpacity
+                    style={styles.dropdownInput}
+                    onPress={() => setConditionDropdownVisible(true)}
+                  >
+                    <Text style={styles.dropdownText}>
+                      {formatConditionDisplay(formData.condition)}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#777" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <AnimatedInput
+                  label="Description"
+                  placeholder=""
+>>>>>>> Stashed changes
                   value={formData.description}
                   onChangeText={(value) =>
                     handleInputChange("description", value)
                   }
                   multiline
                   numberOfLines={4}
+<<<<<<< Updated upstream
                   textAlignVertical="top"
+=======
+                  hasError={!!formErrors.description}
+>>>>>>> Stashed changes
                 />
                 {formErrors.description && (
                   <Text style={styles.errorText}>{formErrors.description}</Text>
                 )}
               </View>
 
+<<<<<<< Updated upstream
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Pickup</Text>
                 {/* <View style={{ ...styles.input, padding: 0 }}> */}
+=======
+              <View style={styles.fieldContainer}>
+>>>>>>> Stashed changes
                 <GooglePlacesAutocomplete
                   ref={placesRef}
                   placeholder="Enter pickup location"
                   minLength={2}
+<<<<<<< Updated upstream
                   value={formData.location}
+=======
+>>>>>>> Stashed changes
                   fetchDetails={true}
                   onPress={(data, details = null) => {
                     if (details) {
@@ -1317,11 +1607,19 @@ export default function AddItem() {
                         .join(", ");
                       console.log(locationString);
                       handleInputChange("location", locationString);
+<<<<<<< Updated upstream
                       placesRef.current?.setAddressText(locationString);
                     } else {
                       // fallback to description if details is missing
                       handleInputChange("location", data.description);
                       placesRef.current?.setAddressText(data.description);
+=======
+                      // placesRef.current?.setAddressText(locationString);
+                    } else {
+                      // fallback to description if details is missing
+                      handleInputChange("location", data.description);
+                      // placesRef.current?.setAddressText(data.description);
+>>>>>>> Stashed changes
                     }
                   }}
                   query={{
@@ -1376,6 +1674,13 @@ export default function AddItem() {
                     },
                   }}
                   textInputProps={{
+<<<<<<< Updated upstream
+=======
+                    value: formData.location,
+                    onChangeText(text) {
+                      handleInputChange("location", text);
+                    },
+>>>>>>> Stashed changes
                     placeholderTextColor: "#999",
                     autoCorrect: false,
                     autoCapitalize: "none",
@@ -1383,6 +1688,7 @@ export default function AddItem() {
                   enablePoweredByContainer={false}
                   debounce={300}
                 />
+<<<<<<< Updated upstream
                 {/* </View> */}
                 {formErrors.location && (
                   <Text style={styles.errorText}>{formErrors.location}</Text>
@@ -1414,6 +1720,47 @@ export default function AddItem() {
             </TouchableOpacity>
           </View>
         </View>
+=======
+              </View>
+            </View>
+
+            {/* Bottom Buttons */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => router.back()}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+                activeOpacity={0.8}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Custom Dropdown for Condition */}
+            <CustomDropdown
+              label="Condition"
+              options={CONDITIONS}
+              selectedValue={formData.condition}
+              onValueChange={(value: string) =>
+                handleInputChange("condition", value)
+              }
+              isVisible={conditionDropdownVisible}
+              setIsVisible={setConditionDropdownVisible}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
+>>>>>>> Stashed changes
       )}
 
       {currentStep === 2 && (
@@ -1482,6 +1829,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
   },
+<<<<<<< Updated upstream
   headerTitle: {
     fontSize: 18,
     ...Platform.select({
@@ -1497,10 +1845,30 @@ const styles = StyleSheet.create({
   nextButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
+=======
+
+  // Upload section styles
+  uploadContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  uploadArea: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 50,
+    borderWidth: 1,
+    borderColor: "#CCCCCC",
+    borderStyle: "dashed",
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    marginBottom: 16,
+>>>>>>> Stashed changes
   },
   nextButtonText: {
     color: "#2528BE",
     fontSize: 16,
+<<<<<<< Updated upstream
     fontWeight: "bold",
   },
   scrollView: {
@@ -1517,9 +1885,53 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: "500",
+=======
+    color: "#666666",
+    marginLeft: 8,
+  },
+  uploadedImagesContainer: {
+    flexDirection: "row",
+    marginTop: 16,
+  },
+  uploadedImageWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+    position: "relative",
+    overflow: "hidden",
+  },
+  uploadedImageThumb: {
+    width: "100%",
+    height: "100%",
+  },
+  removeImageIcon: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Form section styles
+  formContainer: {
+    paddingHorizontal: 20,
+  },
+  fieldContainer: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    color: "#A0A0A0",
+>>>>>>> Stashed changes
     marginBottom: 8,
     color: "#333333",
   },
+<<<<<<< Updated upstream
   input: {
     borderWidth: 1,
     borderColor: "#DDDDDD",
@@ -1529,6 +1941,51 @@ const styles = StyleSheet.create({
     backgroundColor: "#FAFAFA",
   },
   inputError: {
+=======
+
+  // AnimatedInput styles
+  inputFieldContainer: {
+    marginBottom: 16,
+    position: "relative",
+  },
+  inputWrapper: {
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  textAreaWrapper: {
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+  },
+  inputField: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "400",
+    minHeight: 56,
+  },
+  textAreaField: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: "#333",
+    minHeight: 120,
+    fontWeight: "400",
+  },
+  focusedBorder: {
+    borderColor: "#2528be",
+    shadowColor: "#2528be",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  errorBorder: {
+>>>>>>> Stashed changes
     borderColor: "#FF3B30",
   },
   errorText: {
@@ -1536,12 +1993,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
+<<<<<<< Updated upstream
   pickerContainer: {
     borderWidth: 1,
     borderColor: "#DDDDDD",
     borderRadius: 8,
     backgroundColor: "#FAFAFA",
     overflow: "hidden",
+=======
+
+  // Bottom buttons
+  actionButtons: {
+    position: "absolute",
+    bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    marginRight: 8,
+    borderRadius: 8,
+    backgroundColor: "#F5F5F5",
+    alignItems: "center",
+>>>>>>> Stashed changes
   },
   dropdownButton: {
     flexDirection: "row",
@@ -1552,8 +2029,29 @@ const styles = StyleSheet.create({
   },
   dropdownButtonText: {
     fontSize: 16,
+<<<<<<< Updated upstream
     color: "#333",
   },
+=======
+    color: "#666666",
+    fontWeight: "500",
+  },
+  saveBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: "#2528BE",
+    alignItems: "center",
+  },
+  saveBtnText: {
+    fontSize: 16,
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+
+  // Modal styles
+>>>>>>> Stashed changes
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -1599,9 +2097,32 @@ const styles = StyleSheet.create({
     color: "#2528BE",
     fontWeight: "500",
   },
+<<<<<<< Updated upstream
   submitButton: {
     backgroundColor: "#2528BE",
     borderRadius: 12,
+=======
+
+  // Compatibility styles for old components
+  pickerContainer: {
+    borderWidth: 1.5,
+    borderColor: "#E0E0E0",
+    borderRadius: 12,
+    backgroundColor: "#FAFAFA",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    marginBottom: 20,
+  },
+  dropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+>>>>>>> Stashed changes
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 30,
@@ -1619,6 +2140,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
+<<<<<<< Updated upstream
+=======
+
+  // Loading styles
+>>>>>>> Stashed changes
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1631,6 +2157,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
+<<<<<<< Updated upstream
   // Updated styles for first page
   firstPageContainer: {
     flex: 1,
@@ -1934,6 +2461,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   // Success page styles
+=======
+  // Success screen styles
+>>>>>>> Stashed changes
   successContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1963,19 +2493,41 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     lineHeight: 24,
   },
+<<<<<<< Updated upstream
   exploreButton: {
+=======
+  thumbsUpIcon: {
+    backgroundColor: "#E3F2FD",
+    borderRadius: 40,
+    width: 80,
+    height: 80,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  thumbsUpEmoji: {
+    fontSize: 40,
+  },
+  viewItemButton: {
+>>>>>>> Stashed changes
     backgroundColor: "#2528BE",
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 24,
     width: "100%",
     alignItems: "center",
+<<<<<<< Updated upstream
   },
   exploreButtonText: {
+=======
+    marginBottom: 12,
+  },
+  viewItemButtonText: {
+>>>>>>> Stashed changes
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
   },
+<<<<<<< Updated upstream
   // Category styles
   categoriesContainer: {
     flexDirection: "row",
@@ -2069,6 +2621,22 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   // Add Photos Modal styles
+=======
+  homeButton: {
+    backgroundColor: "transparent",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: "100%",
+    alignItems: "center",
+  },
+  homeButtonText: {
+    color: "#666",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+
+  // Photo modal styles
+>>>>>>> Stashed changes
   addPhotosModalContainer: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -2134,6 +2702,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     justifyContent: "center",
     alignItems: "center",
+<<<<<<< Updated upstream
   },
 
   // Single page form styles
@@ -2271,6 +2840,8 @@ const styles = StyleSheet.create({
     color: "#666",
     fontSize: 16,
     fontWeight: "500",
+=======
+>>>>>>> Stashed changes
   },
   loadingPhotosContainer: {
     flex: 1,
@@ -2307,6 +2878,11 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 4,
   },
+<<<<<<< Updated upstream
+=======
+
+  // Category modal styles
+>>>>>>> Stashed changes
   categoryModalContainer: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -2337,10 +2913,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
+<<<<<<< Updated upstream
     borderColor: "#DDDDDD",
     borderRadius: 8,
     backgroundColor: "#FAFAFA",
     paddingHorizontal: 12,
+=======
+    borderColor: "#E8E8E8",
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    minHeight: 56,
+>>>>>>> Stashed changes
   },
   searchIcon: {
     marginRight: 8,
@@ -2348,7 +2933,12 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
+<<<<<<< Updated upstream
     color: "#333",
+=======
+    color: "#000000",
+    paddingVertical: 0, // Remove default padding to center text properly
+>>>>>>> Stashed changes
   },
   categoryListContainer: {
     padding: 16,
@@ -2380,6 +2970,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderWidth: 1,
+<<<<<<< Updated upstream
     borderColor: "#DDDDDD",
     borderRadius: 8,
     backgroundColor: "#FAFAFA",
@@ -2394,11 +2985,82 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectedCategoriesWrapper: {
+=======
+    borderColor: "#E8E8E8",
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    minHeight: 56,
+  },
+
+  // Clean modern form styles matching target UI
+  floatingLabel: {
+    position: "absolute",
+    left: 16,
+    top: -8,
+    fontSize: 12,
+    color: "#A0A0A0",
+    backgroundColor: "white",
+    paddingHorizontal: 4,
+    zIndex: 1,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: "#000000",
+    backgroundColor: "#FFFFFF",
+  },
+  textAreaInput: {
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: "#000000",
+    backgroundColor: "#FFFFFF",
+    minHeight: 120,
+    textAlignVertical: "top",
+  },
+  dropdownInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "#FFFFFF",
+    minHeight: 56,
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: "#000000",
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: "#A0A0A0",
+  },
+  categoryDisplayContainer: {
+    flex: 1,
+  },
+  categoriesDisplay: {
+>>>>>>> Stashed changes
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
   },
+<<<<<<< Updated upstream
   selectedCategoryChip: {
+=======
+  categoryTag: {
+>>>>>>> Stashed changes
     backgroundColor: "#E3F2FD",
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -2413,7 +3075,16 @@ const styles = StyleSheet.create({
   },
   moreCategoriesText: {
     fontSize: 14,
+<<<<<<< Updated upstream
     color: "#666",
     fontStyle: "italic",
   },
+=======
+    color: "#666666",
+    fontStyle: "italic",
+  },
+  inputError: {
+    borderColor: "#FF3B30",
+  },
+>>>>>>> Stashed changes
 });

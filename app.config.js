@@ -9,8 +9,13 @@ export default {
     apiUrl: "https://backend.listtra.com",
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
     eas: {
+<<<<<<< Updated upstream
       projectId: "ef242669-581a-4988-924f-6bf58ec279d9",
     },
+=======
+      projectId: "ef242669-581a-4988-924f-6bf58ec279d9"
+    }
+>>>>>>> Stashed changes
   },
   ios: {
     bundleIdentifier: "com.listtra.app",
@@ -33,4 +38,8 @@ export default {
     bundler: "metro",
   },
   owner: "jibinb",
+<<<<<<< Updated upstream
 };
+=======
+}; 
+>>>>>>> Stashed changes
