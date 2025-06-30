@@ -1378,7 +1378,7 @@ export default function AddItem() {
                     autoCapitalize: "none",
                   }}
                   enablePoweredByContainer={false}
-                  debounce={200}
+                  debounce={300}
                 />
                 {/* </View> */}
                 {formErrors.location && (
