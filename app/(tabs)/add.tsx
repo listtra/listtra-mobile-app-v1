@@ -1130,7 +1130,9 @@ export default function AddItem() {
               >
                 <Ionicons name="cloud-upload-outline" size={24} color="#666" />
                 <Text style={styles.uploadedText}>
-                  {images.length > 0 ? "Uploaded" : "Upload Images"}
+                  {images.length > 0
+                    ? `Uploaded (${images.length}/${MAX_IMAGES})`
+                    : "Upload Images"}
                 </Text>
               </TouchableOpacity>
 
@@ -1139,6 +1141,7 @@ export default function AddItem() {
                   horizontal
                   style={styles.uploadedImagesScroll}
                   showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.uploadedImagesRow}
                 >
                   {images.map((uri, index) => (
                     <View key={index} style={styles.uploadedImageContainer}>
@@ -1219,22 +1222,6 @@ export default function AddItem() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Condition</Text>
-                <View style={styles.pickerContainer}>
-                  <CustomDropdown
-                    label="Condition"
-                    options={CONDITIONS}
-                    selectedValue={formData.condition}
-                    onValueChange={(value: string) =>
-                      handleInputChange("condition", value)
-                    }
-                    isVisible={conditionDropdownVisible}
-                    setIsVisible={setConditionDropdownVisible}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
                 <Text style={styles.label}>Price</Text>
                 <TextInput
                   style={[
@@ -1250,6 +1237,22 @@ export default function AddItem() {
                 {formErrors.price && (
                   <Text style={styles.errorText}>{formErrors.price}</Text>
                 )}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Condition</Text>
+                <View style={styles.pickerContainer}>
+                  <CustomDropdown
+                    label="Condition"
+                    options={CONDITIONS}
+                    selectedValue={formData.condition}
+                    onValueChange={(value: string) =>
+                      handleInputChange("condition", value)
+                    }
+                    isVisible={conditionDropdownVisible}
+                    setIsVisible={setConditionDropdownVisible}
+                  />
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
@@ -2160,12 +2163,18 @@ const styles = StyleSheet.create({
     color: "#666",
     marginLeft: 8,
   },
+  uploadedImagesRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    marginTop: 8,
+  },
   uploadedImagesScroll: {
     flexDirection: "row",
   },
   uploadedImageContainer: {
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 60,
     borderRadius: 8,
     marginRight: 8,
     position: "relative",
@@ -2174,6 +2183,7 @@ const styles = StyleSheet.create({
   uploadedImage: {
     width: "100%",
     height: "100%",
+    borderRadius: 8,
   },
   removeUploadedImageButton: {
     position: "absolute",
