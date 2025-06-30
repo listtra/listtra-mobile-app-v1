@@ -43,6 +43,12 @@ function TabBarIcon(props: {
 }
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
+  // Hide tab bar on add screen
+  const currentRoute = state.routes[state.index];
+  if (currentRoute.name === 'add') {
+    return null;
+  }
+
   // Animation values
   const tabWidth = SCREEN_WIDTH / state.routes.length;
   const animatedValue = useRef(new Animated.Value(0)).current;

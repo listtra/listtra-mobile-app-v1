@@ -96,7 +96,7 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
     left: 16,
     top: animatedValue.interpolate({
       inputRange: [0, 1],
-      outputRange: [multiline ? 20 : 16, -10],
+      outputRange: [16, -8],
     }),
     fontSize: animatedValue.interpolate({
       inputRange: [0, 1],
@@ -104,7 +104,7 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
     }),
     color: animatedValue.interpolate({
       inputRange: [0, 1],
-      outputRange: ['#A0A0A0', '#2528be'],
+      outputRange: ['#A0A0A0', '#A0A0A0'],
     }),
     backgroundColor: 'white',
     paddingHorizontal: 4,
@@ -114,41 +114,43 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
   const getBorderColor = () => {
     if (hasError) return '#F44336';
     if (isFocused) return '#2528be';
-    return '#E0E0E0';
+    return '#E8E8E8';
   };
 
-  // Only show placeholder when input is not focused and has no value
-  const shouldShowPlaceholder = !isFocused && !value;
-
   return (
-    <View style={styles.modernInputContainer}>
+    <View style={styles.inputFieldContainer}>
       <Animated.Text style={labelStyle}>
         {label}
       </Animated.Text>
-      <View style={[
-        multiline ? styles.modernTextAreaWrapper : styles.modernInputWrapper,
-        { borderColor: getBorderColor() },
-        isFocused && styles.focusedInput,
-        hasError && styles.errorInput
-      ]}>
-        <TextInput
-          style={[
-            multiline ? styles.modernTextArea : styles.modernInput
-          ]}
-          placeholder={shouldShowPlaceholder ? placeholder : ''}
-          value={value}
-          onChangeText={onChangeText}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize}
-          placeholderTextColor="#A0A0A0"
-          multiline={multiline}
-          numberOfLines={numberOfLines}
-          textAlignVertical={multiline ? "top" : "center"}
-          maxLength={maxLength}
-        />
-      </View>
+      <TextInput
+        style={[
+          multiline ? styles.textAreaField : styles.inputField,
+          {
+            borderWidth: 1,
+            borderColor: getBorderColor(),
+            borderRadius: 12,
+            backgroundColor: '#FFFFFF',
+            paddingHorizontal: 16,
+            paddingVertical: 16,
+            fontSize: 16,
+            color: '#333',
+            minHeight: multiline ? 120 : 56,
+            textAlignVertical: multiline ? 'top' : 'center',
+          },
+          hasError && { borderColor: '#F44336' }
+        ]}
+        placeholder=""
+        value={value}
+        onChangeText={onChangeText}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        placeholderTextColor="#A0A0A0"
+        multiline={multiline}
+        numberOfLines={numberOfLines}
+        maxLength={maxLength}
+      />
     </View>
   );
 };
@@ -895,7 +897,16 @@ export default function AddItem() {
   }
 
   const formatConditionDisplay = (condition: string) => {
-    return condition
+    // Handle specific condition mappings for better display
+    const conditionMap: { [key: string]: string } = {
+      'new': 'New',
+      'like_new': 'Like New',
+      'lightly_used': 'Lightly Used',
+      'well_used': 'Well Used',
+      'heavily_used': 'Heavily Used'
+    };
+    
+    return conditionMap[condition] || condition
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
@@ -910,67 +921,53 @@ export default function AddItem() {
     setIsVisible,
   }: CustomDropdownProps) => {
     return (
-      <>
+      <Modal
+        transparent={true}
+        visible={isVisible}
+        animationType="fade"
+        onRequestClose={() => setIsVisible(false)}
+      >
         <TouchableOpacity
-          style={styles.dropdownButton}
-          onPress={() => setIsVisible(true)}
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsVisible(false)}
         >
-          <Text style={styles.dropdownButtonText}>
-            {label === "Condition"
-              ? formatConditionDisplay(selectedValue)
-              : selectedValue}
-          </Text>
-          <Ionicons name="chevron-down" size={20} color="#777" />
-        </TouchableOpacity>
+          <View style={styles.dropdownModal}>
+            <Text style={styles.dropdownModalTitle}>{`Select ${label}`}</Text>
 
-        <Modal
-          transparent={true}
-          visible={isVisible}
-          animationType="fade"
-          onRequestClose={() => setIsVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setIsVisible(false)}
-          >
-            <View style={styles.dropdownModal}>
-              <Text style={styles.dropdownModalTitle}>{`Select ${label}`}</Text>
-
-              <ScrollView>
-                {options.map((option: string) => (
-                  <TouchableOpacity
-                    key={option}
+            <ScrollView>
+              {options.map((option: string) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.dropdownItem,
+                    selectedValue === option && styles.selectedDropdownItem,
+                  ]}
+                  onPress={() => {
+                    onValueChange(option);
+                    setIsVisible(false);
+                  }}
+                >
+                  <Text
                     style={[
-                      styles.dropdownItem,
-                      selectedValue === option && styles.selectedDropdownItem,
+                      styles.dropdownItemText,
+                      selectedValue === option &&
+                        styles.selectedDropdownItemText,
                     ]}
-                    onPress={() => {
-                      onValueChange(option);
-                      setIsVisible(false);
-                    }}
                   >
-                    <Text
-                      style={[
-                        styles.dropdownItemText,
-                        selectedValue === option &&
-                          styles.selectedDropdownItemText,
-                      ]}
-                    >
-                      {label === "Condition"
-                        ? formatConditionDisplay(option)
-                        : option}
-                    </Text>
-                    {selectedValue === option && (
-                      <Ionicons name="checkmark" size={20} color="#2528BE" />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      </>
+                    {label === "Condition"
+                      ? formatConditionDisplay(option)
+                      : option}
+                  </Text>
+                  {selectedValue === option && (
+                    <Ionicons name="checkmark" size={20} color="#2528BE" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     );
   };
 
@@ -1119,7 +1116,7 @@ export default function AddItem() {
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search categories..."
-                placeholderTextColor="#999"
+                placeholderTextColor="#A0A0A0"
                 value={categorySearchText}
                 onChangeText={handleCategorySearch}
               />
@@ -1157,178 +1154,177 @@ export default function AddItem() {
 
       {currentStep === 1 && (
         // Single Page Form
-        <View style={styles.singlePageContainer}>
-          <View style={styles.header}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={styles.headerSection}>
             <TouchableOpacity
               onPress={() => router.back()}
               style={styles.backButton}
             >
               <Ionicons name="chevron-back" size={24} color="#333" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Add Item</Text>
-            <View style={{ width: 40 }} />
+            <Text style={styles.pageTitle}>Add Item</Text>
           </View>
 
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollViewContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Upload Section */}
-            <View style={styles.uploadSection}>
-              <TouchableOpacity
-                style={styles.uploadButton}
-                onPress={openImagePicker}
-              >
-                <Ionicons name="cloud-upload-outline" size={24} color="#666" />
-                <Text style={styles.uploadedText}>
-                  {images.length > 0 ? "Uploaded" : "Upload Images"}
-                </Text>
-              </TouchableOpacity>
+          {/* Upload Section */}
+          <View style={styles.uploadContainer}>
+            <TouchableOpacity
+              style={styles.uploadArea}
+              onPress={openImagePicker}
+            >
+              <Ionicons name="cloud-upload-outline" size={24} color="#666" />
+              <Text style={styles.uploadText}>
+                {images.length > 0 ? "Uploaded" : "Upload Images"}
+              </Text>
+            </TouchableOpacity>
 
-              {images.length > 0 && (
-                <ScrollView
-                  horizontal
-                  style={styles.uploadedImagesScroll}
-                  showsHorizontalScrollIndicator={false}
-                >
-                  {images.map((uri, index) => (
-                    <View key={index} style={styles.uploadedImageContainer}>
-                      <Image source={{ uri }} style={styles.uploadedImage} />
-                      <TouchableOpacity
-                        style={styles.removeUploadedImageButton}
-                        onPress={() => removeImage(index)}
-                      >
-                        <Ionicons name="close-circle" size={20} color="#FF3B30" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
+            {images.length > 0 && (
+              <ScrollView
+                horizontal
+                style={styles.uploadedImagesContainer}
+                showsHorizontalScrollIndicator={false}
+              >
+                {images.map((uri, index) => (
+                  <View key={index} style={styles.uploadedImageWrapper}>
+                    <Image source={{ uri }} style={styles.uploadedImageThumb} />
+                    <TouchableOpacity
+                      style={styles.removeImageIcon}
+                      onPress={() => removeImage(index)}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+
+          {/* Form Fields */}
+          <View style={styles.formContainer}>
+            <View style={styles.fieldContainer}>
+              <AnimatedInput
+                label="Name"
+                placeholder="Enter item name"
+                value={formData.title}
+                onChangeText={(value) => handleInputChange("title", value)}
+                keyboardType="default"
+                autoCapitalize="sentences"
+                hasError={!!formErrors.title}
+                multiline={false}
+                numberOfLines={1}
+                maxLength={100}
+              />
+              {formErrors.title && (
+                <Text style={styles.errorText}>{formErrors.title}</Text>
               )}
             </View>
 
-            {/* Form Fields */}
-            <View style={styles.formSection}>
-              <View style={styles.inputGroup}>
-                <AnimatedInput
-                  label="Name"
-                  placeholder=""
-                  value={formData.title}
-                  onChangeText={(value) => handleInputChange("title", value)}
-                  maxLength={100}
-                  hasError={!!formErrors.title}
-                />
-                {formErrors.title && (
-                  <Text style={styles.errorText}>{formErrors.title}</Text>
-                )}
-              </View>
-
-              <View style={styles.inputGroup}>
-                <View style={styles.modernInputContainer}>
-                  <Text style={styles.floatingLabel}>Categories</Text>
-                  <TouchableOpacity
-                    style={[styles.categorySelector, formErrors.categories && styles.errorInput]}
-                    onPress={() => setCategorySearchVisible(true)}
-                  >
-                    <View style={styles.selectedCategoriesContainer}>
-                      {formData.categories.length === 0 ? (
-                        <Text style={styles.categoryPlaceholder}>Select categories</Text>
-                      ) : (
-                        <View style={styles.selectedCategoriesWrapper}>
-                          {formData.categories.slice(0, 2).map((category, index) => (
-                            <View key={category} style={styles.selectedCategoryChip}>
-                              <Text style={styles.selectedCategoryText}>{category}</Text>
-                            </View>
-                          ))}
-                          {formData.categories.length > 2 && (
-                            <Text style={styles.moreCategoriesText}>
-                              +{formData.categories.length - 2} more
-                            </Text>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                    <Ionicons name="chevron-down" size={20} color="#777" />
-                  </TouchableOpacity>
-                </View>
-                {formErrors.categories && (
-                  <Text style={styles.errorText}>{formErrors.categories}</Text>
-                )}
-              </View>
-
-              <View style={styles.inputGroup}>
-                <View style={styles.modernInputContainer}>
-                  <Text style={styles.floatingLabel}>Condition</Text>
-                  <View style={styles.pickerContainer}>
-                    <CustomDropdown
-                      label=""
-                      options={CONDITIONS}
-                      selectedValue={formData.condition}
-                      onValueChange={(value: string) =>
-                        handleInputChange("condition", value)
-                      }
-                      isVisible={conditionDropdownVisible}
-                      setIsVisible={setConditionDropdownVisible}
-                    />
+            <View style={styles.fieldContainer}>
+              <View style={styles.inputFieldContainer}>
+                <Text style={styles.floatingLabel}>Category</Text>
+                <TouchableOpacity
+                  style={[styles.dropdownInput, formErrors.categories && styles.inputError]}
+                  onPress={() => setCategorySearchVisible(true)}
+                >
+                  <View style={styles.categoryDisplayContainer}>
+                    {formData.categories.length === 0 ? (
+                      <Text style={styles.placeholderText}>Select categories</Text>
+                    ) : (
+                      <View style={styles.categoriesDisplay}>
+                        {formData.categories.slice(0, 2).map((category, index) => (
+                          <View key={category} style={styles.categoryTag}>
+                            <Text style={styles.categoryTagText}>{category}</Text>
+                          </View>
+                        ))}
+                        {formData.categories.length > 2 && (
+                          <Text style={styles.moreText}>
+                            +{formData.categories.length - 2} more
+                          </Text>
+                        )}
+                      </View>
+                    )}
                   </View>
-                </View>
+                  <Ionicons name="chevron-down" size={20} color="#777" />
+                </TouchableOpacity>
               </View>
+              {formErrors.categories && (
+                <Text style={styles.errorText}>{formErrors.categories}</Text>
+              )}
+            </View>
 
-              <View style={styles.inputGroup}>
-                <AnimatedInput
-                  label="Price"
-                  placeholder=""
-                  value={formData.price}
-                  onChangeText={(value) => handleInputChange("price", value)}
-                  keyboardType="decimal-pad"
-                  hasError={!!formErrors.price}
-                />
-                {formErrors.price && (
-                  <Text style={styles.errorText}>{formErrors.price}</Text>
-                )}
-              </View>
+            <View style={styles.fieldContainer}>
+              <AnimatedInput
+                label="Price"
+                placeholder=""
+                value={formData.price}
+                onChangeText={(value) => handleInputChange("price", value)}
+                keyboardType="decimal-pad"
+                hasError={!!formErrors.price}
+              />
+              {formErrors.price && (
+                <Text style={styles.errorText}>{formErrors.price}</Text>
+              )}
+            </View>
 
-              <View style={styles.inputGroup}>
-                <AnimatedInput
-                  label="Description"
-                  placeholder=""
-                  value={formData.description}
-                  onChangeText={(value) => handleInputChange("description", value)}
-                  multiline
-                  numberOfLines={4}
-                  hasError={!!formErrors.description}
-                />
-                {formErrors.description && (
-                  <Text style={styles.errorText}>{formErrors.description}</Text>
-                )}
-              </View>
-
-              <View style={styles.inputGroup}>
-                <AnimatedInput
-                  label="Pickup"
-                  placeholder=""
-                  value={formData.location}
-                  onChangeText={(value) => handleInputChange("location", value)}
-                  hasError={!!formErrors.location}
-                />
-                {formErrors.location && (
-                  <Text style={styles.errorText}>{formErrors.location}</Text>
-                )}
+            <View style={styles.fieldContainer}>
+              <View style={styles.inputFieldContainer}>
+                <Text style={styles.floatingLabel}>Condition</Text>
+                <TouchableOpacity
+                  style={styles.dropdownInput}
+                  onPress={() => setConditionDropdownVisible(true)}
+                >
+                  <Text style={styles.dropdownText}>
+                    {formatConditionDisplay(formData.condition)}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#777" />
+                </TouchableOpacity>
               </View>
             </View>
-          </ScrollView>
+
+            <View style={styles.fieldContainer}>
+              <AnimatedInput
+                label="Description"
+                placeholder=""
+                value={formData.description}
+                onChangeText={(value) => handleInputChange("description", value)}
+                multiline
+                numberOfLines={4}
+                hasError={!!formErrors.description}
+              />
+              {formErrors.description && (
+                <Text style={styles.errorText}>{formErrors.description}</Text>
+              )}
+            </View>
+
+            <View style={styles.fieldContainer}>
+              <AnimatedInput
+                label="Pickup"
+                placeholder=""
+                value={formData.location}
+                onChangeText={(value) => handleInputChange("location", value)}
+                hasError={!!formErrors.location}
+              />
+              {formErrors.location && (
+                <Text style={styles.errorText}>{formErrors.location}</Text>
+              )}
+            </View>
+          </View>
 
           {/* Bottom Buttons */}
-          <View style={styles.bottomButtons}>
+          <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={styles.cancelBtn}
               onPress={() => router.back()}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
             </TouchableOpacity>
             
             <TouchableOpacity
-              style={styles.saveButton}
+              style={styles.saveBtn}
               onPress={handleSubmit}
               disabled={isSubmitting}
               activeOpacity={0.8}
@@ -1336,11 +1332,23 @@ export default function AddItem() {
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={styles.saveButtonText}>Save</Text>
+                <Text style={styles.saveBtnText}>Save</Text>
               )}
             </TouchableOpacity>
           </View>
-        </View>
+
+          {/* Custom Dropdown for Condition */}
+          <CustomDropdown
+            label="Condition"
+            options={CONDITIONS}
+            selectedValue={formData.condition}
+            onValueChange={(value: string) =>
+              handleInputChange("condition", value)
+            }
+            isVisible={conditionDropdownVisible}
+            setIsVisible={setConditionDropdownVisible}
+          />
+        </ScrollView>
       )}
 
       {currentStep === 2 && (
@@ -1384,109 +1392,179 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-  header: {
+  contentContainer: {
+    paddingBottom: 120, // Add padding for bottom buttons
+  },
+  headerSection: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
     backgroundColor: "#FFFFFF",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+  },
+  pageTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#000000",
+    marginLeft: 10,
   },
   backButton: {
     padding: 8,
     borderRadius: 20,
   },
-  headerTitle: {
-    fontSize: 18,
-    ...Platform.select({
-      ios: {
-        fontWeight: "600",
-      },
-      android: {
-        fontWeight: "700",
-      },
-    }),
-    color: "#333333",
+  
+  // Upload section styles
+  uploadContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
   },
-  nextButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  nextButtonText: {
-    color: "#2528BE",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  scrollView: {
-    flex: 1,
-    marginBottom: 40,
-  },
-  scrollViewContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  inputGroup: {
-    marginBottom: 4,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: "#333333",
-  },
-  input: {
+  uploadArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 50,
     borderWidth: 1,
-    borderColor: "#DDDDDD",
+    borderColor: '#CCCCCC',
+    borderStyle: 'dashed',
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: '#FFFFFF',
+    marginBottom: 16,
   },
-  inputError: {
-    borderColor: "#FF3B30",
+  uploadText: {
+    fontSize: 16,
+    color: '#666666',
+    marginLeft: 8,
+  },
+  uploadedImagesContainer: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+  uploadedImageWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  uploadedImageThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageIcon: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Form section styles
+  formContainer: {
+    paddingHorizontal: 20,
+  },
+  fieldContainer: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    color: '#A0A0A0',
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  
+  // AnimatedInput styles
+  inputFieldContainer: {
+    marginBottom: 16,
+    position: 'relative',
+  },
+  inputWrapper: {
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  textAreaWrapper: {
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  inputField: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '400',
+    minHeight: 56,
+  },
+  textAreaField: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#333',
+    minHeight: 120,
+    fontWeight: '400',
+  },
+  focusedBorder: {
+    borderColor: '#2528be',
+    shadowColor: '#2528be',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  errorBorder: {
+    borderColor: '#FF3B30',
   },
   errorText: {
     color: "#FF3B30",
     fontSize: 14,
     marginTop: 4,
   },
-  pickerContainer: {
-    borderWidth: 1.5,
-    borderColor: "#E0E0E0",
-    borderRadius: 12,
-    backgroundColor: "#FAFAFA",
-    overflow: "hidden",
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    marginBottom: 20,
+  
+  // Bottom buttons
+  actionButtons: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
   },
-  dropdownButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
+  cancelBtn: {
+    flex: 1,
     paddingVertical: 16,
+    marginRight: 8,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
   },
-  dropdownButtonText: {
+  cancelBtnText: {
     fontSize: 16,
-    color: "#333",
+    color: '#666666',
+    fontWeight: '500',
   },
+  saveBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    marginLeft: 8,
+    borderRadius: 8,
+    backgroundColor: '#2528BE',
+    alignItems: 'center',
+  },
+  saveBtnText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  
+  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -1532,26 +1610,34 @@ const styles = StyleSheet.create({
     color: "#2528BE",
     fontWeight: "500",
   },
-  submitButton: {
-    backgroundColor: "#2528BE",
+  
+  // Compatibility styles for old components
+  pickerContainer: {
+    borderWidth: 1.5,
+    borderColor: "#E0E0E0",
     borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 30,
+    backgroundColor: "#FAFAFA",
+    overflow: "hidden",
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
     marginBottom: 20,
-    shadowColor: "#2528BE",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 4,
+  },
+  dropdownButton: {
     flexDirection: "row",
-    justifyContent: "center",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
-  submitButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
+  dropdownButtonText: {
+    fontSize: 16,
+    color: "#333",
   },
+  
+  // Loading styles
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1563,310 +1649,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 16,
   },
-
-  // Updated styles for first page
-  firstPageContainer: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  uploadContainer: {
-    padding: 20,
-  },
-  mainUploadButton: {
-    width: "100%",
-    height: 180,
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderStyle: "dashed",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F9F9F9",
-    marginBottom: 16,
-  },
-  uploadText: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: "#333333",
-    marginTop: 8,
-  },
-  uploadSubText: {
-    fontSize: 14,
-    color: "#999999",
-    marginTop: 8,
-    textAlign: "center",
-    paddingHorizontal: 20,
-  },
-  imagePreviewHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  previewTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333333",
-  },
-  imageCounterText: {
-    fontSize: 14,
-    color: "#999999",
-  },
-  thumbnailScroll: {
-    flexDirection: "row",
-    marginBottom: 16,
-  },
-  thumbnailContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    marginRight: 10,
-    position: "relative",
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#EEEEEE",
-  },
-  thumbnail: {
-    width: "100%",
-    height: "100%",
-  },
-  removeImageButton: {
-    position: "absolute",
-    top: 5,
-    right: 5,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 15,
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  divider: {
-    height: 8,
-    backgroundColor: "#F2F2F2",
-    width: "100%",
-  },
-  inputArea: {
-    padding: 20,
-    flex: 1,
-  },
-  titleInput: {
-    fontSize: 18,
-    borderBottomWidth: 1,
-    borderColor: "#EEEEEE",
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  descriptionInput: {
-    fontSize: 16,
-    minHeight: 100,
-    textAlignVertical: "top",
-    paddingTop: 12,
-  },
-
-  // Bottom button styles
-  bottomButtonContainer: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-  },
-  nextPageButton: {
-    backgroundColor: "#2528BE",
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  disabledButton: {
-    backgroundColor: "#CCCCCC",
-  },
-  nextPageButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-
-  // Styles for the new image preview page (step 2)
-  secondPageContainer: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    paddingBottom: 30,
-  },
-  mainImageContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F5F5F5",
-  },
-  mainImageWrapper: {
-    width: "100%",
-    height: "100%",
-    position: "relative",
-  },
-  mainImage: {
-    width: "100%",
-    height: "100%",
-  },
-  removeMainImageButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 20,
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  noImagePlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  noImageText: {
-    fontSize: 18,
-    color: "#999999",
-    marginTop: 16,
-  },
-  previewFooter: {
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-    paddingVertical: 10,
-  },
-  previewThumbnailRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  previewThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 4,
-    marginRight: 8,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "transparent",
-    position: "relative",
-  },
-  selectedPreviewThumbnail: {
-    borderColor: "#2528BE",
-  },
-  thumbnailImage: {
-    width: "100%",
-    height: "100%",
-  },
-  previewActionButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  cameraButton: {
-    backgroundColor: "#666666",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  nextStepButton: {
-    backgroundColor: "#2528BE",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  nextStepButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginRight: 8,
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#FAFAFA",
-    minHeight: 100,
-  },
-  priceInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 8,
-    backgroundColor: "#FAFAFA",
-    paddingHorizontal: 12,
-  },
-  currencySymbolSmall: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333333",
-    marginRight: 8,
-  },
-  priceSuggestionTextSmall: {
-    fontSize: 14,
-    color: "#666666",
-    marginTop: 8,
-  },
-  removeThumbnailButton: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  // Third page image styles
-  thirdPageImagesContainer: {
-    marginBottom: 20,
-  },
-  thirdPageImagesScroll: {
-    flexDirection: "row",
-    marginBottom: 8,
-  },
-  thirdPageImageWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 6,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: "#EEEEEE",
-    overflow: "hidden",
-  },
-  thirdPageMainImageWrapper: {
-    borderColor: "#2528BE",
-    borderWidth: 2,
-  },
-  thirdPageImage: {
-    width: "100%",
-    height: "100%",
-  },
-  mainImageBadge: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 102, 204, 0.8)",
-    paddingVertical: 2,
-    alignItems: "center",
-  },
-  mainImageBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  // Success page styles
+  
+  // Success screen styles
   successContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1896,130 +1680,45 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     lineHeight: 24,
   },
-  exploreButton: {
-    backgroundColor: "#2528BE",
+  thumbsUpIcon: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 40,
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  thumbsUpEmoji: {
+    fontSize: 40,
+  },
+  viewItemButton: {
+    backgroundColor: '#2528BE',
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    width: "100%",
-    alignItems: "center",
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  exploreButtonText: {
-    color: "#FFFFFF",
+  viewItemButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
-  // Category styles
-  categoriesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginVertical: 8,
+  homeButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+    alignItems: 'center',
   },
-  categoryItem: {
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-  },
-  selectedCategoryItem: {
-    backgroundColor: '#E1F5FE',
-    borderColor: '#2528BE',
-  },
-  categoryText: {
-    fontSize: 14,
-    color: '#333333',
-  },
-
-  // Modern Animated Input Styles
-  modernInputContainer: {
-    marginBottom: 24,
-    position: 'relative',
-  },
-  modernInputWrapper: {
-    borderWidth: 1.5,
-    borderRadius: 12,
-    backgroundColor: '#FAFAFA',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  modernTextAreaWrapper: {
-    borderWidth: 1.5,
-    borderRadius: 12,
-    backgroundColor: '#FAFAFA',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  modernInput: {
-    padding: 16,
+  homeButtonText: {
+    color: '#666',
     fontSize: 16,
-    color: '#333',
-    fontWeight: '400',
+    fontWeight: '500',
   },
-  modernTextArea: {
-    padding: 16,
-    fontSize: 16,
-    color: '#333',
-    minHeight: 120,
-    fontWeight: '400',
-  },
-  focusedInput: {
-    shadowColor: '#2528be',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  errorInput: {
-    shadowColor: '#F44336',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  textAreaIcon: {
-    position: "absolute",
-    left: 12,
-    top: 12,
-    zIndex: 1,
-  },
-  currencySymbol: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#666",
-    marginRight: 8,
-    zIndex: 1,
-  },
-  currencySymbolFocused: {
-    color: "#2528BE",
-  },
-  priceInput: {
-    paddingLeft: 10,
-  },
-  submitButtonIcon: {
-    marginLeft: 8,
-  },
-  // Updated Animated Input Styles
-  animatedInputWrapper: {
-    borderWidth: 1,
-    borderRadius: 8,
-    backgroundColor: 'white',
-  },
-  animatedTextAreaWrapper: {
-    borderWidth: 1,
-    borderRadius: 8,
-    backgroundColor: 'white',
-  },
-  // Add Photos Modal styles
+  
+  // Photo modal styles
   addPhotosModalContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -2086,155 +1785,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
-  // Single page form styles
-  singlePageContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  uploadSection: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    backgroundColor: '#FAFAFA',
-    marginBottom: 16,
-  },
-  uploadedText: {
-    fontSize: 16,
-    color: '#666',
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  uploadedImagesScroll: {
-    flexDirection: 'row',
-  },
-  uploadedImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 8,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  uploadedImage: {
-    width: '100%',
-    height: '100%',
-  },
-  removeUploadedImageButton: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  formSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  sectionHeader: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  floatingLabel: {
-    position: 'absolute',
-    left: 16,
-    top: -10,
-    fontSize: 12,
-    color: '#2528be',
-    backgroundColor: 'white',
-    paddingHorizontal: 4,
-    zIndex: 1,
-  },
-  bottomButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    backgroundColor: '#FFFFFF',
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    marginRight: 8,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
-  },
-  saveButton: {
-    flex: 1,
-    paddingVertical: 12,
-    marginLeft: 8,
-    borderRadius: 8,
-    backgroundColor: '#2528BE',
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  
-  // Updated success screen styles
-  thumbsUpIcon: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 40,
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  thumbsUpEmoji: {
-    fontSize: 40,
-  },
-  viewItemButton: {
-    backgroundColor: '#2528BE',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  viewItemButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  homeButton: {
-    backgroundColor: 'transparent',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
-  },
-  homeButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '500',
-  },
   loadingPhotosContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -2270,6 +1820,8 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
+  
+  // Category modal styles
   categoryModalContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -2300,18 +1852,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    backgroundColor: '#FAFAFA',
-    paddingHorizontal: 12,
+    borderColor: '#E8E8E8',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    minHeight: 56,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#000000',
+    paddingVertical: 0, // Remove default padding to center text properly
   },
   categoryListContainer: {
     padding: 16,
@@ -2342,32 +1897,77 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
     borderRadius: 12,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    marginBottom: 20,
+    minHeight: 56,
   },
-  categoryPlaceholder: {
+  
+  // Clean modern form styles matching target UI
+  floatingLabel: {
+    position: 'absolute',
+    left: 16,
+    top: -8,
+    fontSize: 12,
+    color: '#A0A0A0',
+    backgroundColor: 'white',
+    paddingHorizontal: 4,
+    zIndex: 1,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     fontSize: 16,
-    color: '#999',
+    color: '#000000',
+    backgroundColor: '#FFFFFF',
   },
-  selectedCategoriesContainer: {
+  textAreaInput: {
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#000000',
+    backgroundColor: '#FFFFFF',
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+  dropdownInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    minHeight: 56,
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: '#000000',
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#A0A0A0',
+  },
+  categoryDisplayContainer: {
     flex: 1,
   },
-  selectedCategoriesWrapper: {
+  categoriesDisplay: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
   },
-  selectedCategoryChip: {
+  categoryTag: {
     backgroundColor: '#E3F2FD',
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -2375,14 +1975,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 4,
   },
-  selectedCategoryText: {
+  categoryTagText: {
     fontSize: 12,
     color: '#2528BE',
     fontWeight: '500',
   },
-  moreCategoriesText: {
+  moreText: {
     fontSize: 14,
-    color: '#666',
+    color: '#666666',
     fontStyle: 'italic',
+  },
+  inputError: {
+    borderColor: '#FF3B30',
   },
 });
