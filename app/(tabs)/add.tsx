@@ -1145,7 +1145,7 @@ export default function AddItem() {
                 recentPhotos.map((asset, index) => {
                   const isSelected = selectedPhotoIds.includes(asset.id);
                   const disabled =
-                    !isSelected && selectedPhotoIds.length >= 5; // limit selection to 5
+                    !isSelected && selectedPhotoIds.length >= MAX_IMAGES - images.length; // limit selection to remaining slots
                   return (
                     <TouchableOpacity
                       key={asset.id}
@@ -1158,7 +1158,7 @@ export default function AddItem() {
                         setSelectedPhotoIds((prev) =>
                           isSelected
                             ? prev.filter((id) => id !== asset.id)
-                            : prev.length < 5
+                            : prev.length < MAX_IMAGES - images.length
                             ? [...prev, asset.id]
                             : prev
                         );
