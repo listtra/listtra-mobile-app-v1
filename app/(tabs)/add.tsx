@@ -5,12 +5,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
-<<<<<<< Updated upstream
-=======
-import Constants from "expo-constants";
->>>>>>> Stashed changes
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import Constants from "expo-constants";
 import {
   ActivityIndicator,
@@ -62,8 +58,6 @@ const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const googleMapsApiKey = Constants?.expoConfig?.extra?.googleMapsApiKey ?? "";
-<<<<<<< Updated upstream
-=======
 
 // Animated Input Component (fixed version)
 interface AnimatedInputProps {
@@ -168,7 +162,6 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
     </View>
   );
 };
->>>>>>> Stashed changes
 
 export default function AddItem() {
   const router = useRouter();
@@ -320,9 +313,6 @@ export default function AddItem() {
 
   // Handle input changes
   const handleInputChange = (field: string, value: string) => {
-    if (field === "location") {
-      console.log("Location updated:", value);
-    }
     // Special handling for price field - only allow numbers and decimal
     if (field === "price") {
       // Validate price input (numbers and one decimal point only)
@@ -927,12 +917,6 @@ export default function AddItem() {
   }
 
   const formatConditionDisplay = (condition: string) => {
-<<<<<<< Updated upstream
-    return condition
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-=======
     // Handle specific condition mappings for better display
     const conditionMap: { [key: string]: string } = {
       new: "New",
@@ -949,7 +933,6 @@ export default function AddItem() {
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ")
     );
->>>>>>> Stashed changes
   };
 
   const CustomDropdown = ({
@@ -961,67 +944,53 @@ export default function AddItem() {
     setIsVisible,
   }: CustomDropdownProps) => {
     return (
-      <>
+      <Modal
+        transparent={true}
+        visible={isVisible}
+        animationType="fade"
+        onRequestClose={() => setIsVisible(false)}
+      >
         <TouchableOpacity
-          style={styles.dropdownButton}
-          onPress={() => setIsVisible(true)}
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsVisible(false)}
         >
-          <Text style={styles.dropdownButtonText}>
-            {label === "Condition"
-              ? formatConditionDisplay(selectedValue)
-              : selectedValue}
-          </Text>
-          <Ionicons name="chevron-down" size={20} color="#777" />
-        </TouchableOpacity>
+          <View style={styles.dropdownModal}>
+            <Text style={styles.dropdownModalTitle}>{`Select ${label}`}</Text>
 
-        <Modal
-          transparent={true}
-          visible={isVisible}
-          animationType="fade"
-          onRequestClose={() => setIsVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setIsVisible(false)}
-          >
-            <View style={styles.dropdownModal}>
-              <Text style={styles.dropdownModalTitle}>{`Select ${label}`}</Text>
-
-              <ScrollView>
-                {options.map((option: string) => (
-                  <TouchableOpacity
-                    key={option}
+            <ScrollView>
+              {options.map((option: string) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.dropdownItem,
+                    selectedValue === option && styles.selectedDropdownItem,
+                  ]}
+                  onPress={() => {
+                    onValueChange(option);
+                    setIsVisible(false);
+                  }}
+                >
+                  <Text
                     style={[
-                      styles.dropdownItem,
-                      selectedValue === option && styles.selectedDropdownItem,
+                      styles.dropdownItemText,
+                      selectedValue === option &&
+                        styles.selectedDropdownItemText,
                     ]}
-                    onPress={() => {
-                      onValueChange(option);
-                      setIsVisible(false);
-                    }}
                   >
-                    <Text
-                      style={[
-                        styles.dropdownItemText,
-                        selectedValue === option &&
-                          styles.selectedDropdownItemText,
-                      ]}
-                    >
-                      {label === "Condition"
-                        ? formatConditionDisplay(option)
-                        : option}
-                    </Text>
-                    {selectedValue === option && (
-                      <Ionicons name="checkmark" size={20} color="#2528BE" />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      </>
+                    {label === "Condition"
+                      ? formatConditionDisplay(option)
+                      : option}
+                  </Text>
+                  {selectedValue === option && (
+                    <Ionicons name="checkmark" size={20} color="#2528BE" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     );
   };
 
@@ -1193,7 +1162,7 @@ export default function AddItem() {
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search categories..."
-                placeholderTextColor="#999"
+                placeholderTextColor="#A0A0A0"
                 value={categorySearchText}
                 onChangeText={handleCategorySearch}
               />
@@ -1234,53 +1203,6 @@ export default function AddItem() {
 
       {currentStep === 1 && (
         // Single Page Form
-<<<<<<< Updated upstream
-        <View style={styles.singlePageContainer}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Ionicons name="chevron-back" size={24} color="#333" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Add Item</Text>
-            <View style={{ width: 40 }} />
-          </View>
-
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollViewContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled={true}
-          >
-            {/* Upload Section */}
-            <View style={styles.uploadSection}>
-              <TouchableOpacity
-                style={styles.uploadButton}
-                onPress={openImagePicker}
-              >
-                <Ionicons name="cloud-upload-outline" size={24} color="#666" />
-                <Text style={styles.uploadedText}>
-                  {images.length > 0
-                    ? `Uploaded (${images.length}/${MAX_IMAGES})`
-                    : "Upload Images"}
-                </Text>
-              </TouchableOpacity>
-
-              {images.length > 0 && (
-                <ScrollView
-                  horizontal
-                  style={styles.uploadedImagesScroll}
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.uploadedImagesRow}
-                >
-                  {images.map((uri, index) => (
-                    <View key={index} style={styles.uploadedImageContainer}>
-                      <Image source={{ uri }} style={styles.uploadedImage} />
-                      <TouchableOpacity
-                        style={styles.removeUploadedImageButton}
-=======
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -1331,7 +1253,6 @@ export default function AddItem() {
                       />
                       <TouchableOpacity
                         style={styles.removeImageIcon}
->>>>>>> Stashed changes
                         onPress={() => removeImage(index)}
                       >
                         <Ionicons
@@ -1347,20 +1268,6 @@ export default function AddItem() {
             </View>
 
             {/* Form Fields */}
-<<<<<<< Updated upstream
-            <View style={styles.formSection}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Name</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    formErrors.title ? styles.inputError : null,
-                  ]}
-                  placeholder="Enter item name"
-                  placeholderTextColor="#999"
-                  value={formData.title}
-                  onChangeText={(value) => handleInputChange("title", value)}
-=======
             <View style={styles.formContainer}>
               <View style={styles.fieldContainer}>
                 <AnimatedInput
@@ -1373,98 +1280,11 @@ export default function AddItem() {
                   hasError={!!formErrors.title}
                   multiline={false}
                   numberOfLines={1}
->>>>>>> Stashed changes
                   maxLength={100}
                 />
                 {formErrors.title && (
                   <Text style={styles.errorText}>{formErrors.title}</Text>
                 )}
-<<<<<<< Updated upstream
-              </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Categories</Text>
-                <TouchableOpacity
-                  style={styles.categorySelector}
-                  onPress={() => setCategorySearchVisible(true)}
-                >
-                  <View style={styles.selectedCategoriesContainer}>
-                    {formData.categories.length === 0 ? (
-                      <Text style={styles.categoryPlaceholder}>
-                        Select categories
-                      </Text>
-                    ) : (
-                      <View style={styles.selectedCategoriesWrapper}>
-                        {formData.categories
-                          .slice(0, 2)
-                          .map((category, index) => (
-                            <View
-                              key={category}
-                              style={styles.selectedCategoryChip}
-                            >
-                              <Text style={styles.selectedCategoryText}>
-                                {category}
-                              </Text>
-                            </View>
-                          ))}
-                        {formData.categories.length > 2 && (
-                          <Text style={styles.moreCategoriesText}>
-                            +{formData.categories.length - 2} more
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-down" size={20} color="#777" />
-                </TouchableOpacity>
-                {formErrors.categories && (
-                  <Text style={styles.errorText}>{formErrors.categories}</Text>
-                )}
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Price</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    formErrors.price ? styles.inputError : null,
-                  ]}
-                  placeholder="Enter price"
-                  placeholderTextColor="#999"
-                  value={formData.price}
-                  onChangeText={(value) => handleInputChange("price", value)}
-                  keyboardType="decimal-pad"
-                />
-                {formErrors.price && (
-                  <Text style={styles.errorText}>{formErrors.price}</Text>
-                )}
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Condition</Text>
-                <View style={styles.pickerContainer}>
-                  <CustomDropdown
-                    label="Condition"
-                    options={CONDITIONS}
-                    selectedValue={formData.condition}
-                    onValueChange={(value: string) =>
-                      handleInputChange("condition", value)
-                    }
-                    isVisible={conditionDropdownVisible}
-                    setIsVisible={setConditionDropdownVisible}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Description</Text>
-                <TextInput
-                  style={[
-                    styles.textArea,
-                    formErrors.description ? styles.inputError : null,
-                  ]}
-                  placeholder="Describe your item"
-                  placeholderTextColor="#999"
-=======
               </View>
 
               <View style={styles.fieldContainer}>
@@ -1542,39 +1362,24 @@ export default function AddItem() {
                 <AnimatedInput
                   label="Description"
                   placeholder=""
->>>>>>> Stashed changes
                   value={formData.description}
                   onChangeText={(value) =>
                     handleInputChange("description", value)
                   }
                   multiline
                   numberOfLines={4}
-<<<<<<< Updated upstream
-                  textAlignVertical="top"
-=======
                   hasError={!!formErrors.description}
->>>>>>> Stashed changes
                 />
                 {formErrors.description && (
                   <Text style={styles.errorText}>{formErrors.description}</Text>
                 )}
               </View>
 
-<<<<<<< Updated upstream
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Pickup</Text>
-                {/* <View style={{ ...styles.input, padding: 0 }}> */}
-=======
               <View style={styles.fieldContainer}>
->>>>>>> Stashed changes
                 <GooglePlacesAutocomplete
                   ref={placesRef}
                   placeholder="Enter pickup location"
                   minLength={2}
-<<<<<<< Updated upstream
-                  value={formData.location}
-=======
->>>>>>> Stashed changes
                   fetchDetails={true}
                   onPress={(data, details = null) => {
                     if (details) {
@@ -1607,19 +1412,11 @@ export default function AddItem() {
                         .join(", ");
                       console.log(locationString);
                       handleInputChange("location", locationString);
-<<<<<<< Updated upstream
-                      placesRef.current?.setAddressText(locationString);
-                    } else {
-                      // fallback to description if details is missing
-                      handleInputChange("location", data.description);
-                      placesRef.current?.setAddressText(data.description);
-=======
                       // placesRef.current?.setAddressText(locationString);
                     } else {
                       // fallback to description if details is missing
                       handleInputChange("location", data.description);
                       // placesRef.current?.setAddressText(data.description);
->>>>>>> Stashed changes
                     }
                   }}
                   query={{
@@ -1674,13 +1471,10 @@ export default function AddItem() {
                     },
                   }}
                   textInputProps={{
-<<<<<<< Updated upstream
-=======
                     value: formData.location,
                     onChangeText(text) {
                       handleInputChange("location", text);
                     },
->>>>>>> Stashed changes
                     placeholderTextColor: "#999",
                     autoCorrect: false,
                     autoCapitalize: "none",
@@ -1688,39 +1482,9 @@ export default function AddItem() {
                   enablePoweredByContainer={false}
                   debounce={300}
                 />
-<<<<<<< Updated upstream
-                {/* </View> */}
                 {formErrors.location && (
                   <Text style={styles.errorText}>{formErrors.location}</Text>
                 )}
-              </View>
-            </View>
-          </ScrollView>
-
-          {/* Bottom Buttons */}
-          <View style={styles.bottomButtons}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              activeOpacity={0.8}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-=======
               </View>
             </View>
 
@@ -1742,7 +1506,7 @@ export default function AddItem() {
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color="#FFF" />
                 ) : (
-                  <Text style={styles.saveBtnText}>Submit</Text>
+                  <Text style={styles.saveBtnText}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1760,7 +1524,6 @@ export default function AddItem() {
             />
           </ScrollView>
         </KeyboardAvoidingView>
->>>>>>> Stashed changes
       )}
 
       {currentStep === 2 && (
@@ -1804,48 +1567,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-  header: {
+  contentContainer: {
+    paddingBottom: 120, // Add padding for bottom buttons
+  },
+  headerSection: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
     backgroundColor: "#FFFFFF",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+  },
+  pageTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#000000",
+    marginLeft: 10,
   },
   backButton: {
     padding: 8,
     borderRadius: 20,
   },
-<<<<<<< Updated upstream
-  headerTitle: {
-    fontSize: 18,
-    ...Platform.select({
-      ios: {
-        fontWeight: "600",
-      },
-      android: {
-        fontWeight: "700",
-      },
-    }),
-    color: "#333333",
-  },
-  nextButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-=======
 
   // Upload section styles
   uploadContainer: {
@@ -1863,29 +1605,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#FFFFFF",
     marginBottom: 16,
->>>>>>> Stashed changes
   },
-  nextButtonText: {
-    color: "#2528BE",
+  uploadText: {
     fontSize: 16,
-<<<<<<< Updated upstream
-    fontWeight: "bold",
-  },
-  scrollView: {
-    flex: 1,
-    marginBottom: 40,
-  },
-  scrollViewContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "500",
-=======
     color: "#666666",
     marginLeft: 8,
   },
@@ -1927,21 +1649,9 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     color: "#A0A0A0",
->>>>>>> Stashed changes
     marginBottom: 8,
-    color: "#333333",
+    marginLeft: 4,
   },
-<<<<<<< Updated upstream
-  input: {
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#FAFAFA",
-  },
-  inputError: {
-=======
 
   // AnimatedInput styles
   inputFieldContainer: {
@@ -1985,7 +1695,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   errorBorder: {
->>>>>>> Stashed changes
     borderColor: "#FF3B30",
   },
   errorText: {
@@ -1993,14 +1702,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-<<<<<<< Updated upstream
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 8,
-    backgroundColor: "#FAFAFA",
-    overflow: "hidden",
-=======
 
   // Bottom buttons
   actionButtons: {
@@ -2018,21 +1719,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#F5F5F5",
     alignItems: "center",
->>>>>>> Stashed changes
   },
-  dropdownButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-  },
-  dropdownButtonText: {
+  cancelBtnText: {
     fontSize: 16,
-<<<<<<< Updated upstream
-    color: "#333",
-  },
-=======
     color: "#666666",
     fontWeight: "500",
   },
@@ -2051,7 +1740,6 @@ const styles = StyleSheet.create({
   },
 
   // Modal styles
->>>>>>> Stashed changes
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -2097,11 +1785,6 @@ const styles = StyleSheet.create({
     color: "#2528BE",
     fontWeight: "500",
   },
-<<<<<<< Updated upstream
-  submitButton: {
-    backgroundColor: "#2528BE",
-    borderRadius: 12,
-=======
 
   // Compatibility styles for old components
   pickerContainer: {
@@ -2122,29 +1805,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
->>>>>>> Stashed changes
     paddingVertical: 16,
-    alignItems: "center",
-    marginTop: 30,
-    marginBottom: 20,
-    shadowColor: "#2528BE",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 4,
-    flexDirection: "row",
-    justifyContent: "center",
   },
-  submitButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
+  dropdownButtonText: {
+    fontSize: 16,
+    color: "#333",
   },
-<<<<<<< Updated upstream
-=======
 
   // Loading styles
->>>>>>> Stashed changes
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -2157,313 +1825,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
-<<<<<<< Updated upstream
-  // Updated styles for first page
-  firstPageContainer: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  uploadContainer: {
-    padding: 20,
-  },
-  mainUploadButton: {
-    width: "100%",
-    height: 180,
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderStyle: "dashed",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F9F9F9",
-    marginBottom: 16,
-  },
-  uploadText: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: "#333333",
-    marginTop: 8,
-  },
-  uploadSubText: {
-    fontSize: 14,
-    color: "#999999",
-    marginTop: 8,
-    textAlign: "center",
-    paddingHorizontal: 20,
-  },
-  imagePreviewHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  previewTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333333",
-  },
-  imageCounterText: {
-    fontSize: 14,
-    color: "#999999",
-  },
-  thumbnailScroll: {
-    flexDirection: "row",
-    marginBottom: 16,
-  },
-  thumbnailContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    marginRight: 10,
-    position: "relative",
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#EEEEEE",
-  },
-  thumbnail: {
-    width: "100%",
-    height: "100%",
-  },
-  removeImageButton: {
-    position: "absolute",
-    top: 5,
-    right: 5,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 15,
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  divider: {
-    height: 8,
-    backgroundColor: "#F2F2F2",
-    width: "100%",
-  },
-  inputArea: {
-    padding: 20,
-    flex: 1,
-  },
-  titleInput: {
-    fontSize: 18,
-    borderBottomWidth: 1,
-    borderColor: "#EEEEEE",
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  descriptionInput: {
-    fontSize: 16,
-    minHeight: 100,
-    textAlignVertical: "top",
-    paddingTop: 12,
-  },
-
-  // Bottom button styles
-  bottomButtonContainer: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-  },
-  nextPageButton: {
-    backgroundColor: "#2528BE",
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  disabledButton: {
-    backgroundColor: "#CCCCCC",
-  },
-  nextPageButtonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-
-  // Styles for the new image preview page (step 2)
-  secondPageContainer: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    paddingBottom: 30,
-  },
-  mainImageContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F5F5F5",
-  },
-  mainImageWrapper: {
-    width: "100%",
-    height: "100%",
-    position: "relative",
-  },
-  mainImage: {
-    width: "100%",
-    height: "100%",
-  },
-  removeMainImageButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 20,
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  noImagePlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  noImageText: {
-    fontSize: 18,
-    color: "#999999",
-    marginTop: 16,
-  },
-  previewFooter: {
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-    paddingVertical: 10,
-  },
-  previewThumbnailRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  previewThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 4,
-    marginRight: 8,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "transparent",
-    position: "relative",
-  },
-  selectedPreviewThumbnail: {
-    borderColor: "#2528BE",
-  },
-  thumbnailImage: {
-    width: "100%",
-    height: "100%",
-  },
-  previewActionButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  cameraButton: {
-    backgroundColor: "#666666",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  nextStepButton: {
-    backgroundColor: "#2528BE",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  nextStepButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginRight: 8,
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#FAFAFA",
-    minHeight: 100,
-  },
-  priceInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 8,
-    backgroundColor: "#FAFAFA",
-    paddingHorizontal: 12,
-  },
-  currencySymbolSmall: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333333",
-    marginRight: 8,
-  },
-  priceSuggestionTextSmall: {
-    fontSize: 14,
-    color: "#666666",
-    marginTop: 8,
-  },
-  removeThumbnailButton: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  // Third page image styles
-  thirdPageImagesContainer: {
-    marginBottom: 20,
-  },
-  thirdPageImagesScroll: {
-    flexDirection: "row",
-    marginBottom: 8,
-  },
-  thirdPageImageWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 6,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: "#EEEEEE",
-    overflow: "hidden",
-  },
-  thirdPageMainImageWrapper: {
-    borderColor: "#2528BE",
-    borderWidth: 2,
-  },
-  thirdPageImage: {
-    width: "100%",
-    height: "100%",
-  },
-  mainImageBadge: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 102, 204, 0.8)",
-    paddingVertical: 2,
-    alignItems: "center",
-  },
-  mainImageBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  // Success page styles
-=======
   // Success screen styles
->>>>>>> Stashed changes
   successContainer: {
     flex: 1,
     justifyContent: "center",
@@ -2493,9 +1855,6 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     lineHeight: 24,
   },
-<<<<<<< Updated upstream
-  exploreButton: {
-=======
   thumbsUpIcon: {
     backgroundColor: "#E3F2FD",
     borderRadius: 40,
@@ -2508,120 +1867,19 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   viewItemButton: {
->>>>>>> Stashed changes
     backgroundColor: "#2528BE",
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 24,
     width: "100%",
     alignItems: "center",
-<<<<<<< Updated upstream
-  },
-  exploreButtonText: {
-=======
     marginBottom: 12,
   },
   viewItemButtonText: {
->>>>>>> Stashed changes
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
   },
-<<<<<<< Updated upstream
-  // Category styles
-  categoriesContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginVertical: 8,
-  },
-  categoryItem: {
-    backgroundColor: "#F5F5F5",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: "#EEEEEE",
-  },
-  selectedCategoryItem: {
-    backgroundColor: "#E1F5FE",
-    borderColor: "#2528BE",
-  },
-  categoryText: {
-    fontSize: 14,
-    color: "#333333",
-  },
-
-  animatedInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 12,
-    backgroundColor: "#FAFAFA",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    shadowColor: "#2528BE",
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  animatedInput: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-    paddingLeft: 30,
-  },
-  inputIcon: {
-    position: "absolute",
-    left: 12,
-    zIndex: 1,
-  },
-  animatedTextAreaContainer: {
-    position: "relative",
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderRadius: 12,
-    backgroundColor: "#FAFAFA",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    shadowColor: "#2528BE",
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  animatedTextArea: {
-    fontSize: 16,
-    color: "#333",
-    minHeight: 100,
-    textAlignVertical: "top",
-    paddingLeft: 30,
-  },
-  textAreaIcon: {
-    position: "absolute",
-    left: 12,
-    top: 12,
-    zIndex: 1,
-  },
-  currencySymbol: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#666",
-    marginRight: 8,
-    zIndex: 1,
-  },
-  currencySymbolFocused: {
-    color: "#2528BE",
-  },
-  priceInput: {
-    paddingLeft: 10,
-  },
-  submitButtonIcon: {
-    marginLeft: 8,
-  },
-  // Add Photos Modal styles
-=======
   homeButton: {
     backgroundColor: "transparent",
     paddingVertical: 14,
@@ -2636,7 +1894,6 @@ const styles = StyleSheet.create({
   },
 
   // Photo modal styles
->>>>>>> Stashed changes
   addPhotosModalContainer: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -2702,146 +1959,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     justifyContent: "center",
     alignItems: "center",
-<<<<<<< Updated upstream
-  },
-
-  // Single page form styles
-  singlePageContainer: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  uploadSection: {
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
-  },
-  uploadButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#DDDDDD",
-    borderStyle: "dashed",
-    borderRadius: 8,
-    backgroundColor: "#F9F9F9",
-    marginBottom: 16,
-  },
-  uploadedText: {
-    fontSize: 16,
-    color: "#666",
-    marginLeft: 8,
-  },
-  uploadedImagesRow: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    alignItems: "center",
-    marginTop: 8,
-  },
-  uploadedImagesScroll: {
-    flexDirection: "row",
-  },
-  uploadedImageContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 8,
-    position: "relative",
-    overflow: "hidden",
-  },
-  uploadedImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 8,
-  },
-  removeUploadedImageButton: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  formSection: {
-    padding: 20,
-  },
-  bottomButtons: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-    backgroundColor: "#FFFFFF",
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    marginRight: 8,
-    borderRadius: 8,
-    backgroundColor: "#F5F5F5",
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: "#666",
-    fontWeight: "500",
-  },
-  saveButton: {
-    flex: 1,
-    paddingVertical: 12,
-    marginLeft: 8,
-    borderRadius: 8,
-    backgroundColor: "#2528BE",
-    alignItems: "center",
-  },
-  saveButtonText: {
-    fontSize: 16,
-    color: "#FFFFFF",
-    fontWeight: "600",
-  },
-
-  // Updated success screen styles
-  thumbsUpIcon: {
-    backgroundColor: "#E3F2FD",
-    borderRadius: 40,
-    width: 80,
-    height: 80,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  thumbsUpEmoji: {
-    fontSize: 40,
-  },
-  viewItemButton: {
-    backgroundColor: "#2528BE",
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  viewItemButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  homeButton: {
-    backgroundColor: "transparent",
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    width: "100%",
-    alignItems: "center",
-  },
-  homeButtonText: {
-    color: "#666",
-    fontSize: 16,
-    fontWeight: "500",
-=======
->>>>>>> Stashed changes
   },
   loadingPhotosContainer: {
     flex: 1,
@@ -2878,11 +1995,8 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 4,
   },
-<<<<<<< Updated upstream
-=======
 
   // Category modal styles
->>>>>>> Stashed changes
   categoryModalContainer: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -2913,32 +2027,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-<<<<<<< Updated upstream
-    borderColor: "#DDDDDD",
-    borderRadius: 8,
-    backgroundColor: "#FAFAFA",
-    paddingHorizontal: 12,
-=======
     borderColor: "#E8E8E8",
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 16,
     paddingVertical: 16,
     minHeight: 56,
->>>>>>> Stashed changes
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-<<<<<<< Updated upstream
-    color: "#333",
-=======
     color: "#000000",
     paddingVertical: 0, // Remove default padding to center text properly
->>>>>>> Stashed changes
   },
   categoryListContainer: {
     padding: 16,
@@ -2970,22 +2073,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderWidth: 1,
-<<<<<<< Updated upstream
-    borderColor: "#DDDDDD",
-    borderRadius: 8,
-    backgroundColor: "#FAFAFA",
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-  },
-  categoryPlaceholder: {
-    fontSize: 16,
-    color: "#999",
-  },
-  selectedCategoriesContainer: {
-    flex: 1,
-  },
-  selectedCategoriesWrapper: {
-=======
     borderColor: "#E8E8E8",
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
@@ -3051,16 +2138,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoriesDisplay: {
->>>>>>> Stashed changes
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
   },
-<<<<<<< Updated upstream
-  selectedCategoryChip: {
-=======
   categoryTag: {
->>>>>>> Stashed changes
     backgroundColor: "#E3F2FD",
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -3068,23 +2150,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 4,
   },
-  selectedCategoryText: {
+  categoryTagText: {
     fontSize: 12,
     color: "#2528BE",
     fontWeight: "500",
   },
-  moreCategoriesText: {
+  moreText: {
     fontSize: 14,
-<<<<<<< Updated upstream
-    color: "#666",
-    fontStyle: "italic",
-  },
-=======
     color: "#666666",
     fontStyle: "italic",
   },
   inputError: {
     borderColor: "#FF3B30",
   },
->>>>>>> Stashed changes
 });
