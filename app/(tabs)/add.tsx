@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import Constants from "expo-constants";
+import * as Location from "expo-location";
 import {
   ActivityIndicator,
   Alert,
@@ -281,6 +282,14 @@ export default function AddItem() {
       // Reset the form when component is focused
       resetForm();
 
+      // After resetting, fetch location if empty
+      setTimeout(() => {
+        // Use setTimeout to ensure state is updated before checking
+        if (!formData.location) {
+          fetchAndSetCurrentLocation();
+        }
+      }, 0);
+
       // No cleanup function needed
       return () => {};
     }, [])
@@ -431,9 +440,50 @@ export default function AddItem() {
     }
   };
 
+  const fetchAndSetCurrentLocation = async () => {
+    try {
+      // Request location permission
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Location permission is required to fetch your current location."
+        );
+        return;
+      }
+      // Get current position
+      let location = await Location.getCurrentPositionAsync({});
+      // Reverse geocode to get address
+      let addresses = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      if (addresses.length > 0) {
+        const addr = addresses[0];
+        console.log("Address components:", addr);
+        // Format: "Suburb, State, Country, Postal Code"
+        const locationString = [
+          addr.subregion || addr.city || addr.district || "",
+          addr.region || "",
+          addr.country || "",
+          addr.postalCode || "",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        handleInputChange("location", locationString);
+      }
+    } catch (error) {
+      console.error("Error fetching location:", error);
+      Alert.alert("Error", "Failed to fetch your current location.");
+    }
+  };
+
   useEffect(() => {
     // Request both permissions on component mount
     requestPermissions();
+    if (!formData.location) {
+      fetchAndSetCurrentLocation();
+    }
   }, []);
 
   // Launch camera to take a photo
