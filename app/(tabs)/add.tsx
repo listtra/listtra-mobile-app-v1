@@ -543,6 +543,9 @@ export default function AddItem() {
   const [recentPhotos, setRecentPhotos] = useState<MediaLibrary.Asset[]>([]);
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
 
+  // 1. Add state for multi-select
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
+
   // Open image picker with source selection
   const openImagePicker = () => {
     setAddPhotosModalVisible(true);
@@ -1063,7 +1066,10 @@ export default function AddItem() {
         transparent={false}
         visible={addPhotosModalVisible}
         animationType="slide"
-        onRequestClose={() => setAddPhotosModalVisible(false)}
+        onRequestClose={() => {
+          setAddPhotosModalVisible(false);
+          setSelectedPhotoIds([]);
+        }}
         statusBarTranslucent={true}
       >
         <View
@@ -1080,7 +1086,28 @@ export default function AddItem() {
               <Ionicons name="chevron-back" size={24} color="#333" />
             </TouchableOpacity>
             <Text style={styles.addPhotosTitle}>Add Photos</Text>
-            <View style={{ width: 40 }} />
+            <TouchableOpacity
+              onPress={async () => {
+                // Find selected assets
+                const selectedAssets = recentPhotos.filter(asset => selectedPhotoIds.includes(asset.id));
+                // Get their URIs and add to images
+                let newImages = [...images];
+                for (const asset of selectedAssets) {
+                  if (newImages.length >= MAX_IMAGES) break;
+                  const assetInfo = await MediaLibrary.getAssetInfoAsync(asset);
+                  newImages.push(assetInfo.localUri || assetInfo.uri);
+                }
+                setImages(newImages);
+                setAddPhotosModalVisible(false);
+                setSelectedPhotoIds([]);
+              }}
+              style={{ padding: 8, opacity: selectedPhotoIds.length === 0 ? 0.5 : 1 }}
+              disabled={selectedPhotoIds.length === 0}
+            >
+              <Text style={{ color: '#2528BE', fontWeight: 'bold', fontSize: 16 }}>
+                <Ionicons name="cloud-upload-outline" size={20} color="#333"/>
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.addPhotosContent}>
@@ -1089,7 +1116,11 @@ export default function AddItem() {
               <Ionicons name="chevron-down" size={20} color="#333" />
             </View>
 
-            <View style={styles.photosGrid}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}
+              showsVerticalScrollIndicator={true}
+            >
               {/* Camera option */}
               <TouchableOpacity
                 style={styles.cameraGridItem}
@@ -1111,19 +1142,51 @@ export default function AddItem() {
                   </Text>
                 </View>
               ) : (
-                recentPhotos.map((asset, index) => (
-                  <TouchableOpacity
-                    key={asset.id}
-                    style={styles.photoGridItem}
-                    onPress={() => selectRecentPhoto(asset)}
-                  >
-                    <Image
-                      source={{ uri: asset.uri }}
-                      style={styles.recentPhotoImage}
-                      resizeMode="cover"
-                    />
-                  </TouchableOpacity>
-                ))
+                recentPhotos.map((asset, index) => {
+                  const isSelected = selectedPhotoIds.includes(asset.id);
+                  const disabled =
+                    !isSelected && selectedPhotoIds.length >= 5; // limit selection to 5
+                  return (
+                    <TouchableOpacity
+                      key={asset.id}
+                      style={[
+                        styles.photoGridItem,
+                        isSelected && { borderWidth: 2, borderColor: '#2528BE' },
+                        disabled && { opacity: 0.5 },
+                      ]}
+                      onPress={() => {
+                        setSelectedPhotoIds((prev) =>
+                          isSelected
+                            ? prev.filter((id) => id !== asset.id)
+                            : prev.length < 5
+                            ? [...prev, asset.id]
+                            : prev
+                        );
+                      }}
+                      disabled={disabled}
+                    >
+                      <Image
+                        source={{ uri: asset.uri }}
+                        style={styles.recentPhotoImage}
+                        resizeMode="cover"
+                      />
+                      {isSelected && (
+                        <View
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            right: 6,
+                            backgroundColor: '#2528BE',
+                            borderRadius: 10,
+                            padding: 2,
+                          }}
+                        >
+                          <Ionicons name="checkmark" size={16} color="#fff" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
               )}
 
               {/* Browse More Photos option */}
@@ -1143,25 +1206,7 @@ export default function AddItem() {
                   <Text style={styles.browseMoreText}>Browse More</Text>
                 </TouchableOpacity>
               )}
-
-              {/* Fallback for when no photos are loaded */}
-              {!isLoadingPhotos && recentPhotos.length === 0 && (
-                <TouchableOpacity
-                  style={styles.photoGridItem}
-                  onPress={() => {
-                    setAddPhotosModalVisible(false);
-                    setTimeout(() => pickImage(), 300);
-                  }}
-                >
-                  <View style={styles.photoPlaceholder}>
-                    <Ionicons name="image" size={40} color="#ccc" />
-                    <Text style={styles.noPhotosText}>
-                      Tap to browse photos
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1556,7 +1601,7 @@ export default function AddItem() {
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color="#FFF" />
                 ) : (
-                  <Text style={styles.saveBtnText}>Save</Text>
+                  <Text style={styles.saveBtnText}>Submit</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1691,7 +1736,7 @@ const styles = StyleSheet.create({
 
   // Form section styles
   formContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal:8
   },
   fieldContainer: {
     marginBottom: 16,
@@ -1990,6 +2035,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
+    marginRight:4
   },
   cameraText: {
     fontSize: 12,
@@ -2002,6 +2048,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
     overflow: "hidden",
+    marginRight:4
   },
   photoPlaceholder: {
     width: "100%",

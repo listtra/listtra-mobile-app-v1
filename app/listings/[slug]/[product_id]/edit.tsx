@@ -3,7 +3,6 @@ import axios from "axios";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import * as Location from "expo-location";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import Constants from "expo-constants";
 import {
@@ -75,13 +74,6 @@ export default function ListingEditScreen() {
     fetchListingData();
   }, [isInitializing, isAuthenticated, tokens]);
 
-  useEffect(() => {
-    if (!formData.location) {
-      fetchAndSetCurrentLocation();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listingData]);
-
   // Fetch listing data from API
   const fetchListingData = async () => {
     try {
@@ -151,39 +143,6 @@ export default function ListingEditScreen() {
       }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const fetchAndSetCurrentLocation = async () => {
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "Permission Denied",
-          "Location permission is required to fetch your current location."
-        );
-        return;
-      }
-      let location = await Location.getCurrentPositionAsync({});
-      let addresses = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-      if (addresses.length > 0) {
-        const addr = addresses[0];
-        const locationString = [
-          addr.subregion || addr.city || addr.district || "",
-          addr.region || "",
-          addr.country || "",
-          addr.postalCode || "",
-        ]
-          .filter(Boolean)
-          .join(", ");
-        setFormData((prev) => ({ ...prev, location: locationString }));
-      }
-    } catch (error) {
-      console.error("Error fetching location:", error);
-      Alert.alert("Error", "Failed to fetch your current location.");
     }
   };
 
