@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -88,6 +89,48 @@ const formatTimestamp = (dateString: string): string => {
 
 // Notification item component
 const NotificationItem = ({ item, onPress }: { item: any, onPress: (item: any) => void }) => {
+  // Special rendering for review reminders
+  if (item.notification_type === 'review_reminder') {
+    return (
+      <TouchableOpacity
+        style={styles.reviewReminderItem}
+        onPress={() => onPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.reviewReminderHeader}>
+          <Text style={styles.reviewReminderTitle}>Review Reminder</Text>
+          {!item.is_read && <View style={styles.unreadDot} />}
+        </View>
+        
+        <View style={styles.reviewReminderContent}>
+          {/* Product Image */}
+          {item.product_image ? (
+            <Image 
+              source={{ uri: item.product_image }} 
+              style={styles.reviewProductImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.reviewPlaceholderImage}>
+              <Ionicons name="star" size={24} color="#FFD700" />
+            </View>
+          )}
+          
+          {/* Review Message */}
+          <View style={styles.reviewMessageContainer}>
+            <Text style={styles.reviewMessage}>{item.message || item.text}</Text>
+            <Text style={styles.reviewPrompt}>Tap to leave your review now</Text>
+          </View>
+        </View>
+        
+        <Text style={styles.reviewReminderTime}>
+          {formatTimestamp(item.created_at)}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+  
+  // Regular notification rendering
   return (
     <TouchableOpacity
       style={styles.notificationItem}
@@ -139,7 +182,7 @@ export default function NotificationsScreen() {
     markAllAsRead,
     fetchNotifications 
   } = useNotifications();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, tokens } = useAuth();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -172,6 +215,41 @@ export default function NotificationsScreen() {
             pathname: '/chat/[conversationId]',
             params: { conversationId: `${slug}-${product_id}` }
           });
+        } else if (notification.notification_type === 'review_reminder') {
+          // For review reminders, navigate to the chat page for the relevant listing
+          // First we need to find the conversation
+          try {
+            const api = axios.create({
+              baseURL: 'https://backend.listtra.com',
+              headers: {
+                Authorization: `Bearer ${tokens.accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            const response = await api.get(`/api/chat/conversations/listing/${product_id}/`);
+            if (response.data && response.data.length > 0) {
+              // Find the conversation with the notification sender
+              const conversation = response.data[0];  // Usually there's only one conversation per listing
+              router.push({
+                pathname: '/chat/[id]',
+                params: { id: conversation.id.toString() }
+              });
+            } else {
+              // Fallback to listing view
+              router.push({
+                pathname: '/listings/[slug]/[product_id]/page',
+                params: { slug, product_id }
+              });
+            }
+          } catch (error) {
+            console.error('Error navigating to review chat:', error);
+            // Fallback to listing view
+            router.push({
+              pathname: '/listings/[slug]/[product_id]/page',
+              params: { slug, product_id }
+            });
+          }
         } else if (['like', 'offer', 'review', 'item_sold', 'price_update'].includes(notification.notification_type)) {
           // Navigate to listing
           if (slug && product_id) {
@@ -433,5 +511,59 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  reviewReminderItem: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  reviewReminderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  reviewReminderTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  reviewReminderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reviewProductImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  reviewPlaceholderImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  reviewMessageContainer: {
+    flex: 1,
+  },
+  reviewMessage: {
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 20,
+  },
+  reviewPrompt: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 4,
+  },
+  reviewReminderTime: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 4,
   },
 }); 

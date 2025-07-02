@@ -125,6 +125,7 @@ export default function SearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [likedItems, setLikedItems] = useState<{[key: string]: boolean}>({});
+  const [imageError, setImageError] = useState(false);
   
   const router = useRouter();
   const { isAuthenticated, tokens } = useAuth();
@@ -427,8 +428,10 @@ export default function SearchPage() {
       <TouchableOpacity 
         style={styles.listingCard}
         onPress={() => {
-          const listingUrl = `https://listtra.com/listings/${item.slug || 'item'}/${item.product_id}`;
-          router.push(`/web?uri=${encodeURIComponent(listingUrl)}` as any);
+          router.push({
+            pathname: "/listings/[slug]/[product_id]/page",
+            params: { slug: item.slug || 'item', product_id: item.product_id }
+          });
         }}
       >
         <View style={styles.listingImageContainer}>
@@ -449,10 +452,9 @@ export default function SearchPage() {
           </TouchableOpacity>
           
           {imageUrl ? (
-            <Image 
-              source={{ uri: imageUrl }} 
-              style={styles.listingImage} 
-              resizeMode="contain"
+            <Image
+              source={{ uri: imageUrl }}
+              style={{...styles.listingImage, resizeMode: 'cover'}}
             />
           ) : (
             <View style={styles.noImageContainer}>
@@ -852,11 +854,20 @@ const styles = StyleSheet.create({
   },
   likeButton: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 8,
+    right: 8,
     zIndex: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0)',
+    backgroundColor: 'rgba(200, 200, 200, 0.8)',
     borderRadius: 20,
-    padding: 6,
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 36,
+    height: 36,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
   },
 });

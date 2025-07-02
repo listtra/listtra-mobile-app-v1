@@ -4,13 +4,13 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -71,7 +71,35 @@ export default function ChatsScreen() {
         { headers }
       );
       
-      setChats(response.data);
+      // Filter out conversations with no meaningful activity
+      const activeChats = response.data.filter((chat: any) => {
+        // Include chat if it has at least one message with content
+        const hasMessages = chat.last_message && 
+                           chat.last_message.content && 
+                           chat.last_message.content.trim().length > 0;
+        
+        // Include chat if it has offers (you can expand this based on your data structure)
+        const hasOffers = chat.offers && chat.offers.length > 0;
+        
+        // Include chat if it has unread messages (indicates activity)
+        const hasUnreadActivity = chat.unread_count > 0;
+        
+        // Include chat if last message indicates meaningful activity (offers, responses, etc.)
+        const hasOfferActivity = chat.last_message && (
+          chat.last_message.message_type === 'offer' ||
+          chat.last_message.message_type === 'offer_response' ||
+          chat.last_message.content?.toLowerCase().includes('offer') ||
+          chat.last_message.content?.toLowerCase().includes('₹') ||
+          chat.last_message.content?.toLowerCase().includes('$')
+        );
+        
+        // Include chat if it has any meaningful activity
+        return hasMessages || hasOffers || hasUnreadActivity || hasOfferActivity;
+      });
+      
+      console.log(`Filtered chats: ${response.data.length} total -> ${activeChats.length} active`);
+      
+      setChats(activeChats);
       setError(null);
     } catch (error: any) {
       console.error('Error fetching chats:', error);
@@ -205,7 +233,7 @@ export default function ChatsScreen() {
                   </Text>
                   
                   <Text style={styles.lastMessage} numberOfLines={1}>
-                    {item.last_message?.content || "No messages yet"}
+                    {item.last_message?.content || "Recent activity"}
                   </Text>
                 </View>
                 
@@ -239,7 +267,10 @@ export default function ChatsScreen() {
           />
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No recent chats</Text>
+            <Text style={styles.emptyText}>No active conversations</Text>
+            <Text style={styles.emptySubtext}>
+              Start a conversation by messaging someone about their listing
+            </Text>
           </View>
         )}
       </View>
@@ -435,5 +466,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#777',
     textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 10,
   },
 }); 

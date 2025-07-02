@@ -1,7 +1,9 @@
 import { useAuth } from "@/context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import Constants from "expo-constants";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import * as MediaLibrary from "expo-media-library";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -12,6 +14,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -19,8 +22,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
+import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { SafeAreaView as SafeAreaViewContext } from "react-native-safe-area-context";
 
 // Constants for form validation and dropdown options
@@ -54,31 +58,38 @@ const CONDITIONS = [
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
+const googleMapsApiKey = Constants?.expoConfig?.extra?.googleMapsApiKey ?? "";
+
 // Animated Input Component (fixed version)
 interface AnimatedInputProps {
   label: string;
   placeholder: string;
   value: string;
   onChangeText: (text: string) => void;
-  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad' | 'decimal-pad';
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  keyboardType?:
+    | "default"
+    | "email-address"
+    | "numeric"
+    | "phone-pad"
+    | "decimal-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
   hasError?: boolean;
   multiline?: boolean;
   numberOfLines?: number;
   maxLength?: number;
 }
 
-const AnimatedInput: React.FC<AnimatedInputProps> = ({ 
-  label, 
-  placeholder, 
-  value, 
-  onChangeText, 
-  keyboardType = 'default',
-  autoCapitalize = 'none',
+const AnimatedInput: React.FC<AnimatedInputProps> = ({
+  label,
+  placeholder,
+  value,
+  onChangeText,
+  keyboardType = "default",
+  autoCapitalize = "none",
   hasError = false,
   multiline = false,
   numberOfLines = 1,
-  maxLength
+  maxLength,
 }) => {
   const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
   const [isFocused, setIsFocused] = useState(false);
@@ -92,7 +103,7 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
   }, [isFocused, value]);
 
   const labelStyle = {
-    position: 'absolute' as const,
+    position: "absolute" as const,
     left: 16,
     top: animatedValue.interpolate({
       inputRange: [0, 1],
@@ -104,24 +115,22 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
     }),
     color: animatedValue.interpolate({
       inputRange: [0, 1],
-      outputRange: ['#A0A0A0', '#A0A0A0'],
+      outputRange: ["#A0A0A0", "#A0A0A0"],
     }),
-    backgroundColor: 'white',
+    backgroundColor: "white",
     paddingHorizontal: 4,
     zIndex: 1,
   };
 
   const getBorderColor = () => {
-    if (hasError) return '#F44336';
-    if (isFocused) return '#2528be';
-    return '#E8E8E8';
+    if (hasError) return "#F44336";
+    if (isFocused) return "#2528be";
+    return "#E8E8E8";
   };
 
   return (
     <View style={styles.inputFieldContainer}>
-      <Animated.Text style={labelStyle}>
-        {label}
-      </Animated.Text>
+      <Animated.Text style={labelStyle}>{label}</Animated.Text>
       <TextInput
         style={[
           multiline ? styles.textAreaField : styles.inputField,
@@ -129,15 +138,15 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
             borderWidth: 1,
             borderColor: getBorderColor(),
             borderRadius: 12,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: "#FFFFFF",
             paddingHorizontal: 16,
             paddingVertical: 16,
             fontSize: 16,
-            color: '#333',
+            color: "#333",
             minHeight: multiline ? 120 : 56,
-            textAlignVertical: multiline ? 'top' : 'center',
+            textAlignVertical: multiline ? "top" : "center",
           },
-          hasError && { borderColor: '#F44336' }
+          hasError && { borderColor: "#F44336" },
         ]}
         placeholder=""
         value={value}
@@ -157,7 +166,11 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
 
 export default function AddItem() {
   const router = useRouter();
-  const { user, tokens: { accessToken } } = useAuth();
+  const placesRef = useRef<any>(null);
+  const {
+    user,
+    tokens: { accessToken },
+  } = useAuth();
 
   // Step management - simplified to just form and success
   const [currentStep, setCurrentStep] = useState(1);
@@ -205,6 +218,9 @@ export default function AddItem() {
   const [categorySearchVisible, setCategorySearchVisible] = useState(false);
   const [categorySearchText, setCategorySearchText] = useState("");
   const [filteredCategories, setFilteredCategories] = useState(CATEGORIES);
+
+  // Add state for location modal
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
 
   // Add state for new listing data
   const [newListing, setNewListing] = useState<{
@@ -269,6 +285,14 @@ export default function AddItem() {
       // Reset the form when component is focused
       resetForm();
 
+      // After resetting, fetch location if empty
+      setTimeout(() => {
+        // Use setTimeout to ensure state is updated before checking
+        if (!formData.location) {
+          fetchAndSetCurrentLocation();
+        }
+      }, 0);
+
       // No cleanup function needed
       return () => {};
     }, [])
@@ -322,12 +346,12 @@ export default function AddItem() {
 
   // Add handler for category selection
   const handleCategoryToggle = (category: string) => {
-    setFormData(prevData => {
+    setFormData((prevData) => {
       const currentCategories = [...prevData.categories];
-      
+
       // Check if category is already selected
       const index = currentCategories.indexOf(category);
-      
+
       // Toggle selection
       if (index > -1) {
         // Remove category if already selected
@@ -336,10 +360,10 @@ export default function AddItem() {
         // Add category if not selected
         currentCategories.push(category);
       }
-      
+
       return {
         ...prevData,
-        categories: currentCategories
+        categories: currentCategories,
       };
     });
   };
@@ -350,7 +374,7 @@ export default function AddItem() {
     if (text.trim() === "") {
       setFilteredCategories(CATEGORIES);
     } else {
-      const filtered = CATEGORIES.filter(category =>
+      const filtered = CATEGORIES.filter((category) =>
         category.toLowerCase().includes(text.toLowerCase())
       );
       setFilteredCategories(filtered);
@@ -390,18 +414,22 @@ export default function AddItem() {
     setIsLoading(true);
     try {
       // Request media library permissions
-      const libraryStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      console.log('Image picker library status:', libraryStatus.status);
-      
+      const libraryStatus =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log("Image picker library status:", libraryStatus.status);
+
       // Request camera permissions
       const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
-      console.log('Image picker camera status:', cameraStatus.status);
-      
+      console.log("Image picker camera status:", cameraStatus.status);
+
       // Request MediaLibrary permissions for recent photos
       const mediaLibraryStatus = await MediaLibrary.requestPermissionsAsync();
-      console.log('MediaLibrary status:', mediaLibraryStatus.status);
-      
-      if (libraryStatus.status !== "granted" || cameraStatus.status !== "granted") {
+      console.log("MediaLibrary status:", mediaLibraryStatus.status);
+
+      if (
+        libraryStatus.status !== "granted" ||
+        cameraStatus.status !== "granted"
+      ) {
         Alert.alert(
           "Permissions Needed",
           "We need permission to access your photo library and camera to select or take photos for your listings.",
@@ -409,15 +437,56 @@ export default function AddItem() {
         );
       }
     } catch (error) {
-      console.error('Error requesting permissions:', error);
+      console.error("Error requesting permissions:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchAndSetCurrentLocation = async () => {
+    try {
+      // Request location permission
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Location permission is required to fetch your current location."
+        );
+        return;
+      }
+      // Get current position
+      let location = await Location.getCurrentPositionAsync({});
+      // Reverse geocode to get address
+      let addresses = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      if (addresses.length > 0) {
+        const addr = addresses[0];
+        console.log("Address components:", addr);
+        // Format: "Suburb, State, Country, Postal Code"
+        const locationString = [
+          addr.subregion || addr.city || addr.district || "",
+          addr.region || "",
+          addr.country || "",
+          addr.postalCode || "",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        handleInputChange("location", locationString);
+      }
+    } catch (error) {
+      console.error("Error fetching location:", error);
+      Alert.alert("Error", "Failed to fetch your current location.");
     }
   };
 
   useEffect(() => {
     // Request both permissions on component mount
     requestPermissions();
+    if (!formData.location) {
+      fetchAndSetCurrentLocation();
+    }
   }, []);
 
   // Launch camera to take a photo
@@ -444,7 +513,7 @@ export default function AddItem() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const selectedAsset = result.assets[0];
-        
+
         // Check file size
         if (selectedAsset.fileSize && selectedAsset.fileSize > MAX_IMAGE_SIZE) {
           Alert.alert(
@@ -477,6 +546,9 @@ export default function AddItem() {
   const [recentPhotos, setRecentPhotos] = useState<MediaLibrary.Asset[]>([]);
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
 
+  // 1. Add state for multi-select
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
+
   // Open image picker with source selection
   const openImagePicker = () => {
     setAddPhotosModalVisible(true);
@@ -489,33 +561,33 @@ export default function AddItem() {
     try {
       // Request media library permissions first
       const { status } = await MediaLibrary.requestPermissionsAsync();
-      console.log('MediaLibrary permission status:', status);
-      
-      if (status !== 'granted') {
-        console.log('Media library permission not granted, requesting...');
+      console.log("MediaLibrary permission status:", status);
+
+      if (status !== "granted") {
+        console.log("Media library permission not granted, requesting...");
         const requestResult = await MediaLibrary.requestPermissionsAsync();
-        console.log('Permission request result:', requestResult.status);
-        
-        if (requestResult.status !== 'granted') {
-          console.log('Permission denied, showing fallback');
+        console.log("Permission request result:", requestResult.status);
+
+        if (requestResult.status !== "granted") {
+          console.log("Permission denied, showing fallback");
           setIsLoadingPhotos(false);
           return;
         }
       }
 
-      console.log('Loading recent photos...');
+      console.log("Loading recent photos...");
       // Try different approaches to get photos
       let assets;
-      
+
       // First attempt: Get all media types and filter
       try {
         assets = await MediaLibrary.getAssetsAsync({
           first: 50,
           sortBy: MediaLibrary.SortBy.modificationTime,
         });
-        console.log('Method 1 - All assets loaded:', assets.assets.length);
+        console.log("Method 1 - All assets loaded:", assets.assets.length);
       } catch (error) {
-        console.log('Method 1 failed:', error);
+        console.log("Method 1 failed:", error);
       }
 
       // Second attempt: Specify photo media type
@@ -526,9 +598,9 @@ export default function AddItem() {
             first: 50,
             sortBy: MediaLibrary.SortBy.modificationTime,
           });
-          console.log('Method 2 - Photo assets loaded:', assets.assets.length);
+          console.log("Method 2 - Photo assets loaded:", assets.assets.length);
         } catch (error) {
-          console.log('Method 2 failed:', error);
+          console.log("Method 2 failed:", error);
         }
       }
 
@@ -538,23 +610,22 @@ export default function AddItem() {
           assets = await MediaLibrary.getAssetsAsync({
             first: 50,
           });
-          console.log('Method 3 - Basic assets loaded:', assets.assets.length);
+          console.log("Method 3 - Basic assets loaded:", assets.assets.length);
         } catch (error) {
-          console.log('Method 3 failed:', error);
+          console.log("Method 3 failed:", error);
         }
       }
 
       if (assets && assets.assets.length > 0) {
-        console.log('Successfully loaded photos:', assets.assets.length);
-        console.log('First photo URI sample:', assets.assets[0]?.uri);
+        console.log("Successfully loaded photos:", assets.assets.length);
+        console.log("First photo URI sample:", assets.assets[0]?.uri);
         setRecentPhotos(assets.assets);
       } else {
-        console.log('No photos found with any method');
+        console.log("No photos found with any method");
         setRecentPhotos([]);
       }
-      
     } catch (error) {
-      console.error('Error loading recent photos:', error);
+      console.error("Error loading recent photos:", error);
       setRecentPhotos([]);
     } finally {
       setIsLoadingPhotos(false);
@@ -574,7 +645,7 @@ export default function AddItem() {
     try {
       // Get asset info to get the URI
       const assetInfo = await MediaLibrary.getAssetInfoAsync(asset);
-      
+
       // Add the image to our list
       const newImages = [...images, assetInfo.localUri || assetInfo.uri];
       setImages(newImages);
@@ -587,7 +658,7 @@ export default function AddItem() {
       // Close the modal
       setAddPhotosModalVisible(false);
     } catch (error) {
-      console.error('Error selecting photo:', error);
+      console.error("Error selecting photo:", error);
       Alert.alert("Error", "Failed to select photo. Please try again.");
     }
   };
@@ -721,7 +792,7 @@ export default function AddItem() {
     if (!formData.location.trim()) {
       errors.location = "Location is required";
     }
-    
+
     if (formData.categories.length === 0) {
       errors.categories = "At least one category is required";
     }
@@ -744,7 +815,7 @@ export default function AddItem() {
           {
             text: "OK",
             onPress: () => {
-              router.push('/(auth)/login' as any);
+              router.push("/(auth)/login" as any);
             },
           },
         ]
@@ -764,7 +835,7 @@ export default function AddItem() {
 
     try {
       // Validate token before proceeding
-      if (!await validateToken()) {
+      if (!(await validateToken())) {
         setIsSubmitting(false);
         return;
       }
@@ -776,9 +847,9 @@ export default function AddItem() {
       formDataToSend.append("price", formData.price);
       formDataToSend.append("condition", formData.condition);
       formDataToSend.append("location", formData.location);
-      
+
       // Add categories (multiple)
-      formData.categories.forEach(category => {
+      formData.categories.forEach((category) => {
         formDataToSend.append("categories", category);
       });
 
@@ -805,7 +876,10 @@ export default function AddItem() {
       // Debug: Log what we're sending
       console.log("Sending data:");
       console.log("- Title:", formData.title);
-      console.log("- Description:", formData.description.substring(0, 50) + "...");
+      console.log(
+        "- Description:",
+        formData.description.substring(0, 50) + "..."
+      );
       console.log("- Price:", formData.price);
       console.log("- Condition:", formData.condition);
       console.log("- Location:", formData.location);
@@ -813,7 +887,7 @@ export default function AddItem() {
       console.log("- Slug:", slug);
       console.log("- Images count:", images.length);
 
-      // Make the API request
+      // Make the API request with timeout and retry logic
       const response = await axios.post(
         "https://backend.listtra.com/api/listings/create/",
         formDataToSend,
@@ -822,6 +896,8 @@ export default function AddItem() {
             "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${accessToken}`,
           },
+          timeout: 30000, // 30 seconds timeout
+          validateStatus: (status) => status < 500, // Don't throw for client errors
         }
       );
 
@@ -836,38 +912,65 @@ export default function AddItem() {
       }
     } catch (error: any) {
       console.error("Error creating listing:", error);
-      
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        request: error.request ? "Request made" : "No request",
+        response: error.response ? "Response received" : "No response",
+      });
+
       // Log detailed error information
       if (error.response) {
         console.error("Error status:", error.response.status);
         console.error("Error data:", error.response.data);
         console.error("Error headers:", error.response.headers);
-        
+
         // Show more detailed error message
         let errorMessage = "Failed to create listing. ";
-        if (error.response.data) {
-          if (typeof error.response.data === 'string') {
-            errorMessage += error.response.data;
-          } else if (typeof error.response.data === 'object') {
-            // Handle field-specific errors
-            const errors = [];
-            for (const [field, messages] of Object.entries(error.response.data)) {
-              if (Array.isArray(messages)) {
-                errors.push(`${field}: ${messages.join(', ')}`);
-              } else {
-                errors.push(`${field}: ${messages}`);
+        if (error.response.status >= 400 && error.response.status < 500) {
+          // Client error
+          if (error.response.data) {
+            if (typeof error.response.data === "string") {
+              errorMessage += error.response.data;
+            } else if (typeof error.response.data === "object") {
+              // Handle field-specific errors
+              const errors = [];
+              for (const [field, messages] of Object.entries(
+                error.response.data
+              )) {
+                if (Array.isArray(messages)) {
+                  errors.push(`${field}: ${messages.join(", ")}`);
+                } else {
+                  errors.push(`${field}: ${messages}`);
+                }
               }
+              errorMessage += errors.join("\n");
             }
-            errorMessage += errors.join('\n');
+          } else {
+            errorMessage += `Client error (${error.response.status})`;
           }
+        } else if (error.response.status >= 500) {
+          // Server error
+          errorMessage += "Server error. Please try again later.";
         }
-        
+
         Alert.alert("Error", errorMessage);
+      } else if (error.request) {
+        // Network error
+        console.error("Network request failed:", error.request);
+        Alert.alert(
+          "Network Error", 
+          "Unable to connect to server. Please check your internet connection and try again.\n\nIf the problem persists, the server might be temporarily unavailable.",
+          [
+            { text: "OK" }
+          ]
+        );
       } else {
-        console.error("Network error:", error.message);
+        // Something else went wrong
+        console.error("Request setup error:", error.message);
         Alert.alert(
           "Error",
-          "Network error. Please check your connection and try again."
+          "An unexpected error occurred. Please try again."
         );
       }
     } finally {
@@ -878,12 +981,12 @@ export default function AddItem() {
   // Add handler for "View Item" button in success screen
   const handleViewItem = () => {
     // Just navigate to the main listings page for now
-    router.push('/(tabs)/' as any);
+    router.push("/(tabs)/" as any);
   };
 
   // Add handler for "Go to Home" button in success screen
   const handleGoToHome = () => {
-    router.push('/(tabs)/' as any);
+    router.push("/(tabs)/" as any);
   };
 
   // Custom Dropdown component
@@ -899,17 +1002,20 @@ export default function AddItem() {
   const formatConditionDisplay = (condition: string) => {
     // Handle specific condition mappings for better display
     const conditionMap: { [key: string]: string } = {
-      'new': 'New',
-      'like_new': 'Like New',
-      'lightly_used': 'Lightly Used',
-      'well_used': 'Well Used',
-      'heavily_used': 'Heavily Used'
+      new: "New",
+      like_new: "Like New",
+      lightly_used: "Lightly Used",
+      well_used: "Well Used",
+      heavily_used: "Heavily Used",
     };
-    
-    return conditionMap[condition] || condition
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+
+    return (
+      conditionMap[condition] ||
+      condition
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+    );
   };
 
   const CustomDropdown = ({
@@ -990,10 +1096,18 @@ export default function AddItem() {
         transparent={false}
         visible={addPhotosModalVisible}
         animationType="slide"
-        onRequestClose={() => setAddPhotosModalVisible(false)}
+        onRequestClose={() => {
+          setAddPhotosModalVisible(false);
+          setSelectedPhotoIds([]);
+        }}
         statusBarTranslucent={true}
       >
-        <View style={[styles.addPhotosModalContainer, { paddingTop: Platform.OS === 'ios' ? 50 : 30 }]}>
+        <View
+          style={[
+            styles.addPhotosModalContainer,
+            { paddingTop: Platform.OS === "ios" ? 50 : 30 },
+          ]}
+        >
           <View style={styles.addPhotosHeader}>
             <TouchableOpacity
               onPress={() => setAddPhotosModalVisible(false)}
@@ -1002,7 +1116,28 @@ export default function AddItem() {
               <Ionicons name="chevron-back" size={24} color="#333" />
             </TouchableOpacity>
             <Text style={styles.addPhotosTitle}>Add Photos</Text>
-            <View style={{ width: 40 }} />
+            <TouchableOpacity
+              onPress={async () => {
+                // Find selected assets
+                const selectedAssets = recentPhotos.filter(asset => selectedPhotoIds.includes(asset.id));
+                // Get their URIs and add to images
+                let newImages = [...images];
+                for (const asset of selectedAssets) {
+                  if (newImages.length >= MAX_IMAGES) break;
+                  const assetInfo = await MediaLibrary.getAssetInfoAsync(asset);
+                  newImages.push(assetInfo.localUri || assetInfo.uri);
+                }
+                setImages(newImages);
+                setAddPhotosModalVisible(false);
+                setSelectedPhotoIds([]);
+              }}
+              style={{ padding: 8, opacity: selectedPhotoIds.length === 0 ? 0.5 : 1 }}
+              disabled={selectedPhotoIds.length === 0}
+            >
+              <Text style={{ color: '#2528BE', fontWeight: 'bold', fontSize: 16 }}>
+                <Ionicons name="cloud-upload-outline" size={20} color="#333"/>
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.addPhotosContent}>
@@ -1011,7 +1146,11 @@ export default function AddItem() {
               <Ionicons name="chevron-down" size={20} color="#333" />
             </View>
 
-            <View style={styles.photosGrid}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}
+              showsVerticalScrollIndicator={true}
+            >
               {/* Camera option */}
               <TouchableOpacity
                 style={styles.cameraGridItem}
@@ -1028,22 +1167,56 @@ export default function AddItem() {
               {isLoadingPhotos ? (
                 <View style={styles.loadingPhotosContainer}>
                   <ActivityIndicator size="small" color="#666" />
-                  <Text style={styles.loadingPhotosText}>Loading photos...</Text>
+                  <Text style={styles.loadingPhotosText}>
+                    Loading photos...
+                  </Text>
                 </View>
               ) : (
-                recentPhotos.map((asset, index) => (
-                  <TouchableOpacity
-                    key={asset.id}
-                    style={styles.photoGridItem}
-                    onPress={() => selectRecentPhoto(asset)}
-                  >
-                    <Image 
-                      source={{ uri: asset.uri }} 
-                      style={styles.recentPhotoImage}
-                      resizeMode="cover"
-                    />
-                  </TouchableOpacity>
-                ))
+                recentPhotos.map((asset, index) => {
+                  const isSelected = selectedPhotoIds.includes(asset.id);
+                  const disabled =
+                    !isSelected && selectedPhotoIds.length >= MAX_IMAGES - images.length; // limit selection to remaining slots
+                  return (
+                    <TouchableOpacity
+                      key={asset.id}
+                      style={[
+                        styles.photoGridItem,
+                        isSelected && { borderWidth: 2, borderColor: '#2528BE' },
+                        disabled && { opacity: 0.5 },
+                      ]}
+                      onPress={() => {
+                        setSelectedPhotoIds((prev) =>
+                          isSelected
+                            ? prev.filter((id) => id !== asset.id)
+                            : prev.length < MAX_IMAGES - images.length
+                            ? [...prev, asset.id]
+                            : prev
+                        );
+                      }}
+                      disabled={disabled}
+                    >
+                      <Image
+                        source={{ uri: asset.uri }}
+                        style={styles.recentPhotoImage}
+                        resizeMode="cover"
+                      />
+                      {isSelected && (
+                        <View
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            right: 6,
+                            backgroundColor: '#2528BE',
+                            borderRadius: 10,
+                            padding: 2,
+                          }}
+                        >
+                          <Ionicons name="checkmark" size={16} color="#fff" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
               )}
 
               {/* Browse More Photos option */}
@@ -1055,27 +1228,15 @@ export default function AddItem() {
                     setTimeout(() => pickImage(), 300);
                   }}
                 >
-                  <Ionicons name="add-circle-outline" size={30} color="#2528BE" />
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={30}
+                    color="#2528BE"
+                  />
                   <Text style={styles.browseMoreText}>Browse More</Text>
                 </TouchableOpacity>
               )}
-
-              {/* Fallback for when no photos are loaded */}
-              {!isLoadingPhotos && recentPhotos.length === 0 && (
-                <TouchableOpacity
-                  style={styles.photoGridItem}
-                  onPress={() => {
-                    setAddPhotosModalVisible(false);
-                    setTimeout(() => pickImage(), 300);
-                  }}
-                >
-                  <View style={styles.photoPlaceholder}>
-                    <Ionicons name="image" size={40} color="#ccc" />
-                    <Text style={styles.noPhotosText}>Tap to browse photos</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1088,7 +1249,12 @@ export default function AddItem() {
         onRequestClose={() => setCategorySearchVisible(false)}
         statusBarTranslucent={true}
       >
-        <View style={[styles.categoryModalContainer, { paddingTop: Platform.OS === 'ios' ? 50 : 30 }]}>
+        <View
+          style={[
+            styles.categoryModalContainer,
+            { paddingTop: Platform.OS === "ios" ? 50 : 30 },
+          ]}
+        >
           <View style={styles.categoryModalHeader}>
             <TouchableOpacity
               onPress={() => {
@@ -1112,7 +1278,12 @@ export default function AddItem() {
 
           <View style={styles.categorySearchContainer}>
             <View style={styles.searchInputContainer}>
-              <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+              <Ionicons
+                name="search"
+                size={20}
+                color="#666"
+                style={styles.searchIcon}
+              />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search categories..."
@@ -1136,10 +1307,13 @@ export default function AddItem() {
                 onPress={() => handleCategoryToggle(category)}
               >
                 <View style={styles.categoryCheckboxRow}>
-                  <View style={[
-                    styles.checkbox,
-                    formData.categories.includes(category) && styles.checkboxSelected
-                  ]}>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      formData.categories.includes(category) &&
+                        styles.checkboxSelected,
+                    ]}
+                  >
                     {formData.categories.includes(category) && (
                       <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                     )}
@@ -1152,203 +1326,427 @@ export default function AddItem() {
         </View>
       </Modal>
 
-      {currentStep === 1 && (
-        // Single Page Form
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
+      {/* Location Search Modal */}
+      <Modal
+        transparent={false}
+        visible={locationModalVisible}
+        animationType="slide"
+        onRequestClose={() => setLocationModalVisible(false)}
+        statusBarTranslucent={true}
+      >
+        <View
+          style={[
+            styles.locationModalContainer,
+            { paddingTop: Platform.OS === "ios" ? 50 : 30 },
+          ]}
         >
-          {/* Header */}
-          <View style={styles.headerSection}>
+          <View style={styles.locationModalHeader}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => setLocationModalVisible(false)}
               style={styles.backButton}
             >
               <Ionicons name="chevron-back" size={24} color="#333" />
             </TouchableOpacity>
-            <Text style={styles.pageTitle}>Add Item</Text>
+            <Text style={styles.locationModalTitle}>Select Location</Text>
+            <TouchableOpacity
+              onPress={() => fetchAndSetCurrentLocation()}
+              style={styles.currentLocationButton}
+            >
+              <Ionicons name="location" size={20} color="#2528BE" />
+            </TouchableOpacity>
           </View>
 
-          {/* Upload Section */}
-          <View style={styles.uploadContainer}>
+          <View style={styles.locationSearchContainer}>
+            {/* Current Location Option */}
             <TouchableOpacity
-              style={styles.uploadArea}
-              onPress={openImagePicker}
+              style={styles.currentLocationOption}
+              onPress={async () => {
+                setIsLoading(true);
+                await fetchAndSetCurrentLocation();
+                setIsLoading(false);
+                setLocationModalVisible(false);
+              }}
             >
-              <Ionicons name="cloud-upload-outline" size={24} color="#666" />
-              <Text style={styles.uploadText}>
-                {images.length > 0 ? "Uploaded" : "Upload Images"}
-              </Text>
+              <View style={styles.currentLocationIcon}>
+                <Ionicons name="location" size={24} color="#2528BE" />
+              </View>
+              <View style={styles.currentLocationText}>
+                <Text style={styles.currentLocationTitle}>Use Current Location</Text>
+                <Text style={styles.currentLocationSubtitle}>Auto-detect your pickup location</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#777" />
             </TouchableOpacity>
 
-            {images.length > 0 && (
-              <ScrollView
-                horizontal
-                style={styles.uploadedImagesContainer}
-                showsHorizontalScrollIndicator={false}
+            {/* Divider */}
+            <View style={styles.locationDivider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <GooglePlacesAutocomplete
+              ref={placesRef}
+              placeholder="Search for a location"
+              minLength={2}
+              fetchDetails={true}
+              onPress={(data, details = null) => {
+                if (details) {
+                  console.log(details);
+                  // Helper to get a component by type
+                  const getComponent = (type: any) =>
+                    details.address_components.find((c) =>
+                      c.types.includes(type)
+                    )?.long_name || "";
+                  // Try to get suburb (sublocality or locality)
+                  const suburb =
+                    getComponent("sublocality") ||
+                    getComponent("locality") ||
+                    getComponent("administrative_area_level_2") ||
+                    "";
+
+                  const state =
+                    getComponent("administrative_area_level_1") || "";
+                  const country = getComponent("country") || "";
+                  const postalCode = getComponent("postal_code") || "";
+
+                  // Format: "Suburb, Country, PostalCode"
+                  const locationString = [
+                    suburb,
+                    state,
+                    country,
+                    postalCode,
+                  ]
+                    .filter(Boolean)
+                    .join(", ");
+                  console.log(locationString);
+                  handleInputChange("location", locationString);
+                  setLocationModalVisible(false);
+                } else {
+                  // fallback to description if details is missing
+                  handleInputChange("location", data.description);
+                  setLocationModalVisible(false);
+                }
+              }}
+              query={{
+                key: googleMapsApiKey,
+                language: "en",
+              }}
+              styles={{
+                container: {
+                  flex: 0,
+                },
+                textInputContainer: {
+                  backgroundColor: "transparent",
+                  borderTopWidth: 0,
+                  borderBottomWidth: 0,
+                  paddingHorizontal: 16,
+                  marginTop: 0,
+                  marginBottom: 0,
+                },
+                textInput: {
+                  marginLeft: 0,
+                  marginRight: 0,
+                  height: 56,
+                  color: "#333333",
+                  fontSize: 16,
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: "#E8E8E8",
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 16,
+                },
+                predefinedPlacesDescription: {
+                  color: "#1faadb",
+                },
+                listView: {
+                  backgroundColor: "#FFFFFF",
+                  borderWidth: 1,
+                  borderColor: "#E8E8E8",
+                  borderRadius: 12,
+                  borderTopWidth: 0,
+                  borderTopLeftRadius: 0,
+                  borderTopRightRadius: 0,
+                  marginTop: -1,
+                  marginHorizontal: 16,
+                  elevation: 3,
+                  shadowColor: "#000",
+                  shadowOffset: {
+                    width: 0,
+                    height: 2,
+                  },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 3.84,
+                  maxHeight: 400,
+                },
+                row: {
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                },
+                separator: {
+                  height: 1,
+                  backgroundColor: "#E8E8E8",
+                },
+                description: {
+                  fontSize: 14,
+                  color: "#333",
+                },
+              }}
+              textInputProps={{
+                placeholderTextColor: "#A0A0A0",
+                autoCorrect: false,
+                autoCapitalize: "none",
+              }}
+              enablePoweredByContainer={false}
+              debounce={300}
+              suppressDefaultStyles={false}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {currentStep === 1 && (
+        // Single Page Form
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
+          <ScrollView
+            style={styles.container}
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header */}
+            <View style={styles.headerSection}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backButton}
               >
-                {images.map((uri, index) => (
-                  <View key={index} style={styles.uploadedImageWrapper}>
-                    <Image source={{ uri }} style={styles.uploadedImageThumb} />
-                    <TouchableOpacity
-                      style={styles.removeImageIcon}
-                      onPress={() => removeImage(index)}
+                <Ionicons name="chevron-back" size={24} color="#333" />
+              </TouchableOpacity>
+              <Text style={styles.pageTitle}>Add Item</Text>
+            </View>
+
+            {/* Upload Section */}
+            <View style={styles.uploadContainer}>
+              <TouchableOpacity
+                style={styles.uploadArea}
+                onPress={openImagePicker}
+              >
+                <Ionicons name="cloud-upload-outline" size={24} color="#666" />
+                <Text style={styles.uploadText}>
+                  {images.length > 0
+                    ? `Uploaded (${images.length}/${MAX_IMAGES})`
+                    : "Upload Images"}
+                </Text>
+              </TouchableOpacity>
+
+              {images.length > 0 && (
+                <ScrollView
+                  horizontal
+                  style={styles.uploadedImagesContainer}
+                  showsHorizontalScrollIndicator={false}
+                >
+                  {images.map((uri, index) => (
+                    <View key={index} style={styles.uploadedImageWrapper}>
+                      <Image
+                        source={{ uri }}
+                        style={styles.uploadedImageThumb}
+                      />
+                      <TouchableOpacity
+                        style={styles.removeImageIcon}
+                        onPress={() => removeImage(index)}
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={20}
+                          color="#FF3B30"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            {/* Form Fields */}
+            <View style={styles.formContainer}>
+              <View style={styles.fieldContainer}>
+                <AnimatedInput
+                  label="Name"
+                  placeholder="Enter item name"
+                  value={formData.title}
+                  onChangeText={(value) => handleInputChange("title", value)}
+                  keyboardType="default"
+                  autoCapitalize="sentences"
+                  hasError={!!formErrors.title}
+                  multiline={false}
+                  numberOfLines={1}
+                  maxLength={100}
+                />
+                {formErrors.title && (
+                  <Text style={styles.errorText}>{formErrors.title}</Text>
+                )}
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <View style={styles.inputFieldContainer}>
+                  <Text style={styles.floatingLabel}>Category</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.dropdownInput,
+                      formErrors.categories && styles.inputError,
+                    ]}
+                    onPress={() => setCategorySearchVisible(true)}
+                  >
+                    <View style={styles.categoryDisplayContainer}>
+                      {formData.categories.length === 0 ? (
+                        <Text style={styles.placeholderText}>
+                          Select categories
+                        </Text>
+                      ) : (
+                        <View style={styles.categoriesDisplay}>
+                          {formData.categories
+                            .slice(0, 2)
+                            .map((category, index) => (
+                              <View key={category} style={styles.categoryTag}>
+                                <Text style={styles.categoryTagText}>
+                                  {category}
+                                </Text>
+                              </View>
+                            ))}
+                          {formData.categories.length > 2 && (
+                            <Text style={styles.moreText}>
+                              +{formData.categories.length - 2} more
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color="#777" />
+                  </TouchableOpacity>
+                </View>
+                {formErrors.categories && (
+                  <Text style={styles.errorText}>{formErrors.categories}</Text>
+                )}
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <AnimatedInput
+                  label="Price"
+                  placeholder=""
+                  value={formData.price}
+                  onChangeText={(value) => handleInputChange("price", value)}
+                  keyboardType="decimal-pad"
+                  hasError={!!formErrors.price}
+                />
+                {formErrors.price && (
+                  <Text style={styles.errorText}>{formErrors.price}</Text>
+                )}
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <View style={styles.inputFieldContainer}>
+                  <Text style={styles.floatingLabel}>Condition</Text>
+                  <TouchableOpacity
+                    style={styles.dropdownInput}
+                    onPress={() => setConditionDropdownVisible(true)}
+                  >
+                    <Text style={styles.dropdownText}>
+                      {formatConditionDisplay(formData.condition)}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#777" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <AnimatedInput
+                  label="Description"
+                  placeholder=""
+                  value={formData.description}
+                  onChangeText={(value) =>
+                    handleInputChange("description", value)
+                  }
+                  multiline
+                  numberOfLines={4}
+                  hasError={!!formErrors.description}
+                />
+                {formErrors.description && (
+                  <Text style={styles.errorText}>{formErrors.description}</Text>
+                )}
+              </View>
+
+              <View style={styles.fieldContainer}>
+                <View style={styles.inputFieldContainer}>
+                  <Text style={styles.floatingLabel}>Location</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.dropdownInput,
+                      formErrors.location && styles.inputError,
+                    ]}
+                    onPress={() => setLocationModalVisible(true)}
+                  >
+                    <Text
+                      style={[
+                        formData.location ? styles.dropdownText : styles.placeholderText,
+                      ]}
                     >
-                      <Ionicons name="close-circle" size={20} color="#FF3B30" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-
-          {/* Form Fields */}
-          <View style={styles.formContainer}>
-            <View style={styles.fieldContainer}>
-              <AnimatedInput
-                label="Name"
-                placeholder="Enter item name"
-                value={formData.title}
-                onChangeText={(value) => handleInputChange("title", value)}
-                keyboardType="default"
-                autoCapitalize="sentences"
-                hasError={!!formErrors.title}
-                multiline={false}
-                numberOfLines={1}
-                maxLength={100}
-              />
-              {formErrors.title && (
-                <Text style={styles.errorText}>{formErrors.title}</Text>
-              )}
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <View style={styles.inputFieldContainer}>
-                <Text style={styles.floatingLabel}>Category</Text>
-                <TouchableOpacity
-                  style={[styles.dropdownInput, formErrors.categories && styles.inputError]}
-                  onPress={() => setCategorySearchVisible(true)}
-                >
-                  <View style={styles.categoryDisplayContainer}>
-                    {formData.categories.length === 0 ? (
-                      <Text style={styles.placeholderText}>Select categories</Text>
-                    ) : (
-                      <View style={styles.categoriesDisplay}>
-                        {formData.categories.slice(0, 2).map((category, index) => (
-                          <View key={category} style={styles.categoryTag}>
-                            <Text style={styles.categoryTagText}>{category}</Text>
-                          </View>
-                        ))}
-                        {formData.categories.length > 2 && (
-                          <Text style={styles.moreText}>
-                            +{formData.categories.length - 2} more
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-down" size={20} color="#777" />
-                </TouchableOpacity>
-              </View>
-              {formErrors.categories && (
-                <Text style={styles.errorText}>{formErrors.categories}</Text>
-              )}
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <AnimatedInput
-                label="Price"
-                placeholder=""
-                value={formData.price}
-                onChangeText={(value) => handleInputChange("price", value)}
-                keyboardType="decimal-pad"
-                hasError={!!formErrors.price}
-              />
-              {formErrors.price && (
-                <Text style={styles.errorText}>{formErrors.price}</Text>
-              )}
-            </View>
-
-            <View style={styles.fieldContainer}>
-              <View style={styles.inputFieldContainer}>
-                <Text style={styles.floatingLabel}>Condition</Text>
-                <TouchableOpacity
-                  style={styles.dropdownInput}
-                  onPress={() => setConditionDropdownVisible(true)}
-                >
-                  <Text style={styles.dropdownText}>
-                    {formatConditionDisplay(formData.condition)}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color="#777" />
-                </TouchableOpacity>
+                      {formData.location || "Enter pickup location"}
+                    </Text>
+                    <Ionicons name="location-outline" size={20} color="#777" />
+                  </TouchableOpacity>
+                </View>
+                {formErrors.location && (
+                  <Text style={styles.errorText}>{formErrors.location}</Text>
+                )}
               </View>
             </View>
 
-            <View style={styles.fieldContainer}>
-              <AnimatedInput
-                label="Description"
-                placeholder=""
-                value={formData.description}
-                onChangeText={(value) => handleInputChange("description", value)}
-                multiline
-                numberOfLines={4}
-                hasError={!!formErrors.description}
-              />
-              {formErrors.description && (
-                <Text style={styles.errorText}>{formErrors.description}</Text>
-              )}
+            {/* Bottom Buttons */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => router.back()}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.saveBtn,
+                  isSubmitting && styles.saveBtnDisabled
+                ]}
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+                activeOpacity={isSubmitting ? 1 : 0.8}
+              >
+                {isSubmitting ? (
+                  <View style={styles.submittingContainer}>
+                    <ActivityIndicator size="small" color="#FFF" />
+                    <Text style={styles.submittingText}>Submitting...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.saveBtnText}>Submit</Text>
+                )}
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.fieldContainer}>
-              <AnimatedInput
-                label="Pickup"
-                placeholder=""
-                value={formData.location}
-                onChangeText={(value) => handleInputChange("location", value)}
-                hasError={!!formErrors.location}
-              />
-              {formErrors.location && (
-                <Text style={styles.errorText}>{formErrors.location}</Text>
-              )}
-            </View>
-          </View>
-
-          {/* Bottom Buttons */}
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={styles.saveBtn}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              activeOpacity={0.8}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.saveBtnText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Custom Dropdown for Condition */}
-          <CustomDropdown
-            label="Condition"
-            options={CONDITIONS}
-            selectedValue={formData.condition}
-            onValueChange={(value: string) =>
-              handleInputChange("condition", value)
-            }
-            isVisible={conditionDropdownVisible}
-            setIsVisible={setConditionDropdownVisible}
-          />
-        </ScrollView>
+            {/* Custom Dropdown for Condition */}
+            <CustomDropdown
+              label="Condition"
+              options={CONDITIONS}
+              selectedValue={formData.condition}
+              onValueChange={(value: string) =>
+                handleInputChange("condition", value)
+              }
+              isVisible={conditionDropdownVisible}
+              setIsVisible={setConditionDropdownVisible}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
 
       {currentStep === 2 && (
@@ -1371,7 +1769,7 @@ export default function AddItem() {
             >
               <Text style={styles.viewItemButtonText}>View item</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.homeButton}
               onPress={handleGoToHome}
@@ -1413,31 +1811,31 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
   },
-  
+
   // Upload section styles
   uploadContainer: {
     paddingHorizontal: 20,
     paddingBottom: 30,
   },
   uploadArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 50,
     borderWidth: 1,
-    borderColor: '#CCCCCC',
-    borderStyle: 'dashed',
+    borderColor: "#CCCCCC",
+    borderStyle: "dashed",
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     marginBottom: 16,
   },
   uploadText: {
     fontSize: 16,
-    color: '#666666',
+    color: "#666666",
     marginLeft: 8,
   },
   uploadedImagesContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: 16,
   },
   uploadedImageWrapper: {
@@ -1445,125 +1843,139 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 8,
     marginRight: 12,
-    position: 'relative',
-    overflow: 'hidden',
+    position: "relative",
+    overflow: "hidden",
   },
   uploadedImageThumb: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   removeImageIcon: {
-    position: 'absolute',
+    position: "absolute",
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderRadius: 10,
     width: 20,
     height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  
+
   // Form section styles
   formContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal:8
   },
   fieldContainer: {
     marginBottom: 16,
   },
   fieldLabel: {
     fontSize: 14,
-    color: '#A0A0A0',
+    color: "#A0A0A0",
     marginBottom: 8,
     marginLeft: 4,
   },
-  
+
   // AnimatedInput styles
   inputFieldContainer: {
     marginBottom: 16,
-    position: 'relative',
+    position: "relative",
   },
   inputWrapper: {
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: "#E8E8E8",
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   textAreaWrapper: {
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: "#E8E8E8",
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   inputField: {
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#333',
-    fontWeight: '400',
+    color: "#333",
+    fontWeight: "400",
     minHeight: 56,
   },
   textAreaField: {
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     minHeight: 120,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   focusedBorder: {
-    borderColor: '#2528be',
-    shadowColor: '#2528be',
+    borderColor: "#2528be",
+    shadowColor: "#2528be",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
   errorBorder: {
-    borderColor: '#FF3B30',
+    borderColor: "#FF3B30",
   },
   errorText: {
     color: "#FF3B30",
     fontSize: 14,
     marginTop: 4,
   },
-  
+
   // Bottom buttons
   actionButtons: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 40,
     left: 20,
     right: 20,
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
   },
   cancelBtn: {
     flex: 1,
     paddingVertical: 16,
     marginRight: 8,
     borderRadius: 8,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
+    backgroundColor: "#F5F5F5",
+    alignItems: "center",
   },
   cancelBtnText: {
     fontSize: 16,
-    color: '#666666',
-    fontWeight: '500',
+    color: "#666666",
+    fontWeight: "500",
   },
   saveBtn: {
     flex: 1,
     paddingVertical: 16,
     marginLeft: 8,
     borderRadius: 8,
-    backgroundColor: '#2528BE',
-    alignItems: 'center',
+    backgroundColor: "#2528BE",
+    alignItems: "center",
   },
   saveBtnText: {
     fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
-  
+  saveBtnDisabled: {
+    backgroundColor: "#A0A0A0",
+  },
+  submittingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  submittingText: {
+    fontSize: 16,
+    color: "#FFFFFF",
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+
   // Modal styles
   modalOverlay: {
     flex: 1,
@@ -1610,7 +2022,7 @@ const styles = StyleSheet.create({
     color: "#2528BE",
     fontWeight: "500",
   },
-  
+
   // Compatibility styles for old components
   pickerContainer: {
     borderWidth: 1.5,
@@ -1618,7 +2030,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#FAFAFA",
     overflow: "hidden",
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -1636,7 +2048,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#333",
   },
-  
+
   // Loading styles
   loadingContainer: {
     flex: 1,
@@ -1649,7 +2061,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 16,
   },
-  
+
   // Success screen styles
   successContainer: {
     flex: 1,
@@ -1681,94 +2093,95 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   thumbsUpIcon: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
     borderRadius: 40,
     width: 80,
     height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   thumbsUpEmoji: {
     fontSize: 40,
   },
   viewItemButton: {
-    backgroundColor: '#2528BE',
+    backgroundColor: "#2528BE",
     borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     marginBottom: 12,
   },
   viewItemButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   homeButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     paddingVertical: 14,
     paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
   },
   homeButtonText: {
-    color: '#666',
+    color: "#666",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-  
+
   // Photo modal styles
   addPhotosModalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   addPhotosHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: "#EEEEEE",
   },
   addPhotosTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   addPhotosContent: {
     flex: 1,
     padding: 16,
   },
   recentsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   recentsTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: "500",
+    color: "#333",
   },
   photosGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   cameraGridItem: {
     width: (windowWidth - 48) / 3,
     height: (windowWidth - 48) / 3,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
+    marginRight:4
   },
   cameraText: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
   },
   photoGridItem: {
@@ -1776,85 +2189,86 @@ const styles = StyleSheet.create({
     height: (windowWidth - 48) / 3,
     borderRadius: 8,
     marginBottom: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
+    marginRight:4
   },
   photoPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#F5F5F5",
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingPhotosContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   loadingPhotosText: {
-    color: '#666',
+    color: "#666",
     fontSize: 14,
     marginTop: 8,
   },
   noPhotosText: {
-    color: '#999',
+    color: "#999",
     fontSize: 12,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 4,
   },
   recentPhotoImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   browseMoreGridItem: {
     width: (windowWidth - 48) / 3,
     height: (windowWidth - 48) / 3,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
     borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   browseMoreText: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
   },
-  
+
   // Category modal styles
   categoryModalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   categoryModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: "#EEEEEE",
   },
   categoryModalTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   doneButtonText: {
     fontSize: 16,
-    color: '#2528BE',
-    fontWeight: 'bold',
+    color: "#2528BE",
+    fontWeight: "bold",
   },
   categorySearchContainer: {
     padding: 16,
   },
   searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: "#E8E8E8",
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 16,
     paddingVertical: 16,
     minHeight: 56,
@@ -1865,7 +2279,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#000000',
+    color: "#000000",
     paddingVertical: 0, // Remove default padding to center text properly
   },
   categoryListContainer: {
@@ -1875,100 +2289,100 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   categoryCheckboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   checkbox: {
     width: 20,
     height: 20,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: "#DDDDDD",
     borderRadius: 4,
     marginRight: 8,
   },
   checkboxSelected: {
-    backgroundColor: '#2528BE',
+    backgroundColor: "#2528BE",
   },
   categoryCheckboxText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   categorySelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: "#E8E8E8",
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 16,
     paddingVertical: 16,
     minHeight: 56,
   },
-  
+
   // Clean modern form styles matching target UI
   floatingLabel: {
-    position: 'absolute',
+    position: "absolute",
     left: 16,
     top: -8,
     fontSize: 12,
-    color: '#A0A0A0',
-    backgroundColor: 'white',
+    color: "#A0A0A0",
+    backgroundColor: "white",
     paddingHorizontal: 4,
     zIndex: 1,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: "#E8E8E8",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#000000',
-    backgroundColor: '#FFFFFF',
+    color: "#000000",
+    backgroundColor: "#FFFFFF",
   },
   textAreaInput: {
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: "#E8E8E8",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#000000',
-    backgroundColor: '#FFFFFF',
+    color: "#000000",
+    backgroundColor: "#FFFFFF",
     minHeight: 120,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   dropdownInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: "#E8E8E8",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     minHeight: 56,
   },
   dropdownText: {
     fontSize: 16,
-    color: '#000000',
+    color: "#000000",
   },
   placeholderText: {
     fontSize: 16,
-    color: '#A0A0A0',
+    color: "#A0A0A0",
   },
   categoryDisplayContainer: {
     flex: 1,
   },
   categoriesDisplay: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
   },
   categoryTag: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: "#E3F2FD",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1977,15 +2391,80 @@ const styles = StyleSheet.create({
   },
   categoryTagText: {
     fontSize: 12,
-    color: '#2528BE',
-    fontWeight: '500',
+    color: "#2528BE",
+    fontWeight: "500",
   },
   moreText: {
     fontSize: 14,
-    color: '#666666',
-    fontStyle: 'italic',
+    color: "#666666",
+    fontStyle: "italic",
   },
   inputError: {
-    borderColor: '#FF3B30',
+    borderColor: "#FF3B30",
+  },
+
+  // Location modal styles
+  locationModalContainer: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  locationModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
+  },
+  locationModalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+  currentLocationButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  locationSearchContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  currentLocationOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+    borderRadius: 8,
+  },
+  currentLocationIcon: {
+    marginRight: 16,
+  },
+  currentLocationText: {
+    flex: 1,
+  },
+  currentLocationTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
+  currentLocationSubtitle: {
+    fontSize: 14,
+    color: "#666",
+  },
+  locationDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E8E8E8",
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: "#666",
   },
 });

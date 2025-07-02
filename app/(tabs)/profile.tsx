@@ -4,16 +4,17 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    RefreshControl,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -38,6 +39,16 @@ type Review = {
   created_at: string;
   reviewed_product_image?: string;
   reviewed_product_title?: string;
+  reviewed_product_id?: string;
+  review_type: 'buyer_to_seller' | 'seller_to_buyer';
+  replies?: Reply[];
+};
+
+type Reply = {
+  id: string;
+  review_text: string;
+  reviewer_nickname: string;
+  created_at: string;
 };
 
 type Profile = {
@@ -91,6 +102,10 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedReview, setExpandedReview] = useState<string | null>(null);
   const [likedItems, setLikedItems] = useState<{[key: string]: boolean}>({});
+  const [replyText, setReplyText] = useState<string>('');
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [showReplyInput, setShowReplyInput] = useState<{[key: string]: boolean}>({});
+  const [reviewsActiveTab, setReviewsActiveTab] = useState<'all' | 'seller' | 'buyer'>('all');
   
   const router = useRouter();
   const windowWidth = Dimensions.get('window').width;
@@ -113,6 +128,14 @@ export default function ProfileScreen() {
     if (!reviews.length) return 0;
     const total = reviews.reduce((acc, review) => acc + review.rating, 0);
     return (total / reviews.length).toFixed(1);
+  };
+  
+  // Calculate average rating for specific review type
+  const calculateTypeRating = (reviews: Review[], type: 'buyer_to_seller' | 'seller_to_buyer') => {
+    const filteredReviews = reviews.filter(review => review.review_type === type);
+    if (!filteredReviews.length) return 0;
+    const total = filteredReviews.reduce((acc, review) => acc + review.rating, 0);
+    return (total / filteredReviews.length).toFixed(1);
   };
   
   // Add debug logging
@@ -159,9 +182,18 @@ export default function ProfileScreen() {
       console.log('ProfileScreen: Liked data received:', likedResponse.status, likedResponse.data?.length);
       setLikedListings(likedResponse.data || []);
       
-      // Fetch reviews received by the user
-      const reviewsResponse = await api.get(`/api/reviews/seller/${profileResponse.data.id}/`);
+      // Fetch all reviews received by the user (both as seller and buyer)
+      const reviewsResponse = await api.get(`/api/reviews/user/${profileResponse.data.id}/all/`);
       console.log('ProfileScreen: Reviews data received:', reviewsResponse.status, reviewsResponse.data?.length);
+      // Log the first review to check if it has product image
+      if (reviewsResponse.data && reviewsResponse.data.length > 0) {
+        console.log('First review sample:', {
+          id: reviewsResponse.data[0].id,
+          hasProductImage: !!reviewsResponse.data[0].reviewed_product_image,
+          productImageUrl: reviewsResponse.data[0].reviewed_product_image,
+          productTitle: reviewsResponse.data[0].reviewed_product_title
+        });
+      }
       setReviews(reviewsResponse.data || []);
       
     } catch (error) {
@@ -410,6 +442,83 @@ export default function ProfileScreen() {
     }
   };
   
+  // Submit a reply to a review
+  const submitReply = async (reviewId: string) => {
+    if (!replyText.trim() || !tokens?.accessToken) return;
+    
+    try {
+      const api = axios.create({
+        baseURL: 'https://backend.listtra.com',
+        headers: {
+          Authorization: `Bearer ${tokens.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const response = await api.post(`/api/reviews/${reviewId}/reply/`, {
+        review_text: replyText.trim()
+      });
+      
+      if (response.status === 201) {
+        // Refresh reviews to show the new reply
+        const updatedReviews = [...reviews];
+        const reviewIndex = updatedReviews.findIndex(r => r.id === reviewId);
+        
+        if (reviewIndex !== -1) {
+          // Add the new reply to the review's replies array
+          if (!updatedReviews[reviewIndex].replies) {
+            updatedReviews[reviewIndex].replies = [];
+          }
+          
+          updatedReviews[reviewIndex].replies?.push({
+            id: response.data.id,
+            review_text: replyText.trim(),
+            reviewer_nickname: profile?.nickname || 'You',
+            created_at: new Date().toISOString()
+          });
+          
+          setReviews(updatedReviews);
+        }
+        
+        // Reset reply state
+        setReplyText('');
+        setReplyingTo(null);
+        setShowReplyInput({});
+      }
+    } catch (error) {
+      console.error('Error posting reply:', error);
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        router.push('/auth/signin');
+      }
+    }
+  };
+  
+  // Toggle reply input visibility
+  const toggleReplyInput = (reviewId: string) => {
+    setShowReplyInput(prev => ({
+      ...prev,
+      [reviewId]: !prev[reviewId]
+    }));
+    
+    if (!showReplyInput[reviewId]) {
+      setReplyingTo(reviewId);
+      setReplyText('');
+    } else {
+      setReplyingTo(null);
+    }
+  };
+  
+  // Filter reviews based on active tab
+  const getFilteredReviews = () => {
+    if (reviewsActiveTab === 'all') {
+      return reviews;
+    } else if (reviewsActiveTab === 'seller') {
+      return reviews.filter(review => review.review_type === 'buyer_to_seller');
+    } else {
+      return reviews.filter(review => review.review_type === 'seller_to_buyer');
+    }
+  };
+  
   // Render a listing card
   const renderListingItem = ({ item }: { item: Listing }) => {
     const imageUrl = getImageUrl(item);
@@ -419,8 +528,10 @@ export default function ProfileScreen() {
       <TouchableOpacity 
         style={styles.listingCard}
         onPress={() => {
-          const listingUrl = `https://listtra.com/listings/${item.slug || 'item'}/${item.product_id}`;
-          router.push(`/web?uri=${encodeURIComponent(listingUrl)}` as any);
+          router.push({
+            pathname: "/listings/[slug]/[product_id]/page",
+            params: { slug: item.slug || 'item', product_id: item.product_id }
+          });
         }}
       >
         <View style={styles.listingImageContainer}>
@@ -440,11 +551,11 @@ export default function ProfileScreen() {
             <Image 
               source={{ uri: imageUrl }} 
               style={styles.listingImage} 
-              contentFit="contain"
+              contentFit="cover"
               transition={200}
               cachePolicy="memory-disk"
               recyclingKey={imageUrl}
-              placeholderContentFit="contain"
+              placeholderContentFit="cover"
               placeholder={{ uri: getPlaceholderImage() }}
               onError={() => console.log('Failed to load image:', imageUrl)}
             />
@@ -473,20 +584,49 @@ export default function ProfileScreen() {
     const isExpanded = expandedReview === item.id;
     const reviewText = item.review_text || 'No comment provided';
     const reviewerInitial = getInitial(item.reviewer_nickname);
+    const isShowingReplyInput = showReplyInput[item.id] || false;
+    const reviewType = item.review_type === 'buyer_to_seller' ? 'Buyer' : 'Seller';
+    
+    // Check if this review already has a reply
+    const hasReply = item.replies && item.replies.length > 0;
+    
+    // Process the product image URL
+    const productImageUrl = item.reviewed_product_image ? 
+      optimizeCloudinaryUrl(item.reviewed_product_image) : null;
     
     return (
       <View style={styles.reviewCard}>
+        {/* Review Type Badge */}
+        <View style={[
+          styles.reviewTypeBadge, 
+          item.review_type === 'buyer_to_seller' ? styles.buyerBadge : styles.sellerBadge
+        ]}>
+          <Text style={styles.reviewTypeBadgeText}>{reviewType}</Text>
+        </View>
+        
+        {/* Review Header */}
         <View style={styles.reviewHeader}>
           <View style={styles.reviewUserContainer}>
-            <View style={styles.reviewAvatar}>
-              <Text style={styles.reviewAvatarText}>
-                {reviewerInitial}
-              </Text>
-            </View>
+            {productImageUrl ? (
+              <Image 
+                source={{ uri: productImageUrl }} 
+                style={styles.reviewAvatar}
+                contentFit="cover"
+                transition={200}
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View style={styles.reviewAvatar}>
+                <Text style={styles.reviewAvatarText}>
+                  {reviewerInitial}
+                </Text>
+              </View>
+            )}
             <View>
               <Text style={styles.reviewerName}>{item.reviewer_nickname || 'User'}</Text>
               <View style={styles.ratingContainer}>
-                <Text style={styles.ratingText}>★ {item.rating.toFixed(1)}</Text>
+                <Ionicons name="star" size={16} color="#F9A825" />
+                <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
               </View>
             </View>
           </View>
@@ -495,22 +635,130 @@ export default function ProfileScreen() {
           </Text>
         </View>
         
-        <Text 
-          style={[styles.reviewText, isExpanded ? {} : styles.reviewTextCollapsed]}
-          numberOfLines={isExpanded ? undefined : 2}
-        >
-          {reviewText}
-        </Text>
-        
-        {reviewText.length > 80 && (
+        {/* Product Image and Info */}
+        {productImageUrl && item.reviewed_product_title && (
           <TouchableOpacity 
-            onPress={() => setExpandedReview(isExpanded ? null : item.id)}
-            style={styles.readMoreButton}
+            style={styles.reviewedProductContainer}
+            onPress={() => {
+              // Navigate to product if we have an ID
+              if (item.reviewed_product_id) {
+                router.push({
+                  pathname: "/listings/[slug]/[product_id]/page",
+                  params: { slug: 'item', product_id: item.reviewed_product_id }
+                });
+              }
+            }}
           >
-            <Text style={styles.readMoreText}>
-              {isExpanded ? 'Show less' : 'Read more'}
-            </Text>
+            <Image 
+              source={{ uri: productImageUrl }} 
+              style={styles.reviewedProductImage}
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
+              placeholder={{ uri: getPlaceholderImage() }}
+              onError={(error) => {
+                console.log('Product image loading error:', error, productImageUrl);
+              }}
+            />
+            <View style={styles.reviewedProductInfo}>
+              <Text style={styles.reviewedProductTitle} numberOfLines={2}>
+                {item.reviewed_product_title}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color="#2528be" />
+            </View>
           </TouchableOpacity>
+        )}
+        
+        {/* Product details (if no image) */}
+        {!productImageUrl && item.reviewed_product_title && (
+          <View style={styles.reviewedProductContainer}>
+            <Text style={styles.reviewedProductTitle} numberOfLines={1}>
+              {item.reviewed_product_title}
+            </Text>
+          </View>
+        )}
+        
+        {/* Review Content */}
+        <View style={styles.reviewContentContainer}>
+          <Text 
+            style={[styles.reviewText, isExpanded ? {} : styles.reviewTextCollapsed]}
+            numberOfLines={isExpanded ? undefined : 2}
+          >
+            {reviewText}
+          </Text>
+          
+          {reviewText.length > 80 && (
+            <TouchableOpacity 
+              onPress={() => setExpandedReview(isExpanded ? null : item.id)}
+              style={styles.readMoreButton}
+            >
+              <Text style={styles.readMoreText}>
+                {isExpanded ? 'Show less' : 'Read more'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        {/* Replies section - with improved styling */}
+        {hasReply && (
+          <View style={styles.repliesContainer}>
+            {item.replies?.map(reply => (
+              <View key={reply.id} style={styles.replyItem}>
+                <View style={styles.replyHeader}>
+                  <View style={styles.replyAuthorContainer}>
+                    <View style={styles.replyAvatar}>
+                      <Text style={styles.replyAvatarText}>
+                        {getInitial(reply.reviewer_nickname)}
+                      </Text>
+                    </View>
+                    <Text style={styles.replyAuthor}>{reply.reviewer_nickname}</Text>
+                  </View>
+                  <Text style={styles.replyDate}>
+                    {new Date(reply.created_at).toLocaleDateString()}
+                  </Text>
+                </View>
+                <Text style={styles.replyText}>{reply.review_text}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+        
+        {/* Reply button - Only show if there are no replies yet */}
+        {!hasReply && (
+          <View style={styles.reviewActions}>
+            <TouchableOpacity 
+              style={styles.replyButton}
+              onPress={() => toggleReplyInput(item.id)}
+            >
+              <Ionicons name="chatbubble-outline" size={16} color="#2528be" style={{marginRight: 5}} />
+              <Text style={styles.replyButtonText}>
+                {isShowingReplyInput ? 'Cancel' : 'Reply'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
+        {/* Reply input form */}
+        {isShowingReplyInput && (
+          <View style={styles.replyForm}>
+            <TextInput
+              style={styles.replyInput}
+              placeholder="Write your reply..."
+              value={replyText}
+              onChangeText={setReplyText}
+              multiline
+            />
+            <TouchableOpacity 
+              style={[
+                styles.replySubmitButton,
+                !replyText.trim() && styles.replySubmitButtonDisabled
+              ]}
+              onPress={() => submitReply(item.id)}
+              disabled={!replyText.trim()}
+            >
+              <Text style={styles.replySubmitText}>Submit</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     );
@@ -527,6 +775,10 @@ export default function ProfileScreen() {
     
     setLikedItems(initialLikes);
   }, [likedListings]);
+  
+  // Calculate the count of each review type
+  const buyerToSellerCount = reviews.filter(r => r.review_type === 'buyer_to_seller').length;
+  const sellerToBuyerCount = reviews.filter(r => r.review_type === 'seller_to_buyer').length;
   
   // Show loading spinner while initializing
   if (isInitializing || loading) {
@@ -605,8 +857,27 @@ export default function ProfileScreen() {
             {/* Profile Info */}
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{profile.nickname}</Text>
-              <Text style={styles.profileRating}>★ {calculateAverageRating(reviews)}</Text>
-              <Text style={styles.profileReviewCount}>{reviews.length} reviews</Text>
+              <View style={styles.ratingGroup}>
+                <View style={styles.ratingBox}>
+                  <Text style={styles.ratingLabel}>Seller Rating</Text>
+                  <Text style={styles.profileRating}>
+                    ★ {calculateTypeRating(reviews, 'buyer_to_seller')}
+                  </Text>
+                  <Text style={styles.profileReviewCount}>
+                    {buyerToSellerCount} reviews
+                  </Text>
+                </View>
+                
+                <View style={styles.ratingBox}>
+                  <Text style={styles.ratingLabel}>Buyer Rating</Text>
+                  <Text style={styles.profileRating}>
+                    ★ {calculateTypeRating(reviews, 'seller_to_buyer')}
+                  </Text>
+                  <Text style={styles.profileReviewCount}>
+                    {sellerToBuyerCount} reviews
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
           
@@ -682,13 +953,43 @@ export default function ProfileScreen() {
             
             {activeTab === 'Reviews' && (
               <>
-                {reviews.length === 0 ? (
+                {/* Reviews sub-tabs */}
+                <View style={styles.reviewsTabsContainer}>
+                  <TouchableOpacity
+                    style={[styles.reviewsTab, reviewsActiveTab === 'all' ? styles.reviewsActiveTab : null]}
+                    onPress={() => setReviewsActiveTab('all')}
+                  >
+                    <Text style={[styles.reviewsTabText, reviewsActiveTab === 'all' ? styles.reviewsActiveTabText : null]}>
+                      All ({reviews.length})
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.reviewsTab, reviewsActiveTab === 'seller' ? styles.reviewsActiveTab : null]}
+                    onPress={() => setReviewsActiveTab('seller')}
+                  >
+                    <Text style={[styles.reviewsTabText, reviewsActiveTab === 'seller' ? styles.reviewsActiveTabText : null]}>
+                      As Seller ({buyerToSellerCount})
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.reviewsTab, reviewsActiveTab === 'buyer' ? styles.reviewsActiveTab : null]}
+                    onPress={() => setReviewsActiveTab('buyer')}
+                  >
+                    <Text style={[styles.reviewsTabText, reviewsActiveTab === 'buyer' ? styles.reviewsActiveTabText : null]}>
+                      As Buyer ({sellerToBuyerCount})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              
+                {getFilteredReviews().length === 0 ? (
                   <View style={styles.emptyContainer}>
                     <Text style={styles.emptyText}>No reviews yet</Text>
                   </View>
                 ) : (
                   <FlatList
-                    data={reviews}
+                    data={getFilteredReviews()}
                     renderItem={renderReviewItem}
                     keyExtractor={(item) => item.id}
                     scrollEnabled={false}
@@ -912,16 +1213,21 @@ const styles = StyleSheet.create({
   },
   likeButton: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 8,
+    right: 8,
     zIndex: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0)',
+    backgroundColor: 'rgba(200, 200, 200, 0.8)',
     borderRadius: 20,
-    padding: 6,
+    padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 30,
-    height: 30,
+    width: 36,
+    height: 36,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
   },
   reviewsList: {
     marginTop: 10,
@@ -976,11 +1282,13 @@ const styles = StyleSheet.create({
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 2,
   },
   ratingText: {
     color: '#F9A825',
     fontSize: 14,
     fontWeight: 'bold',
+    marginLeft: 4,
   },
   reviewDate: {
     fontSize: 12,
@@ -991,7 +1299,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#424242',
     lineHeight: 20,
-    marginTop: 5,
   },
   reviewTextCollapsed: {
     height: 40,
@@ -1032,5 +1339,217 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  ratingGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 10,
+  },
+  
+  ratingBox: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  
+  ratingLabel: {
+    color: 'white',
+    fontSize: 14,
+    opacity: 0.9,
+    marginBottom: 2,
+  },
+  
+  reviewsTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f5f5f5',
+    marginBottom: 15,
+    borderRadius: 8,
+    padding: 5,
+  },
+  
+  reviewsTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 5,
+  },
+  
+  reviewsActiveTab: {
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  
+  reviewsTabText: {
+    fontSize: 12,
+    color: '#757575',
+    fontWeight: '500',
+  },
+  
+  reviewsActiveTabText: {
+    color: '#2528be',
+    fontWeight: 'bold',
+  },
+  
+  reviewTypeBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    zIndex: 1,
+  },
+  
+  buyerBadge: {
+    backgroundColor: '#e3f2fd',
+  },
+  
+  sellerBadge: {
+    backgroundColor: '#fff8e1',
+  },
+  
+  reviewTypeBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#424242',
+  },
+  
+  reviewContentContainer: {
+    marginTop: 10,
+  },
+  replyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  replySubmitButtonDisabled: {
+    opacity: 0.5,
+  },
+  reviewedProductContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  reviewedProductImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  reviewedProductInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  reviewedProductTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#424242',
+    flex: 1,
+    marginRight: 8,
+    lineHeight: 18,
+  },
+  repliesContainer: {
+    marginTop: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2528be',
+  },
+  replyItem: {
+    marginBottom: 8,
+  },
+  replyAuthorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  replyAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#f2f2f2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  replyAvatarText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#2528be',
+  },
+  replyAuthor: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#424242',
+  },
+  replyDate: {
+    fontSize: 11,
+    color: '#9e9e9e',
+  },
+  replyText: {
+    fontSize: 13,
+    color: '#424242',
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  reviewActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 12,
+  },
+  replyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#f0f2ff',
+    borderRadius: 15,
+  },
+  replyButtonText: {
+    color: '#2528be',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  replyForm: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 12,
+  },
+  replyInput: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+    minHeight: 80,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    textAlignVertical: 'top',
+  },
+  replySubmitButton: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#2528be',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  replySubmitText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

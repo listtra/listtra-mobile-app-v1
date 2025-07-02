@@ -3,17 +3,17 @@ import axios from 'axios';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
@@ -45,6 +45,8 @@ export default function ChatDetailScreen() {
   const [reviewText, setReviewText] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
+  const [hasBeenReviewedByUser, setHasBeenReviewedByUser] = useState(false);
+  const [isReviewingBuyer, setIsReviewingBuyer] = useState(false);
   
   // UI state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -133,6 +135,12 @@ export default function ChatDetailScreen() {
               (review: any) => review.reviewer === user?.id
             );
             setHasReviewed(!!userReview);
+
+            // Check if the user has been reviewed by the other participant
+            const receivedReview = reviewsRes.data.find(
+              (review: any) => review.reviewed_user === user?.id
+            );
+            setHasBeenReviewedByUser(!!receivedReview);
           } catch (reviewError) {
             console.error('Error fetching reviews:', reviewError);
             // Continue even if reviews fail to load
@@ -578,7 +586,7 @@ export default function ChatDetailScreen() {
   const submitReview = async () => {
     try {
       if (hasReviewed) {
-        Alert.alert("Already Reviewed", "You have already reviewed this seller for this product.");
+        Alert.alert("Already Reviewed", `You have already reviewed this ${isReviewingBuyer ? 'buyer' : 'seller'} for this product.`);
         setShowReviewModal(false);
         return;
       }
@@ -589,7 +597,10 @@ export default function ChatDetailScreen() {
       const reviewResponse = await axios.post(
         "https://backend.listtra.com/api/reviews/",
         {
-          reviewed_user: conversation.listing.seller_id,
+          // If reviewing buyer, the reviewed_user is the buyer (not the seller)
+          reviewed_user: isReviewingBuyer ? 
+            conversation.other_participant.id : // Other participant is the buyer
+            conversation.listing.seller_id,     // Seller ID when buyer is reviewing
           reviewed_product: conversation.listing.product_id,
           rating: reviewRating,
           review_text: reviewText.trim() || null
@@ -895,15 +906,37 @@ export default function ChatDetailScreen() {
                 </View>
 
                 {/* Review Seller button for accepted offers */}
-                {item.offer.status === 'Accepted' && isBuyer && !hasReviewed && 
+                {item.offer.status === 'Accepted' && 
                   conversation?.listing?.status === "sold" && (
-                  <TouchableOpacity 
-                    style={styles.reviewButton}
-                    onPress={() => setShowReviewModal(true)}
-                  >
-                    <Ionicons name="star" size={20} color="#FFD700" />
-                    <Text style={styles.reviewButtonText}>Review Seller</Text>
-                  </TouchableOpacity>
+                  <>
+                    {/* Show Review Seller button to buyers */}
+                    {isBuyer && !hasReviewed && (
+                      <TouchableOpacity 
+                        style={styles.reviewButton}
+                        onPress={() => {
+                          setIsReviewingBuyer(false);
+                          setShowReviewModal(true);
+                        }}
+                      >
+                        <Ionicons name="star" size={20} color="#FFD700" />
+                        <Text style={styles.reviewButtonText}>Review Seller</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    {/* Show Review Buyer button to sellers */}
+                    {!isBuyer && !hasReviewed && (
+                      <TouchableOpacity 
+                        style={styles.reviewButton}
+                        onPress={() => {
+                          setIsReviewingBuyer(true);
+                          setShowReviewModal(true);
+                        }}
+                      >
+                        <Ionicons name="star" size={20} color="#FFD700" />
+                        <Text style={styles.reviewButtonText}>Review Buyer</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
                 )}
               </View>
             ) : item.review_data || (typeof item.content === "string" && item.content.includes("left a review:")) ? (
@@ -1082,16 +1115,18 @@ export default function ChatDetailScreen() {
             </TouchableOpacity>
             
             {/* Title */}
-            <Text style={styles.reviewTitle}>Rate seller</Text>
+            <Text style={styles.reviewTitle}>
+              Rate {isReviewingBuyer ? 'buyer' : 'seller'}
+            </Text>
             
-            {/* Seller avatar */}
+            {/* User avatar */}
             <View style={styles.sellerAvatar}>
               <Feather name="user" size={36} color="white" />
             </View>
             
-            {/* Seller name */}
+            {/* User name */}
             <Text style={styles.reviewSellerName}>
-              {conversation?.other_participant?.nickname || "Seller"}
+              {conversation?.other_participant?.nickname || (isReviewingBuyer ? "Buyer" : "Seller")}
             </Text>
             
             {/* Star rating */}

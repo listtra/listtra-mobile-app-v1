@@ -4,7 +4,8 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Tabs } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
+import { Animated, Dimensions, Platform, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -43,6 +44,8 @@ function TabBarIcon(props: {
 }
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
+  const insets = useSafeAreaInsets();
+  
   // Hide tab bar on add screen
   const currentRoute = state.routes[state.index];
   if (currentRoute.name === 'add') {
@@ -162,8 +165,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
     ]
   };
 
+  // Calculate safe bottom padding
+  const safeBottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 10 : 0);
+
   return (
-    <View style={styles.tabBarContainer}>
+    <View style={[styles.tabBarContainer, { paddingBottom: safeBottomPadding }]}>
       <View />
       
       {/* Animated Floating Bubble */}
@@ -228,11 +234,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 const styles = StyleSheet.create({
   tabBarContainer: {
     flexDirection: 'row',
-    height: 70,
+    minHeight: 70,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.06)',
-    paddingBottom: 10,
+    paddingTop: 10,
     paddingHorizontal: 10,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -2 },

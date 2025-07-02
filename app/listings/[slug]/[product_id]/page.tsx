@@ -1,9 +1,9 @@
 import {
-  Manrope_400Regular,
-  Manrope_500Medium,
-  Manrope_600SemiBold,
-  Manrope_700Bold,
-  useFonts,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    useFonts,
 } from '@expo-google-fonts/manrope';
 import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,19 +12,19 @@ import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Modal,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  Share,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Modal,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    Share,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Carousel from 'react-native-snap-carousel';
 import { useAuth } from '../../../../context/AuthContext';
@@ -1115,6 +1115,18 @@ const styles = StyleSheet.create({
     top: Platform.OS === 'ios' ? 30 : 30,
     right: 16,
     zIndex: 10,
+    backgroundColor: 'rgba(200, 200, 200, 0.8)',
+    borderRadius: 20,
+    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 2,
   },
   actionButton: {
     width: 40,
@@ -1190,8 +1202,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   carouselImage: {
-    width: '90%',
-    height: '90%',
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   carouselArrow: {
     position: 'absolute',
