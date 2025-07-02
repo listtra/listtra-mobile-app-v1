@@ -1,12 +1,12 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -16,6 +16,7 @@ import {
   View
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import { getPlaceholderImage, optimizeCloudinaryUrl } from '../../utils/imageUtils';
 
 export default function ChatDetailScreen() {
   const { isInitializing, user, tokens } = useAuth();
@@ -59,6 +60,27 @@ export default function ChatDetailScreen() {
   
   // Check if user is buyer
   const isBuyer = user?.id !== conversation?.listing?.seller_id;
+  
+  // Helper to get image URL with proper fallbacks
+  const getImageUrl = (listing: any) => {
+    // First try to use main_image if available
+    if (listing?.main_image) {
+      return optimizeCloudinaryUrl(listing.main_image);
+    }
+    
+    // Then try to find primary image
+    if (listing?.images && listing.images.length > 0) {
+      const primaryImage = listing.images.find((img: any) => img.is_primary === true);
+      if (primaryImage?.image_url) {
+        return optimizeCloudinaryUrl(primaryImage.image_url);
+      }
+      
+      // Fallback to first image
+      return optimizeCloudinaryUrl(listing.images[0]?.image_url || '');
+    }
+    
+    return getPlaceholderImage();
+  };
   
   // Quick replies for common messages
   const quickReplies = [
@@ -603,7 +625,9 @@ export default function ChatDetailScreen() {
             conversation.listing.seller_id,     // Seller ID when buyer is reviewing
           reviewed_product: conversation.listing.product_id,
           rating: reviewRating,
-          review_text: reviewText.trim() || null
+          review_text: reviewText.trim() || null,
+          // Explicitly set review type for clarity
+          review_type: isReviewingBuyer ? 'seller_to_buyer' : 'buyer_to_seller'
         },
         {
           headers: {
@@ -611,6 +635,13 @@ export default function ChatDetailScreen() {
           }
         }
       );
+      
+      console.log('📝 Review submitted:', {
+        review_type: isReviewingBuyer ? 'seller_to_buyer' : 'buyer_to_seller',
+        reviewed_user: isReviewingBuyer ? conversation.other_participant.id : conversation.listing.seller_id,
+        rating: reviewRating,
+        product_id: conversation.listing.product_id
+      });
       
       // Refresh messages to get the new review
       const messagesResponse = await axios.get(
@@ -636,11 +667,31 @@ export default function ChatDetailScreen() {
         }
       }, 300);
       
-      Alert.alert("Success", "Thank you for your review!");
+      Alert.alert("Success", "Thank you for your review! Your review will appear in both profiles.");
       
     } catch (error) {
-      console.error('Failed to submit review:', error);
-      Alert.alert("Error", "Failed to submit review. Please try again.");
+      console.error('❌ Failed to submit review:', error);
+      
+      // Enhanced error logging
+      if (axios.isAxiosError(error)) {
+        console.log('Review submission error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+        
+        if (error.response?.status === 400) {
+          Alert.alert("Error", "Invalid review data. Please check your inputs and try again.");
+        } else if (error.response?.status === 401) {
+          Alert.alert("Error", "You need to be logged in to submit a review.");
+        } else if (error.response?.status === 403) {
+          Alert.alert("Error", "You don't have permission to review this user.");
+        } else {
+          Alert.alert("Error", `Failed to submit review: ${error.response?.data?.message || error.message}`);
+        }
+      } else {
+        Alert.alert("Error", "Network error. Please check your connection and try again.");
+      }
     } finally {
       setIsSubmittingReview(false);
     }
@@ -725,10 +776,17 @@ export default function ChatDetailScreen() {
       {/* Product Info Header */}
       <View style={styles.productHeader}>
         <View style={styles.productInfo}>
-          {conversation?.listing?.images?.[0]?.image_url ? (
+          {conversation?.listing ? (
             <Image 
-              source={{ uri: conversation.listing.images[0].image_url }} 
-              style={styles.productImage} 
+              source={{ uri: getImageUrl(conversation.listing) }} 
+              style={styles.productImage}
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
+              recyclingKey={getImageUrl(conversation.listing)}
+              placeholderContentFit="cover"
+              placeholder={{ uri: getPlaceholderImage() }}
+              onError={() => console.log('Failed to load product image:', getImageUrl(conversation.listing))}
             />
           ) : (
             <View style={styles.productImagePlaceholder}>

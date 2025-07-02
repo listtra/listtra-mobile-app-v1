@@ -1,20 +1,21 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    Linking,
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Linking,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import { getPlaceholderImage, optimizeCloudinaryUrl } from '../../utils/imageUtils';
 
 // Debug flag to show detailed logging
 const DEBUG_MODE = false;
@@ -30,6 +31,27 @@ export default function ChatListScreen() {
   const [loadingStep, setLoadingStep] = useState('Initializing...');
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Helper to get image URL with proper fallbacks
+  const getImageUrl = (listing: any) => {
+    // First try to use main_image if available
+    if (listing?.main_image) {
+      return optimizeCloudinaryUrl(listing.main_image);
+    }
+    
+    // Then try to find primary image
+    if (listing?.images && listing.images.length > 0) {
+      const primaryImage = listing.images.find((img: any) => img.is_primary === true);
+      if (primaryImage?.image_url) {
+        return optimizeCloudinaryUrl(primaryImage.image_url);
+      }
+      
+      // Fallback to first image
+      return optimizeCloudinaryUrl(listing.images[0]?.image_url || '');
+    }
+    
+    return getPlaceholderImage();
+  };
   
   // Log key information at component mount
   useEffect(() => {
@@ -391,10 +413,17 @@ export default function ChatListScreen() {
       {listingId && listing && (
         <View style={styles.productInfoContainer}>
           <View style={styles.productInfo}>
-            {listing?.images?.[0]?.image_url ? (
+            {listing ? (
               <Image 
-                source={{ uri: listing.images[0].image_url }} 
-                style={styles.productImage} 
+                source={{ uri: getImageUrl(listing) }} 
+                style={styles.productImage}
+                contentFit="cover"
+                transition={200}
+                cachePolicy="memory-disk"
+                recyclingKey={getImageUrl(listing)}
+                placeholderContentFit="cover"
+                placeholder={{ uri: getPlaceholderImage() }}
+                onError={() => console.log('Failed to load listing image:', getImageUrl(listing))}
               />
             ) : (
               <View style={styles.productImagePlaceholder}>
@@ -433,7 +462,14 @@ export default function ChatListScreen() {
                 {item.other_participant?.avatar ? (
                   <Image 
                     source={{ uri: item.other_participant.avatar }} 
-                    style={styles.avatarImage} 
+                    style={styles.avatarImage}
+                    contentFit="cover"
+                    transition={200}
+                    cachePolicy="memory-disk"
+                    recyclingKey={item.other_participant.avatar}
+                    placeholderContentFit="cover"
+                    placeholder={{ uri: getPlaceholderImage() }}
+                    onError={() => console.log('Failed to load avatar:', item.other_participant.avatar)}
                   />
                 ) : (
                   <View style={styles.defaultAvatar}>

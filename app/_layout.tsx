@@ -35,6 +35,7 @@ export default function RootLayout() {
                   <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="notifications" options={{ headerShown: false }} />
                   <Stack.Screen name="search/page" options={{ headerShown: false }} />
+                  <Stack.Screen name="profiles/[nickname]" options={{ headerShown: false }} />
                   <Stack.Screen 
                     name="web" 
                     options={{ 

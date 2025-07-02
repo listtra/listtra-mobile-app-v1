@@ -94,8 +94,10 @@ const ReviewNotification: React.FC<ReviewNotificationProps> = ({
       if (activeNotification.object_id) {
         const [slug, product_id] = activeNotification.object_id.split(':');
         
-        // Find conversation
-        const response = await fetch(`https://backend.listtra.com/api/chat/conversations/listing/${product_id}/`, {
+        console.log('🔍 Looking for conversation for product:', product_id);
+        
+        // Fetch all conversations and filter by product_id (correct approach)
+        const response = await fetch(`https://backend.listtra.com/api/chat/conversations/`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${tokens?.accessToken}`,
@@ -103,11 +105,35 @@ const ReviewNotification: React.FC<ReviewNotificationProps> = ({
           }
         });
         
-        const data = await response.json();
-        if (data && data.length > 0) {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch conversations: ${response.status}`);
+        }
+        
+        const conversations = await response.json();
+        console.log('📊 Total conversations found:', conversations.length);
+        
+        // Filter conversations for this specific product
+        const productConversations = conversations.filter(
+          (conv: any) => conv.listing?.product_id === product_id
+        );
+        
+        console.log('🎯 Conversations for this product:', productConversations.length);
+        
+        if (productConversations.length > 0) {
+          // Navigate to the first conversation for this product
+          const targetConversation = productConversations[0];
+          console.log('✅ Navigating to conversation:', targetConversation.id);
+          
           router.push({
             pathname: '/chat/[id]',
-            params: { id: data[0].id.toString() }
+            params: { id: targetConversation.id.toString() }
+          });
+        } else {
+          // No conversations found - navigate to listing instead
+          console.log('⚠️ No conversations found, navigating to listing');
+          router.push({
+            pathname: '/listings/[slug]/[product_id]/page',
+            params: { slug, product_id }
           });
         }
       }
@@ -116,7 +142,19 @@ const ReviewNotification: React.FC<ReviewNotificationProps> = ({
       hideNotification();
       
     } catch (error) {
-      console.error('Error handling notification press:', error);
+      console.error('❌ Error handling notification press:', error);
+      
+      // Fallback: try to navigate to listing page
+      if (activeNotification.object_id) {
+        const [slug, product_id] = activeNotification.object_id.split(':');
+        console.log('🔄 Fallback: navigating to listing page');
+        router.push({
+          pathname: '/listings/[slug]/[product_id]/page',
+          params: { slug, product_id }
+        });
+      }
+      
+      hideNotification();
     }
   };
   

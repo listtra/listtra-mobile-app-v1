@@ -128,6 +128,19 @@ export default function ListingsScreen() {
         }
       }
       
+      // Handle seller profile click in WebView
+      if (data.type === 'SELLER_PROFILE_CLICKED') {
+        console.log('Seller profile clicked:', data);
+        
+        if (data.nickname) {
+          // Navigate to native seller profile page
+          router.push({
+            pathname: "/profiles/[nickname]",
+            params: { nickname: data.nickname }
+          });
+        }
+      }
+      
       // Handle auth status
       if (data.type === 'AUTH_STATUS') {
         //console.log('Auth status from WebView:', data.isAuthenticated);
@@ -243,6 +256,43 @@ export default function ListingsScreen() {
         });
       }
       
+      // Function to intercept seller profile clicks
+      function setupSellerProfileClickInterceptors() {
+        console.log('Setting up seller profile click interceptors');
+        
+        // Get all seller profile links (profiles/<nickname>)
+        const profileLinks = document.querySelectorAll('a[href^="/profiles/"]');
+        
+        profileLinks.forEach(link => {
+          if (!link.dataset.intercepted) {
+            link.dataset.intercepted = 'true';
+            
+            link.addEventListener('click', (e) => {
+              e.preventDefault();
+              
+              // Extract nickname from href
+              const href = link.getAttribute('href');
+              const match = href.match(/\\/profiles\\/([^\\/]+)/);
+              
+              if (match && match.length >= 2) {
+                const nickname = match[1];
+                
+                console.log('Intercepted seller profile click:', { nickname });
+                
+                // Send message to native code
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'SELLER_PROFILE_CLICKED',
+                  nickname
+                }));
+              } else {
+                console.log('Could not parse profile URL:', href);
+                window.location.href = href; // Fall back to normal navigation
+              }
+            });
+          }
+        });
+      }
+      
       // Handle redirects to sign-in page
       if (window.location.pathname.includes('/auth/signin') && ${isAuthenticated}) {
         console.log("Detected sign-in page while user is authenticated, redirecting to listings");
@@ -251,8 +301,15 @@ export default function ListingsScreen() {
       
       // Run immediately and then with delays to catch dynamically loaded cards
       setupListingCardClickInterceptors();
-      setTimeout(setupListingCardClickInterceptors, 1000);
-      setTimeout(setupListingCardClickInterceptors, 2000);
+      setupSellerProfileClickInterceptors();
+      setTimeout(() => {
+        setupListingCardClickInterceptors();
+        setupSellerProfileClickInterceptors();
+      }, 1000);
+      setTimeout(() => {
+        setupListingCardClickInterceptors();
+        setupSellerProfileClickInterceptors();
+      }, 2000);
       
       // Also set up a MutationObserver to watch for new cards
       const observer = new MutationObserver(mutations => {
@@ -266,6 +323,7 @@ export default function ListingsScreen() {
         
         if (shouldSetup) {
           setupListingCardClickInterceptors();
+          setupSellerProfileClickInterceptors();
         }
       });
       

@@ -104,10 +104,10 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
 
   const labelStyle = {
     position: "absolute" as const,
-    left: 16,
+    left: 12,
     top: animatedValue.interpolate({
       inputRange: [0, 1],
-      outputRange: [16, -8],
+      outputRange: [12, -8],
     }),
     fontSize: animatedValue.interpolate({
       inputRange: [0, 1],
@@ -132,22 +132,22 @@ const AnimatedInput: React.FC<AnimatedInputProps> = ({
     <View style={styles.inputFieldContainer}>
       <Animated.Text style={labelStyle}>{label}</Animated.Text>
       <TextInput
-        style={[
-          multiline ? styles.textAreaField : styles.inputField,
-          {
-            borderWidth: 1,
-            borderColor: getBorderColor(),
-            borderRadius: 12,
-            backgroundColor: "#FFFFFF",
-            paddingHorizontal: 16,
-            paddingVertical: 16,
-            fontSize: 16,
-            color: "#333",
-            minHeight: multiline ? 120 : 56,
-            textAlignVertical: multiline ? "top" : "center",
-          },
-          hasError && { borderColor: "#F44336" },
-        ]}
+                  style={[
+            multiline ? styles.textAreaField : styles.inputField,
+            {
+              borderWidth: 1,
+              borderColor: getBorderColor(),
+              borderRadius: 12,
+              backgroundColor: "#FFFFFF",
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+              fontSize: 16,
+              color: "#333",
+              minHeight: multiline ? 100 : 48,
+              textAlignVertical: multiline ? "top" : "center",
+            },
+            hasError && { borderColor: "#F44336" },
+          ]}
         placeholder=""
         value={value}
         onChangeText={onChangeText}
@@ -1814,20 +1814,20 @@ const styles = StyleSheet.create({
 
   // Upload section styles
   uploadContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 30,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   uploadArea: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 50,
+    padding: 20,
     borderWidth: 1,
     borderColor: "#CCCCCC",
     borderStyle: "dashed",
     borderRadius: 8,
     backgroundColor: "#FFFFFF",
-    marginBottom: 16,
+    marginBottom: 8,
   },
   uploadText: {
     fontSize: 16,
@@ -1839,8 +1839,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   uploadedImageWrapper: {
-    width: 80,
-    height: 80,
+    width: 60,
+    height: 60,
     borderRadius: 8,
     marginRight: 12,
     position: "relative",
@@ -1864,10 +1864,10 @@ const styles = StyleSheet.create({
 
   // Form section styles
   formContainer: {
-    paddingHorizontal:8
+    paddingHorizontal: 16
   },
   fieldContainer: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   fieldLabel: {
     fontSize: 14,
@@ -1878,7 +1878,7 @@ const styles = StyleSheet.create({
 
   // AnimatedInput styles
   inputFieldContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
     position: "relative",
   },
   inputWrapper: {
@@ -1894,19 +1894,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   inputField: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     fontSize: 16,
     color: "#333",
     fontWeight: "400",
-    minHeight: 56,
+    minHeight: 48,
   },
   textAreaField: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     fontSize: 16,
     color: "#333",
-    minHeight: 120,
+    minHeight: 100,
     fontWeight: "400",
   },
   focusedBorder: {
@@ -2269,9 +2269,9 @@ const styles = StyleSheet.create({
     borderColor: "#E8E8E8",
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    minHeight: 56,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 48,
   },
   searchIcon: {
     marginRight: 12,
@@ -2323,7 +2323,7 @@ const styles = StyleSheet.create({
   // Clean modern form styles matching target UI
   floatingLabel: {
     position: "absolute",
-    left: 16,
+    left: 12,
     top: -8,
     fontSize: 12,
     color: "#A0A0A0",
@@ -2335,8 +2335,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E8E8E8",
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     fontSize: 16,
     color: "#000000",
     backgroundColor: "#FFFFFF",
@@ -2345,12 +2345,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E8E8E8",
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     fontSize: 16,
     color: "#000000",
     backgroundColor: "#FFFFFF",
-    minHeight: 120,
+    minHeight: 100,
     textAlignVertical: "top",
   },
   dropdownInput: {
@@ -2360,10 +2360,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E8E8E8",
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     backgroundColor: "#FFFFFF",
-    minHeight: 56,
+    minHeight: 48,
   },
   dropdownText: {
     fontSize: 16,
@@ -2433,7 +2433,7 @@ const styles = StyleSheet.create({
   currentLocationOption: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: "#E8E8E8",
     borderRadius: 8,

@@ -3,15 +3,15 @@ import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
@@ -219,6 +219,8 @@ export default function NotificationsScreen() {
           // For review reminders, navigate to the chat page for the relevant listing
           // First we need to find the conversation
           try {
+            console.log('🔍 Looking for conversation for product:', product_id);
+            
             const api = axios.create({
               baseURL: 'https://backend.listtra.com',
               headers: {
@@ -227,24 +229,38 @@ export default function NotificationsScreen() {
               },
             });
             
-            const response = await api.get(`/api/chat/conversations/listing/${product_id}/`);
-            if (response.data && response.data.length > 0) {
-              // Find the conversation with the notification sender
-              const conversation = response.data[0];  // Usually there's only one conversation per listing
+            // Fetch all conversations and filter by product_id (correct approach)
+            const response = await api.get(`/api/chat/conversations/`);
+            console.log('📊 Total conversations found:', response.data.length);
+            
+            // Filter conversations for this specific product
+            const productConversations = response.data.filter(
+              (conv: any) => conv.listing?.product_id === product_id
+            );
+            
+            console.log('🎯 Conversations for this product:', productConversations.length);
+            
+            if (productConversations.length > 0) {
+              // Navigate to the first conversation for this product
+              const targetConversation = productConversations[0];
+              console.log('✅ Navigating to conversation:', targetConversation.id);
+              
               router.push({
                 pathname: '/chat/[id]',
-                params: { id: conversation.id.toString() }
+                params: { id: targetConversation.id.toString() }
               });
             } else {
-              // Fallback to listing view
+              // No conversations found - navigate to listing instead
+              console.log('⚠️ No conversations found, navigating to listing');
               router.push({
                 pathname: '/listings/[slug]/[product_id]/page',
                 params: { slug, product_id }
               });
             }
           } catch (error) {
-            console.error('Error navigating to review chat:', error);
+            console.error('❌ Error navigating to review chat:', error);
             // Fallback to listing view
+            console.log('🔄 Fallback: navigating to listing page');
             router.push({
               pathname: '/listings/[slug]/[product_id]/page',
               params: { slug, product_id }
