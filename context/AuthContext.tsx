@@ -1,10 +1,11 @@
 import axios from 'axios';
-import { makeRedirectUri } from 'expo-auth-session';
+import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import Constants from 'expo-constants';
 
 // Configure Google WebBrowser auth
 WebBrowser.maybeCompleteAuthSession();
@@ -47,16 +48,16 @@ const AuthContext = createContext<AuthContextType>({
   isInitializing: true,
   isAuthenticated: false,
   error: null,
-  login: async () => {},
-  loginWithGoogle: async () => {},
-  register: async () => {},
-  logout: async () => {},
-  clearError: () => {},
+  login: async () => { },
+  loginWithGoogle: async () => { },
+  register: async () => { },
+  logout: async () => { },
+  clearError: () => { },
   tokens: {
     accessToken: null,
     refreshToken: null
   },
-  setTokensDirectly: async () => {},
+  setTokensDirectly: async () => { },
 });
 
 // Hook to use the auth context
@@ -72,24 +73,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshToken: null as string | null,
   });
 
-  // Determine appropriate redirect URI based on platform
-  const redirectUri = __DEV__ 
-    ? makeRedirectUri()  // Default proxy for Expo Go
-    : makeRedirectUri({
-        // For production builds
-        native: `${APP_SCHEME}://oauth2redirect/google`,
-        scheme: APP_SCHEME,
-      });
+  const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
-  console.log("Redirect URI:", redirectUri);
+  // Configure Google OAuth based on environment
+  const [request, response, promptAsyncOriginal] = isExpoGo
+    ? Google.useAuthRequest({
+      // For Expo Go - use web client with proxy URI
+      clientId: '827930578004-5um6tcqvf554guian9o8uqlui2mso2am.apps.googleusercontent.com',
+      scopes: ['profile', 'email'],
+      redirectUri: 'https://auth.expo.io/@pre_02/listtra-mobile-app',
+    })
+    : Google.useAuthRequest({
+      // For development builds - use platform-specific clients
+      androidClientId: '827930578004-t4j3tr0jes7dfobhib7h2779cir92fq4.apps.googleusercontent.com',
+      iosClientId: '827930578004-9t2a9k7cmjevruiee4s0iq5k9h5p3eqg.apps.googleusercontent.com',
+      webClientId: '827930578004-5um6tcqvf554guian9o8uqlui2mso2am.apps.googleusercontent.com',
+      scopes: ['profile', 'email'],
+    });
 
-  // Configure Google OAuth - Use Expo's Google provider for simplicity
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: '827930578004-5um6tcqvf554guian9o8uqlui2mso2am.apps.googleusercontent.com',
-    androidClientId: '827930578004-t4j3tr0jes7dfobhib7h2779cir92fq4.apps.googleusercontent.com',
-    iosClientId: '827930578004-9t2a9k7cmjevruiee4s0iq5k9h5p3eqg.apps.googleusercontent.com',
-    scopes: ['profile', 'email'],
-  });
+  console.log("Is Expo Go:", isExpoGo);
+  console.log("Redirect URI:", request?.redirectUri);
+  console.log('Redirect URI:', AuthSession.makeRedirectUri());
+  console.log("App scheme:", APP_SCHEME);
+  console.log("Owner:", Constants.expoConfig?.owner);
+  console.log("Slug:", Constants.expoConfig?.slug);
+  console.log("Responseee", response)
 
   // Function to store tokens securely
   const storeTokens = async (accessToken: string, refreshToken: string) => {
@@ -107,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const accessToken = await SecureStore.getItemAsync('accessToken');
       const refreshToken = await SecureStore.getItemAsync('refreshToken');
-      
+
       if (accessToken && refreshToken) {
         setTokens({ accessToken, refreshToken });
         return { accessToken, refreshToken };
@@ -135,7 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initializeAuth = async () => {
       try {
         const storedTokens = await loadTokens();
-        
+
         if (storedTokens?.accessToken) {
           // Validate token and get user profile
           try {
@@ -145,7 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             });
             console.log('Profile response(User):', response.data);
-            
+
             setUser(response.data);
           } catch (error) {
             // If token is invalid or expired, try refresh
@@ -170,6 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Handle Google auth response
   useEffect(() => {
+    console.log('Google auth response received:', response);
     if (response?.type === 'success') {
       console.log('Google auth success response:', JSON.stringify(response, null, 2));
       handleGoogleAuth(response.authentication);
@@ -196,10 +205,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
           }).join('')
         );
-        
+
         const { exp } = JSON.parse(jsonPayload);
         const expiresIn = exp * 1000 - Date.now();
-        
+
         // If token expires in less than 5 minutes, refresh it
         if (expiresIn < 5 * 60 * 1000) {
           console.log('Token expiring soon, refreshing...');
@@ -212,10 +221,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check token expiration every minute
     const interval = setInterval(checkTokenExpiration, 60000);
-    
+
     // Check immediately on mount
     checkTokenExpiration();
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -236,7 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await storeTokens(response.data.access, refreshToken);
         return true;
       }
-      
+
       return false;
     } catch (error) {
       console.error('Token refresh failed:', error);
@@ -250,33 +259,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleGoogleAuth = async (authentication: any) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       console.log('Google auth success, getting user info');
       console.log('Authentication object:', JSON.stringify(authentication, null, 2));
-      
+
       if (!authentication || !authentication.accessToken) {
         console.error('Invalid authentication object');
         setError('Authentication failed: missing access token');
         setIsLoading(false);
         return false;
       }
-      
+
       // Get user info from Google
       const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
         headers: { Authorization: `Bearer ${authentication.accessToken}` },
       });
-      
+
       if (!userInfoResponse.ok) {
         console.error('Failed to fetch user info:', userInfoResponse.status);
         setError(`Failed to fetch user info: ${userInfoResponse.statusText}`);
         setIsLoading(false);
         return false;
       }
-      
+
       const userInfo = await userInfoResponse.json();
       console.log('Google user info:', userInfo);
-      
+
       // Call your backend endpoint with the same data format as the web
       const apiResponse = await axios.post(`${API_URL}/api/auth/google/`, {
         email: userInfo.email,
@@ -284,28 +293,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         picture: userInfo.picture,
         id_token: authentication.idToken, // This matches what your web app is sending
       });
-      
+
       if (apiResponse.data.access && apiResponse.data.refresh) {
         // Store tokens
         await storeTokens(apiResponse.data.access, apiResponse.data.refresh);
-        
+
         // Set user data
         setUser({
           id: apiResponse.data.user_id,
           email: apiResponse.data.email,
           nickname: apiResponse.data.nickname,
         });
-        
+
         // Navigate to home screen
         router.replace('/(tabs)');
         return true;
       }
-      
+
       return false;
     } catch (error: any) {
       console.error('Google auth error:', error);
       console.error('Error response:', error.response?.data);
-      
+
       // Check if it's an account not found error - need to handle this the same way as web
       if (error.response?.status === 400) {
         // Store pending email for signup if needed
@@ -316,7 +325,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setError(`Sign in with Google failed: ${error.message || 'Unknown error'}`);
       }
-      
+
       return false;
     } finally {
       setIsLoading(false);
@@ -337,22 +346,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.data.access && response.data.refresh) {
         // Store tokens
         await storeTokens(response.data.access, response.data.refresh);
-        
+
         // Get user profile
         const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
           headers: {
             Authorization: `Bearer ${response.data.access}`
           }
         });
-        
+
         setUser(profileResponse.data);
-        
+
         // Navigate to home screen
         router.replace('/(tabs)');
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      
+
       // Check if this is an email verification error
       if (error.response?.data?.require_verification) {
         // Redirect to verification page
@@ -362,7 +371,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         return;
       }
-      
+
       setError(error.response?.data?.detail || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -379,7 +388,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Register user
       const registerResponse = await axios.post(`${API_URL}/api/register/`, userData);
       console.log('Registration response:', registerResponse.data);
-      
+
       // Check if registration requires email verification
       if (registerResponse.data.require_verification) {
         // Navigate to verification screen with email
@@ -396,7 +405,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error.response) {
         console.error('Error status:', error.response.status);
         console.error('Error data:', error.response.data);
-        
+
         // Handle validation errors more specifically
         if (error.response.data) {
           const errorMessages = [];
@@ -439,11 +448,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setError('Failed to initialize Google sign in. Please try again.');
         return;
       }
-      
+
       console.log('Auth request config:', JSON.stringify(request, null, 2));
-      const result = await promptAsync();
+      console.log('About to call promptAsync...');
+      const result = await promptAsyncOriginal({showInRecents: true});
+      console.log('Prompt result type:', result?.type);
       console.log('Prompt result:', JSON.stringify(result, null, 2));
-      
+
       // More detailed error handling
       if (result.type === 'error') {
         console.error('Google auth error:', result.error);
@@ -452,6 +463,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setError(`Google sign-in failed: ${result.error?.message || 'Unknown error'}`);
         }
+      } else if (result.type === 'cancel') {
+        console.log('User cancelled Google sign-in');
+      } else if (result.type === 'dismiss') {
+        console.log('Google sign-in was dismissed');
+        console.log('This usually means the redirect URI is not properly configured in Google Cloud Console');
+        console.log('Or there might be an issue with the OAuth consent screen');
       }
     } catch (error) {
       console.error('Google sign in prompt error:', error);
@@ -467,7 +484,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Store tokens
       await storeTokens(accessToken, refreshToken);
-      
+
       if (userData) {
         // Set user data if provided
         setUser(userData);
@@ -479,7 +496,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               Authorization: `Bearer ${accessToken}`
             }
           });
-          
+
           setUser(profileResponse.data);
         } catch (profileError) {
           console.error('Error fetching profile:', profileError);

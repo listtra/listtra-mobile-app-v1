@@ -48,7 +48,12 @@
       },
       "package": "com.listtra.app",
       "edgeToEdgeEnabled": true,
-      "googleServicesFile": "./android/app/google-services.json"
+      "googleServicesFile": "./android/app/google-services.json",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -64,6 +69,14 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to help you find nearby items and automatically set your pickup location.",
+          "locationAlwaysPermission": "Allow $(PRODUCT_NAME) to use your location to help you find nearby items and automatically set your pickup location.",
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to help you find nearby items and automatically set your pickup location."
         }
       ]
     ],

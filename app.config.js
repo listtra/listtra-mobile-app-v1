@@ -32,6 +32,5 @@ export default {
   web: {
     bundler: "metro",
   },
-  scheme: "listtra",
   owner: "pre_02",
 }; 

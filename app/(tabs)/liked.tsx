@@ -1,170 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { useFocusEffect, usePathname, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebViewMessageEvent } from 'react-native-webview';
+import WebViewScreen from '../../components/WebViewScreen';
 import { useAuth } from '../../context/AuthContext';
-import { extractImageUrlsFromListings, getPlaceholderImage, optimizeCloudinaryUrl, preloadImages } from '../../utils/imageUtils';
 
-// Define the types for our data
-type Listing = {
-  product_id: string;
-  title: string;
-  price: string;
-  images: Array<{image_url: string; is_primary?: boolean}>;
-  main_image?: string;
-  condition: string;
-  slug: string;
-  categories?: string[];
-  is_liked?: boolean;
-  seller_name?: string;
-  likes_count?: number;
-};
-
-// Helper function to toggle like status using native fetch API instead of axios
-const toggleLikeAPI = async (
-  slug: string, 
-  listingId: string, 
-  isCurrentlyLiked: boolean,
-  accessToken: string
-) => {
-  const baseURL = 'https://backend.listtra.com';
-  const endpoint = `/api/listings/${slug}/${listingId}/like/`;
-  const url = `${baseURL}${endpoint}`;
-  
-  try {
-    if (isCurrentlyLiked) {
-      // Unlike - use DELETE method
-      console.log(`Unliking: DELETE ${url}`);
-      
-      const response = await fetch(url, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      console.log('Unlike response status:', response.status);
-      
-      // If we get a 400 with "You have not liked this listing", treat it as success
-      // since the end result is what the user wants - the item should not be liked
-      if (response.status === 400) {
-        const errorData = await response.text();
-        console.log('Error response data:', errorData);
-        
-        if (errorData.includes("You have not liked this listing")) {
-          console.log('Item was already not liked on the server, treating as success');
-          return { status: 'success', alreadyUnliked: true };
-        }
-        
-        throw new Error(`Request failed with status ${response.status}: ${errorData}`);
-      }
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.log('Error response data:', errorData);
-        throw new Error(`Request failed with status ${response.status}: ${errorData}`);
-      }
-      
-      return { status: 'success' };
-    } else {
-      // Like - use POST method
-      console.log(`Liking: POST ${url}`);
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      console.log('Like response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.log('Error response data:', errorData);
-        throw new Error(`Request failed with status ${response.status}: ${errorData}`);
-      }
-      
-      return { status: 'success' };
-    }
-  } catch (error) {
-    // Use console.log instead of console.error to prevent error display
-    console.log('API Error in toggleLikeAPI:', error);
-    throw error;
-  }
-};
-
-// Simplified retry function for network operations that doesn't surface network errors if we ultimately succeed
-const retryOperation = async (operation: () => Promise<any>, maxRetries = 2, delay = 1000) => {
-  let lastError: unknown;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      if (attempt > 0) {
-        console.log(`Retry attempt ${attempt}/${maxRetries}...`);
-      }
-      const result = await operation();
-      
-      // If we succeed after failures, log that we recovered
-      if (attempt > 0) {
-        console.log(`Recovered after ${attempt} failed attempts`);
-      }
-      
-      return result;
-    } catch (error) {
-      // Use console.log instead of console.error
-      console.log(`Attempt ${attempt + 1} failed:`, error);
-      lastError = error;
-      
-      // Only log the error, don't display it to the user yet
-      // We'll only show errors if all attempts fail
-      
-      if (attempt < maxRetries) {
-        console.log(`Waiting ${delay}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  // All attempts failed
-  console.log(`All ${maxRetries + 1} attempts failed`);
-  throw lastError;
-};
-
-// Custom Header Component
+// Custom Header Component for Liked Listings
 const LikedHeader = ({ onRefresh }: { onRefresh: () => void }) => {
   const router = useRouter();
-  
+
   return (
     <View style={styles.headerContainer}>
-      <TouchableOpacity 
-        style={styles.headerButton} 
+      <TouchableOpacity
+        style={styles.headerButton}
         onPress={() => router.push('/(tabs)')}
       >
         <Ionicons name="close" size={24} color="#333" />
       </TouchableOpacity>
-      
+
       <Text style={styles.headerTitle}>Liked Listings</Text>
-      
-      <TouchableOpacity 
-        style={styles.headerButton}
-        onPress={onRefresh}
-      >
+
+      <TouchableOpacity style={styles.headerButton} onPress={onRefresh}>
         <Ionicons name="refresh" size={24} color="#333" />
       </TouchableOpacity>
     </View>
@@ -172,516 +30,345 @@ const LikedHeader = ({ onRefresh }: { onRefresh: () => void }) => {
 };
 
 export default function LikedScreen() {
-  const { isInitializing, isAuthenticated, tokens } = useAuth();
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [likedItems, setLikedItems] = useState<{[key: string]: boolean}>({});
-  
+  const { isInitializing, isAuthenticated, tokens, user } = useAuth();
+  const [isReady, setIsReady] = useState(false);
+  const [likedUrl, setLikedUrl] = useState("https://listtra.com/liked");
+  const webViewRef = useRef<{ injectJavaScript: (script: string) => void; reload: () => void }>(null);
   const router = useRouter();
-  const windowWidth = Dimensions.get('window').width;
+  const pathname = usePathname();
+  const lastFocusRef = useRef<string | null>(null);
   
-  // Format condition text
-  const formatCondition = (condition: string) => {
-    if (!condition) return '';
-    
-    // Convert snake_case or kebab-case to readable format
-    return condition
-      .replace(/_/g, ' ')
-      .replace(/-/g, ' ')
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-  
-  // Fetch liked listings
-  const fetchLikedListings = async () => {
-    // Check if authenticated
-    if (!isAuthenticated || !tokens?.accessToken) {
-      router.push('/auth/signin' as any);
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Create API instance with auth token
-      const api = axios.create({
-        baseURL: 'https://backend.listtra.com',
-        headers: {
-          Authorization: `Bearer ${tokens.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      // Fetch liked listings
-      const response = await api.get('/api/listings/liked/');
-      
-      // Transform data to include is_liked flag
-      const transformedListings = response.data.map((listing: Listing) => ({
-        ...listing,
-        is_liked: true, // Since these are liked listings
-      }));
-      
-      setListings(transformedListings);
-      
-      // Initialize liked items state
-      const initialLikedItems: {[key: string]: boolean} = {};
-      transformedListings.forEach((item: Listing) => {
-        initialLikedItems[item.product_id] = true;
-      });
-      setLikedItems(initialLikedItems);
-      
-      // Preload images for better performance on iOS
-      if (transformedListings.length > 0) {
-        const imageUrls = extractImageUrlsFromListings(transformedListings);
-        preloadImages(imageUrls);
-      }
-      
-    } catch (error) {
-      console.error('Error fetching liked listings:', error);
-      
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401) {
-          console.log('Unauthorized, redirecting to signin');
-          router.push('/auth/signin' as any);
-        } else {
-          setError(error.response?.data?.detail || 'Failed to fetch liked listings');
-        }
-      } else {
-        setError('An unexpected error occurred');
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-  
-  // Wait for auth to initialize, then fetch data
+  // Wait for auth to initialize
   useEffect(() => {
     if (!isInitializing) {
-      if (!isAuthenticated || !tokens.accessToken) {
-        console.log('Not authenticated, redirecting to signin');
-        router.push('/auth/signin' as any);
-      } else {
-        fetchLikedListings();
-      }
+      setIsReady(true);
+      setLikedUrl("https://listtra.com/liked");
     }
   }, [isInitializing, isAuthenticated, tokens]);
-  
-  // Handle pull-to-refresh - when refreshing, update the listings to reflect current likes state
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchLikedListings();
-  };
-  
-  // Helper to get image URL
-  const getImageUrl = (item: Listing) => {
-    // First try to use main_image if available
-    if (item.main_image) {
-      return optimizeCloudinaryUrl(item.main_image);
-    }
-    
-    // Then try to find primary image
-    if (item.images && item.images.length > 0) {
-      const primaryImage = item.images.find(img => img.is_primary === true);
-      if (primaryImage?.image_url) {
-        return optimizeCloudinaryUrl(primaryImage.image_url);
+
+  // Use useFocusEffect to reload the liked page every time it comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Liked page focused, performing quick reload');
+      
+      if (webViewRef.current?.injectJavaScript) {
+        const reloadScript = `
+          (function() {
+            console.log('Forcing quick reload of liked page');
+            if (window.location.href.includes('listtra.com/liked')) {
+              window.location.reload();
+            } else {
+              window.location.href = 'https://listtra.com/liked';
+            }
+            return true;
+          })();
+        `;
+        webViewRef.current.injectJavaScript(reloadScript);
       }
       
-      // Fallback to first image
-      return optimizeCloudinaryUrl(item.images[0]?.image_url || '');
-    }
-    
-    return getPlaceholderImage();
-  };
+      return () => {};
+    }, [])
+  );
   
-  // Function to toggle like status
-  const toggleLike = async (item: Listing) => {
-    const productId = item.product_id;
-    // Ensure slug is never null by providing a default value
-    const slug = item.slug ?? 'item'; // Using nullish coalescing to guarantee string
-    const isCurrentlyLiked = likedItems[productId] || false;
-    
-    // Check if we have a valid access token
-    if (!tokens?.accessToken) {
-      console.log('No access token available');
-      router.push('/auth/signin' as any);
-      return;
+  // Keep tab focus detection for backward compatibility
+  useEffect(() => {
+    if (pathname === '/liked') {
+      if (lastFocusRef.current !== pathname) {
+        console.log('Liked tab focused, reloading base URL');
+        setLikedUrl("https://listtra.com/liked");
+      }
+      lastFocusRef.current = pathname;
     }
-    
-    // Store token in a const to ensure it's not null for TypeScript
-    const accessToken = tokens.accessToken;
-    
-    // Log network state
-    console.log('Network info before toggle like operation');
-    
-    // Optimistically update UI - only change the like status, don't remove from list
-    setLikedItems(prev => ({
-      ...prev,
-      [productId]: !isCurrentlyLiked
-    }));
-    
+  }, [pathname]);
+
+  // Handle messages from WebView
+  const handleMessage = (event: WebViewMessageEvent) => {
     try {
-      // Use retry operation with the toggleLikeAPI function
-      const result = await retryOperation(() => 
-        toggleLikeAPI(slug, productId, isCurrentlyLiked, accessToken)
-      );
+      const data = JSON.parse(event.nativeEvent.data);
       
-      // We no longer remove unliked items from the list - we just update their like status
-      // This allows them to stay in the view until user refreshes
-      
-      console.log(`Successfully ${isCurrentlyLiked ? 'unliked' : 'liked'} listing ${productId}`, result);
-    } catch (error: unknown) {
-      // Only reach this point if all retry attempts failed
-      console.log('All retry attempts failed when toggling like status:', error);
-      
-      // Provide more detailed error information
-      console.log('Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      
-      // Special case: If error is about "not liked" but we're trying to unlike,
-      // this is actually what we want
-      if (
-        error instanceof Error && 
-        error.message.includes("You have not liked this listing") && 
-        isCurrentlyLiked
-      ) {
-        console.log('Item was already unliked on server');
-        return; // Don't show error or revert UI
-      }
-      
-      // Revert optimistic update on error (for other types of errors)
-      setLikedItems(prev => ({
-        ...prev,
-        [productId]: isCurrentlyLiked
-      }));
-      
-      // Show error alert ONLY for fatal errors that couldn't be recovered
-      Alert.alert(
-        'Error',
-        'Failed to update favorite status. Please try again.',
-        [{ text: 'OK' }]
-      );
-      
-      // Check for auth errors and redirect if needed - safely check properties
-      if (
-        (typeof error === 'object' && error !== null && 'status' in error && error.status === 401) || 
-        (error instanceof Error && error.message.includes('401'))
-      ) {
-        router.push('/auth/signin' as any);
-      }
-    }
-  };
-  
-  // Render a listing card
-  const renderListingItem = ({ item }: { item: Listing }) => {
-    const imageUrl = getImageUrl(item);
-    const isItemLiked = likedItems[item.product_id] !== undefined 
-      ? likedItems[item.product_id] 
-      : item.is_liked || false;
-    
-    return (
-      <TouchableOpacity 
-        style={styles.listingCard}
-        onPress={() => {
+      if (data.type === 'LISTING_CLICKED') {
+        console.log('Listing clicked:', data);
+        if (data.slug && data.product_id) {
           router.push({
             pathname: "/listings/[slug]/[product_id]/page",
-            params: { slug: item.slug || 'item', product_id: item.product_id }
+            params: { slug: data.slug, product_id: data.product_id }
           });
-        }}
-      >
-        <View style={styles.listingImageContainer}>
-          {/* Like Button */}
-          <TouchableOpacity 
-            style={styles.likeButton}
-            onPress={() => {
-              toggleLike(item);
-              return true; // Prevents propagation to parent
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons 
-              name={isItemLiked ? "heart" : "heart-outline"} 
-              size={20} 
-              color={isItemLiked ? "#ff5252" : "#666"} 
-            />
-          </TouchableOpacity>
-          
-          {imageUrl ? (
-            <Image 
-              source={{ uri: imageUrl }} 
-              style={styles.listingImage} 
-              contentFit="cover"
-              transition={200}
-              cachePolicy="memory-disk"
-              recyclingKey={imageUrl}
-              placeholder={{ uri: getPlaceholderImage() }}
-              onError={() => console.log('Failed to load image:', imageUrl)}
-            />
-          ) : (
-            <View style={styles.noImageContainer}>
-              <Text style={styles.noImageText}>No Image Available</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.listingContent}>
-          <Text style={styles.listingTitle} numberOfLines={2}>{item.title}</Text>
-          <View style={styles.priceContainer}>
-            <Text style={styles.listingPrice}>${item.price}</Text>
-          </View>
-          <View style={styles.listingFooter}>
-            <Text style={styles.listingCondition}>{formatCondition(item.condition)}</Text>
-            <Text style={styles.sellerName}>{item.seller_name || 'Seller'}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
+        }
+      }
+      
+      if (data.type === 'SELLER_PROFILE_CLICKED') {
+        console.log('Seller profile clicked:', data);
+        if (data.nickname) {
+          router.push({
+            pathname: "/profiles/[nickname]",
+            params: { nickname: data.nickname }
+          });
+        }
+      }
+      
+      if (data.type === 'AUTH_STATUS') {
+        if (!data.isAuthenticated && isAuthenticated && tokens.accessToken) {
+          injectAuthTokens();
+        }
+      }
+    } catch (error) {
+      console.error('Error handling WebView message:', error);
+    }
+  };
+
+  const onRefresh = () => {
+    if (webViewRef.current) {
+      console.log('User initiated retry, resetting retry count');
+
+      if (isAuthenticated && tokens?.accessToken) {
+        console.log('Injecting tokens before reload');
+        webViewRef.current.injectJavaScript(`
+          (function() {
+            try {
+              localStorage.setItem('token', '${tokens.accessToken}');
+              localStorage.setItem('refreshToken', '${tokens.refreshToken || ""}');
+              localStorage.setItem('user', '${JSON.stringify(user || {})}');
+              return true;
+            } catch (e) {
+              console.error('Error injecting tokens on refresh:', e);
+              return false;
+            }
+          })();
+        `);
+      }
+
+      setTimeout(() => {
+        console.log('Reloading WebView');
+        webViewRef.current?.reload();
+      }, 500);
+    } else {
+      console.log("errorrrr")
+    }
   };
   
+  // Function to inject auth tokens into the WebView
+  const injectAuthTokens = () => {
+    if (!webViewRef.current || !tokens.accessToken) return;
+    
+    const authScript = `
+      (function() {
+        try {
+          console.log("Injecting auth tokens into localStorage");
+          localStorage.setItem('token', '${tokens.accessToken}');
+          localStorage.setItem('refreshToken', '${tokens.refreshToken || ""}');
+          localStorage.setItem('user', '${JSON.stringify(user || {})}');
+          
+          if (window.location.pathname.includes('/auth/signin')) {
+            window.location.href = '/liked';
+          } else {
+            window.dispatchEvent(new Event('storage'));
+          }
+          
+          return true;
+        } catch (error) {
+          console.error("Error injecting auth tokens:", error);
+          return false;
+        }
+      })();
+    `;
+    
+    webViewRef.current.injectJavaScript(authScript);
+  };
+  
+  // Inject JS to intercept listing card clicks and handle auth
+  const injectedJavaScript = `
+    (function() {
+      try {
+        console.log("Setting auth tokens in localStorage on page load");
+        localStorage.setItem('token', '${tokens?.accessToken || ""}');
+        localStorage.setItem('refreshToken', '${tokens?.refreshToken || ""}');
+        localStorage.setItem('user', '${JSON.stringify(user || {})}');
+      } catch (e) {
+        console.error("Error setting initial auth tokens:", e);
+      }
+      
+      function checkAuthStatus() {
+        const token = localStorage.getItem('token');
+        const isAuthenticated = !!token;
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'AUTH_STATUS',
+            isAuthenticated,
+            currentUrl: window.location.href
+          }));
+        }
+      }
+      
+      checkAuthStatus();
+      setInterval(checkAuthStatus, 3000);
+      
+      function setupListingCardClickInterceptors() {
+        console.log('Setting up listing card click interceptors');
+        const listingCards = document.querySelectorAll('a[href^="/listings/"]');
+        listingCards.forEach(card => {
+          if (!card.dataset.intercepted) {
+            card.dataset.intercepted = 'true';
+            card.addEventListener('click', (e) => {
+              e.preventDefault();
+              const href = card.getAttribute('href');
+              const match = href.match(/\\/listings\\/([^\\/]+)\\/([^\\/]+)/);
+              if (match && match.length >= 3) {
+                const slug = match[1];
+                const product_id = match[2];
+                console.log('Intercepted listing click:', { slug, product_id });
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'LISTING_CLICKED',
+                  slug,
+                  product_id
+                }));
+              } else {
+                console.log(' Could not parse listing URL:', href);
+                window.location.href = href;
+              }
+            });
+          }
+        });
+      }
+      
+      function setupSellerProfileClickInterceptors() {
+        console.log('Setting up seller profile click interceptors');
+        const profileLinks = document.querySelectorAll('a[href^="/profiles/"]');
+        profileLinks.forEach(link => {
+          if (!link.dataset.intercepted) {
+            link.dataset.intercepted = 'true';
+            link.addEventListener('click', (e) => {
+              e.preventDefault();
+              const href = link.getAttribute('href');
+              const match = href.match(/\\/profiles\\/([^\\/]+)/);
+              if (match && match.length >= 2) {
+                const nickname = match[1];
+                console.log('Intercepted seller profile click:', { nickname });
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'SELLER_PROFILE_CLICKED',
+                  nickname
+                }));
+              } else {
+                console.log('Could not parse profile URL:', href);
+                window.location.href = href;
+              }
+            });
+          }
+        });
+      }
+      
+      if (window.location.pathname.includes('/auth/signin') && ${isAuthenticated}) {
+        console.log("Detected sign-in page while user is authenticated, redirecting to liked");
+        window.location.href = '/liked';
+      }
+      
+      setupListingCardClickInterceptors();
+      setupSellerProfileClickInterceptors();
+      setTimeout(() => {
+        setupListingCardClickInterceptors();
+        setupSellerProfileClickInterceptors();
+      }, 1000);
+      setTimeout(() => {
+        setupListingCardClickInterceptors();
+        setupSellerProfileClickInterceptors();
+      }, 2000);
+      
+      const observer = new MutationObserver(mutations => {
+        let shouldSetup = false;
+        mutations.forEach(mutation => {
+          if (mutation.addedNodes.length) {
+            shouldSetup = true;
+          }
+        });
+        if (shouldSetup) {
+          setupListingCardClickInterceptors();
+          setupSellerProfileClickInterceptors();
+        }
+      });
+      
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      return true;
+    })();
+  `;
+  
   // Show loading spinner while initializing
-  if (isInitializing || (loading && !refreshing)) {
+  if (isInitializing || !isReady) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <LikedHeader onRefresh={onRefresh} />
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#2528be" />
-        </View>
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6200EA" />
+      </View>
     );
   }
   
-  // Show error if any
-  if (error) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <LikedHeader onRefresh={onRefresh} />
-        <View style={styles.container}>
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchLikedListings}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-      </View>
-      </SafeAreaView>
-    );
-  }
+  // Handle navigation state changes (URL changes)
+  const handleNavigationStateChange = (navState: any) => {
+    console.log("Navigation state changed to:", navState.url);
+    if (navState.url.includes('/auth/signin') && isAuthenticated) {
+      console.log("Detected redirect to sign-in while authenticated, injecting tokens");
+      setTimeout(injectAuthTokens, 500);
+    }
+  };
   
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <LikedHeader onRefresh={onRefresh} />
-      <View style={styles.container}>
-        <Text style={styles.pageTitle}>Your Liked Listings</Text>
-        
-        {listings.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>You haven't liked any listings yet.</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={listings}
-            renderItem={renderListingItem}
-            keyExtractor={(item) => item.product_id}
-            numColumns={2}
-            contentContainerStyle={styles.listingsGrid}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-          />
-        )}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <LikedHeader onRefresh={onRefresh}/>
+      <View style={styles.webViewContainer}>
+        <WebViewScreen 
+          uri={likedUrl} 
+          requiresAuth={true}
+          injectedJavaScript={injectedJavaScript}
+          onMessage={handleMessage}
+          onNavigationStateChange={handleNavigationStateChange}
+          ref={webViewRef}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'white',
   },
-  loaderContainer: {
+  webViewContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F5F5F5',
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: '#e53935',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#2528be',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginHorizontal: 15,
-    marginTop: 15,
-    marginBottom: 10,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#757575',
-    textAlign: 'center',
-  },
-  listingsGrid: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
-  },
-  // Header styles
   headerContainer: {
-    flexDirection: 'row',
+    justifyContent:"space-between",
+    flexDirection:'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: 'white',
     paddingHorizontal: 10,
     paddingVertical: 10,
-    borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+    borderBottomWidth: 1,
     zIndex: 10,
-  },
-  headerButton: {
-    padding: 8,
-    borderRadius: 20,
-    width: 40,
+    marginBottom: 10,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    flex: 1,
-    textAlign: 'center',
+    marginLeft: 10,
   },
-  // Listing card styles
-  listingCard: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    marginBottom: 15,
-    marginHorizontal: 5,
-    width: Dimensions.get('window').width / 2 - 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    overflow: 'hidden',
-  },
-  listingImageContainer: {
-    aspectRatio: 1,
-    width: '100%',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#f8f8f8',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    paddingTop: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  listingImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  noImageContainer: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-  },
-  noImageText: {
-    color: '#757575',
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  likeButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    zIndex: 10,
-    backgroundColor: 'rgba(200, 200, 200, 0.8)',
-    borderRadius: 20,
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 36,
-    height: 36,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 2,
-  },
-  listingContent: {
-    padding: 14,
-  },
-  listingTitle: {
-    fontSize: 13,
+  logoText: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#212121',
-    marginBottom: 8,
-    minHeight: 40,
-    lineHeight: 18,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  listingPrice: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  listingFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  listingCondition: {
-    fontSize: 13,
-    color: '#757575',
-    flex: 1,
-  },
-  sellerName: {
-    fontSize: 13,
     color: '#2528be',
-    fontWeight: '500',
   },
-}); 
+  headerButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+});
