@@ -8,7 +8,7 @@ import WebViewScreen from '../../../../components/WebViewScreen'; // Adjust the 
 import { useAuth } from '../../../../context/AuthContext'; // Adjust the path as needed
 
 // Custom Header Component for Listing Details
-const ListingDetailHeader = ({ onBack}: { onBack: () => void;}) => {
+const ListingDetailHeader = ({ onBack }: { onBack: () => void }) => {
   return (
     <View style={styles.headerContainer}>
       <TouchableOpacity style={styles.headerButton} onPress={onBack}>
@@ -56,7 +56,7 @@ export default function ListingDetailScreen() {
         `;
         webViewRef.current.injectJavaScript(reloadScript);
       }
-      return () => {};
+      return () => { };
     }, [])
   );
 
@@ -105,10 +105,50 @@ export default function ListingDetailScreen() {
         router.push(`/profiles/${data.nickname}`);
       } else if (data.type === 'AUTH_REQUIRED') {
         router.push({ pathname: '/auth/signin', params: { returnTo: data.returnTo } });
+      } else if (data.type === 'AUTH_STATUS') {
+        if (!data.isAuthenticated && isAuthenticated && tokens.accessToken) {
+          injectAuthTokens();
+        }
+      } else if (data.type === 'REDIRECT_BLOCKED') {
+        console.log("Redirect to sign-in blocked, reinjecting tokens and reloading");
+        injectAuthTokens();
+        setTimeout(() => {
+          if (webViewRef.current) {
+            webViewRef.current.reload();
+          }
+        }, 500); // Delay to ensure token injection completes
       }
     } catch (error) {
       console.error('Error processing WebView message:', error);
     }
+  };
+
+  const injectAuthTokens = () => {
+    if (!webViewRef.current || !tokens.accessToken) return;
+
+    const authScript = `
+      (function() {
+        try {
+          console.log("Injecting auth tokens into localStorage");
+          localStorage.setItem('token', '${tokens.accessToken}');
+          localStorage.setItem('refreshToken', '${tokens.refreshToken || ""}');
+          localStorage.setItem('user', '${JSON.stringify(user || {})}');
+          
+          if (window.location.pathname.includes('/auth/signin')) {
+            window.location.href = '/listings/${slug}/${product_id}';
+          } else {
+            window.dispatchEvent(new Event('storage'));
+          }
+          
+          return true;
+        } catch (error) {
+          console.error("Error injecting auth tokens:", error);
+          return false;
+        }
+      })();
+    `;
+
+    webViewRef.current.injectJavaScript(authScript);
   };
 
   // Inject JS to handle authentication and navigation
@@ -176,7 +216,14 @@ export default function ListingDetailScreen() {
       }
       
       if (window.location.pathname.includes('/auth/signin') && ${isAuthenticated}) {
-        console.log("Detected sign-in page while user is authenticated, redirecting to listing");
+        console.log("Detected sign-in page while user is authenticated, blocking redirect");
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'REDIRECT_BLOCKED',
+            action: 'refresh',
+            destination: '/auth/signin'
+          }));
+        }
         window.location.href = '${webViewUrl}';
       }
       

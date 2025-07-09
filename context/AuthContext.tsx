@@ -346,6 +346,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.data.access && response.data.refresh) {
         // Store tokens
         await storeTokens(response.data.access, response.data.refresh);
+        console.log("access tokens",response.data.access)
+        console.log("refresh tokens",response.data.refresh)
+
+
+
 
         // Get user profile
         const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
