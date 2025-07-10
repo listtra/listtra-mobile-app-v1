@@ -102,9 +102,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Function to store tokens securely
   const storeTokens = async (accessToken: string, refreshToken: string) => {
     try {
-      await SecureStore.setItemAsync('accessToken', accessToken);
-      await SecureStore.setItemAsync('refreshToken', refreshToken);
+      console.log('Storing tokens, token lengths:', accessToken.length, refreshToken.length);
+      
+      // Special handling for Expo Go
+      if (isExpoGo) {
+        console.log('Using Expo Go token storage approach');
+        // In Expo Go, we need to ensure the tokens are stored correctly
+        // First clear any existing tokens
+        await SecureStore.deleteItemAsync('accessToken');
+        await SecureStore.deleteItemAsync('refreshToken');
+        
+        // Small delay to ensure deletion is complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Now store the new tokens
+        await SecureStore.setItemAsync('accessToken', accessToken);
+        await SecureStore.setItemAsync('refreshToken', refreshToken);
+        
+        // Verify tokens were stored correctly
+        const storedAccessToken = await SecureStore.getItemAsync('accessToken');
+        const storedRefreshToken = await SecureStore.getItemAsync('refreshToken');
+        
+        console.log('Tokens stored verification:', {
+          accessTokenStored: !!storedAccessToken,
+          refreshTokenStored: !!storedRefreshToken,
+          accessTokenLength: storedAccessToken?.length,
+          refreshTokenLength: storedRefreshToken?.length
+        });
+        
+        if (!storedAccessToken || !storedRefreshToken) {
+          console.error('Failed to store tokens in Expo Go');
+        }
+      } else {
+        // Normal storage for development builds
+        await SecureStore.setItemAsync('accessToken', accessToken);
+        await SecureStore.setItemAsync('refreshToken', refreshToken);
+      }
+      
+      // Update state
       setTokens({ accessToken, refreshToken });
+      console.log('Token state updated');
     } catch (error) {
       console.error('Error storing tokens:', error);
     }
@@ -149,7 +186,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             const response = await axios.get(`${API_URL}/api/profile/`, {
               headers: {
-                Authorization: `Bearer ${storedTokens.accessToken}`
+                Authorization: `Bearer ${storedTokens.accessToken}`,
+                'X-Expo-Go': isExpoGo ? 'true' : 'false'
               }
             });
             console.log('Profile response(User):', response.data);
@@ -338,34 +376,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
 
     try {
+      console.log('Starting login process with email:', email);
+      console.log('Is Expo Go environment:', isExpoGo);
+      
       const response = await axios.post(`${API_URL}/api/token/`, {
         email,
-        password
+        password,
+        is_expo_go: isExpoGo
+      }, {
+        headers: {
+          'X-Expo-Go': isExpoGo ? 'true' : 'false'
+        }
       });
+
+      console.log('Login response received:', JSON.stringify({
+        success: true,
+        has_access_token: !!response.data.access,
+        has_refresh_token: !!response.data.refresh,
+        token_length: response.data.access ? response.data.access.length : 0
+      }));
 
       if (response.data.access && response.data.refresh) {
         // Store tokens
+        console.log('About to store tokens');
         await storeTokens(response.data.access, response.data.refresh);
-        console.log("access tokens",response.data.access)
-        console.log("refresh tokens",response.data.refresh)
-
-
-
+        console.log('Tokens stored successfully');
 
         // Get user profile
-        const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
-          headers: {
-            Authorization: `Bearer ${response.data.access}`
-          }
-        });
+        console.log('Fetching user profile');
+        try {
+          const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
+            headers: {
+              Authorization: `Bearer ${response.data.access}`
+            }
+          });
+          
+          console.log('Profile fetched successfully:', JSON.stringify({
+            has_profile_data: !!profileResponse.data,
+            profile_keys: profileResponse.data ? Object.keys(profileResponse.data) : []
+          }));
 
-        setUser(profileResponse.data);
+          setUser(profileResponse.data);
+          console.log('User state updated');
 
-        // Navigate to home screen
-        router.replace('/(tabs)');
+          // Navigate to home screen
+          console.log('Navigating to home screen');
+          router.replace('/(tabs)');
+        } catch (profileError) {
+          console.error('Error fetching profile:', profileError);
+          setError('Login successful but failed to fetch user profile');
+        }
       }
     } catch (error: any) {
       console.error('Login error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
 
       // Check if this is an email verification error
       if (error.response?.data?.require_verification) {
@@ -456,7 +521,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('Auth request config:', JSON.stringify(request, null, 2));
       console.log('About to call promptAsync...');
-      const result = await promptAsyncOriginal({showInRecents: true});
+      const result = await promptAsyncOriginal({ showInRecents: true });
       console.log('Prompt result type:', result?.type);
       console.log('Prompt result:', JSON.stringify(result, null, 2));
 
@@ -483,35 +548,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Function to directly set tokens (useful for WebView integration)
   const setTokensDirectly = async (accessToken: string, refreshToken: string, userData?: any) => {
-    setIsLoading(true);
-    setError(null);
-
     try {
-      // Store tokens
       await storeTokens(accessToken, refreshToken);
 
       if (userData) {
-        // Set user data if provided
         setUser(userData);
       } else {
-        // Otherwise get user profile from API
+        // If no userData provided, fetch it using the access token
         try {
-          const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
+          const response = await axios.get(`${API_URL}/api/profile/`, {
             headers: {
               Authorization: `Bearer ${accessToken}`
             }
           });
 
-          setUser(profileResponse.data);
-        } catch (profileError) {
-          console.error('Error fetching profile:', profileError);
+          setUser(response.data);
+        } catch (error) {
+          console.error('Error fetching user profile with provided token:', error);
+          // If profile fetch fails, don't set user
         }
       }
-    } catch (error: any) {
-      console.error('Set tokens error:', error);
-      setError('Failed to set authentication tokens.');
-    } finally {
-      setIsLoading(false);
+
+      return true;
+    } catch (error) {
+      console.error('Error setting tokens directly:', error);
+      return false;
     }
   };
 
@@ -529,7 +590,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         clearError,
         tokens,
-        setTokensDirectly
+        setTokensDirectly: async (accessToken: string, refreshToken: string, userData?: any): Promise<void> => {
+          await setTokensDirectly(accessToken, refreshToken, userData);
+        }
       }}
     >
       {children}

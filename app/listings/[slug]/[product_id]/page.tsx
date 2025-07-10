@@ -1,14 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useRef, useMemo } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebViewMessageEvent } from 'react-native-webview';
-import WebViewScreen from '../../../../components/WebViewScreen'; // Adjust the path as needed
-import { useAuth } from '../../../../context/AuthContext'; // Adjust the path as needed
+import WebViewScreen from '../../../../components/WebViewScreen';
+import { useAuth } from '../../../../context/AuthContext';
 
-// Custom Header Component for Listing Details
-const ListingDetailHeader = ({ onBack }: { onBack: () => void }) => {
+interface WebViewScreenRefInterface {
+  injectJavaScript: (script: string) => void;
+  reload: () => void;
+}
+
+// Custom Header Component for Listing Details - Memoized
+const ListingDetailHeader = React.memo(({ onBack }: { onBack: () => void }) => {
   return (
     <View style={styles.headerContainer}>
       <TouchableOpacity style={styles.headerButton} onPress={onBack}>
@@ -17,238 +22,224 @@ const ListingDetailHeader = ({ onBack }: { onBack: () => void }) => {
       <Text style={styles.headerTitle}>Listing Details</Text>
     </View>
   );
-};
+});
 
 export default function ListingDetailScreen() {
   const params = useLocalSearchParams();
   const slug = typeof params.slug === 'string' ? params.slug : String(params.slug || '');
   const product_id = typeof params.product_id === 'string' ? params.product_id : String(params.product_id || '');
-  const { isInitializing, isAuthenticated, tokens, user } = useAuth();
-  const [isReady, setIsReady] = useState(false);
-  const webViewRef = useRef<{ injectJavaScript: (script: string) => void; reload: () => void }>(null);
+  const { isAuthenticated, tokens, user } = useAuth();
+  const webViewRef = useRef<WebViewScreenRefInterface>(null);
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-
+  const redirectAttempts = useRef(0);
+  
   const webViewUrl = `https://listtra.com/listings/${slug}/${product_id}`;
 
-  // Wait for auth to initialize
-  useEffect(() => {
-    if (!isInitializing) {
-      setIsReady(true);
+  // Refresh auth tokens in WebView localStorage
+  const refreshAuthTokens = useCallback(() => {
+    if (webViewRef.current && tokens?.accessToken) {
+      console.log('Refreshing auth tokens in WebView');
+      webViewRef.current.injectJavaScript(`
+        (function() {
+          localStorage.setItem('token', '${tokens.accessToken}');
+          localStorage.setItem('refreshToken', '${tokens.refreshToken || ""}');
+          localStorage.setItem('user', '${JSON.stringify(user || {})}');
+          return true;
+        })();
+      `);
     }
-  }, [isInitializing]);
-
-  // Use useFocusEffect to reload the WebView when the screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      console.log('Listing detail page focused, performing quick reload');
-      if (webViewRef.current?.injectJavaScript) {
-        const reloadScript = `
-          (function() {
-            console.log('Forcing quick reload of listing detail page');
-            if (window.location.href.includes('listtra.com/listings')) {
-              window.location.reload();
-            } else {
-              window.location.href = '${webViewUrl}';
-            }
-            return true;
-          })();
-        `;
-        webViewRef.current.injectJavaScript(reloadScript);
-      }
-      return () => { };
-    }, [])
-  );
-
-  // Handle refresh action
-  const onRefresh = () => {
-    if (webViewRef.current) {
-      console.log('User initiated retry, resetting retry count');
-      if (isAuthenticated && tokens?.accessToken) {
-        console.log('Injecting tokens before reload');
-        webViewRef.current.injectJavaScript(`
-          (function() {
-            try {
-              localStorage.setItem('token', '${tokens.accessToken}');
-              localStorage.setItem('refreshToken', '${tokens.refreshToken || ""}');
-              localStorage.setItem('user', '${JSON.stringify(user || {})}');
-              return true;
-            } catch (e) {
-              console.error('Error injecting tokens on refresh:', e);
-              return false;
-            }
-          })();
-        `);
-      }
-      setTimeout(() => {
-        console.log('Reloading WebView');
-        webViewRef.current?.reload();
-      }, 500);
-    } else {
-      console.log("Error: WebView not initialized");
-    }
-  };
+  }, [tokens, user]);
 
   // Handle back navigation
-  const onBack = () => {
+  const onBack = useCallback(() => {
     router.back();
-  };
+  }, [router]);
 
-  // Handle messages from WebView
-  const handleMessage = (event: WebViewMessageEvent) => {
+  // Use a focused approach to refresh tokens when coming back to the screen
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Listing detail focused');
+      if (webViewRef.current) {
+        refreshAuthTokens();
+      }
+    }, [refreshAuthTokens])
+  );
+
+  // Handle WebView messages
+  const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log("WebView message:", data);
-      if (data.type === 'NAVIGATE_CHAT') {
+      
+      // Handle auth status
+      if (data.type === 'AUTH_STATUS' && !data.isAuthenticated && isAuthenticated) {
+        refreshAuthTokens();
+        return;
+      }
+      
+      // Chat navigation
+      if (data.type === 'NAVIGATE_CHAT' && data.chatId) {
         router.push(`/chat/${data.chatId}`);
-      } else if (data.type === 'SELLER_PROFILE_CLICKED') {
+      }
+      
+      // Profile navigation
+      if (data.type === 'SELLER_PROFILE_CLICKED' && data.nickname) {
         router.push(`/profiles/${data.nickname}`);
-      } else if (data.type === 'AUTH_REQUIRED') {
-        router.push({ pathname: '/auth/signin', params: { returnTo: data.returnTo } });
-      } else if (data.type === 'AUTH_STATUS') {
-        if (!data.isAuthenticated && isAuthenticated && tokens.accessToken) {
-          injectAuthTokens();
-        }
-      } else if (data.type === 'REDIRECT_BLOCKED') {
-        console.log("Redirect to sign-in blocked, reinjecting tokens and reloading");
-        injectAuthTokens();
-        setTimeout(() => {
+      }
+      
+      // Handle redirect blocked (avoid infinite loops with a counter)
+      if (data.type === 'REDIRECT_BLOCKED') {
+        redirectAttempts.current += 1;
+        
+        // Only try a fixed number of times to avoid infinite loops
+        if (redirectAttempts.current <= 3) {
+          console.log(`Redirect attempt ${redirectAttempts.current}: Trying to recover`);
+          
+          refreshAuthTokens();
+          
+          // Wait briefly then try to navigate directly to the listing
+          setTimeout(() => {
+            if (webViewRef.current) {
+              webViewRef.current.injectJavaScript(`
+                (function() {
+                  window.location.replace('${webViewUrl}?t=${Date.now()}');
+                  return true;
+                })();
+              `);
+            }
+          }, 500);
+        } else if (redirectAttempts.current === 4) {
+          console.log("Multiple redirect attempts failed, forcing reload with clean state");
           if (webViewRef.current) {
             webViewRef.current.reload();
+            redirectAttempts.current = 0;
           }
-        }, 500); // Delay to ensure token injection completes
+        }
       }
     } catch (error) {
       console.error('Error processing WebView message:', error);
     }
-  };
+  }, [router, refreshAuthTokens, webViewUrl, isAuthenticated]);
 
-  const injectAuthTokens = () => {
-    if (!webViewRef.current || !tokens.accessToken) return;
-
-    const authScript = `
-      (function() {
-        try {
-          console.log("Injecting auth tokens into localStorage");
-          localStorage.setItem('token', '${tokens.accessToken}');
-          localStorage.setItem('refreshToken', '${tokens.refreshToken || ""}');
-          localStorage.setItem('user', '${JSON.stringify(user || {})}');
-          
-          if (window.location.pathname.includes('/auth/signin')) {
-            window.location.href = '/listings/${slug}/${product_id}';
-          } else {
-            window.dispatchEvent(new Event('storage'));
-          }
-          
-          return true;
-        } catch (error) {
-          console.error("Error injecting auth tokens:", error);
-          return false;
-        }
-      })();
-    `;
-
-    webViewRef.current.injectJavaScript(authScript);
-  };
-
-  // Inject JS to handle authentication and navigation
-  const injectedJavaScript = `
+  // Minimal injected JavaScript to handle routing and auth
+  const injectedJavaScript = useMemo(() => {
+    return `
     (function() {
+      // Initialize auth tokens
       try {
-        console.log("Setting auth tokens in localStorage on page load");
         localStorage.setItem('token', '${tokens?.accessToken || ""}');
         localStorage.setItem('refreshToken', '${tokens?.refreshToken || ""}');
         localStorage.setItem('user', '${JSON.stringify(user || {})}');
       } catch (e) {
-        console.error("Error setting initial auth tokens:", e);
+        console.error("Error setting auth tokens:", e);
       }
       
-      function checkAuthStatus() {
+      // Detect and handle sign-in redirects
+      if (window.location.pathname.includes('/auth/signin')) {
+        console.log("Detected sign-in page, notifying app");
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'REDIRECT_BLOCKED',
+          destination: '/auth/signin'
+        }));
+        return true;
+      }
+      
+      // Set up interceptors for navigation
+      function setupInterceptors() {
+        // Handle chat button clicks
+        document.querySelectorAll('[data-chat-button]:not([data-intercepted])').forEach(button => {
+          button.dataset.intercepted = 'true';
+          button.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'NAVIGATE_CHAT',
+              chatId: button.dataset.chatId
+            }));
+          });
+        });
+        
+        // Handle profile links
+        document.querySelectorAll('a[href^="/profiles/"]:not([data-intercepted])').forEach(link => {
+          link.dataset.intercepted = 'true';
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const nickname = link.href.split('/').pop();
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'SELLER_PROFILE_CLICKED',
+              nickname
+            }));
+          });
+        });
+        
+        // Intercept all like buttons
+        document.querySelectorAll('button[aria-label*="like"], .like-button, [data-like-button], svg[data-like]').forEach(btn => {
+          if (!btn.dataset.intercepted) {
+            btn.dataset.intercepted = 'true';
+            btn.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              const token = localStorage.getItem('token');
+              if (!token) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'AUTH_STATUS',
+                  isAuthenticated: false
+                }));
+                return;
+              }
+              
+              // Extract listing ID - try multiple methods
+              let listingId = '${product_id}'; // Default to current product
+              
+              // Try to get from button data attribute
+              const btnListingId = btn.getAttribute('data-listing-id');
+              if (btnListingId) listingId = btnListingId;
+              
+              // Make API call directly with auth token
+              fetch('https://backend.listtra.com/api/listings/like/', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({ listing_id: listingId })
+              })
+              .then(response => {
+                if (response.ok) {
+                  // Update UI to show liked state
+                  btn.classList.toggle('liked');
+                  const icon = btn.querySelector('svg, path');
+                  if (icon) icon.setAttribute('fill', '#ff4757');
+                } else if (response.status === 401) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'AUTH_STATUS',
+                    isAuthenticated: false
+                  }));
+                }
+              })
+              .catch(error => {
+                console.error('Error liking:', error);
+              });
+            });
+          }
+        });
+      }
+      
+      // Check auth status periodically
+      setInterval(() => {
         const token = localStorage.getItem('token');
-        const isAuthenticated = !!token;
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'AUTH_STATUS',
-            isAuthenticated,
-            currentUrl: window.location.href
-          }));
-        }
-      }
-      
-      checkAuthStatus();
-      setInterval(checkAuthStatus, 3000);
-      
-      function setupChatInterceptors() {
-        console.log('Setting up chat interceptors');
-        const chatButtons = document.querySelectorAll('[data-chat-button]');
-        chatButtons.forEach(button => {
-          if (!button.dataset.intercepted) {
-            button.dataset.intercepted = 'true';
-            button.addEventListener('click', (e) => {
-              e.preventDefault();
-              console.log('Chat button clicked');
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'NAVIGATE_CHAT',
-                chatId: button.dataset.chatId
-              }));
-            });
-          }
-        });
-      }
-      
-      function setupProfileInterceptors() {
-        console.log('Setting up profile interceptors');
-        const profileLinks = document.querySelectorAll('a[href^="/profiles/"]');
-        profileLinks.forEach(link => {
-          if (!link.dataset.intercepted) {
-            link.dataset.intercepted = 'true';
-            link.addEventListener('click', (e) => {
-              e.preventDefault();
-              const nickname = link.href.split('/').pop();
-              console.log('Profile link clicked:', nickname);
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'SELLER_PROFILE_CLICKED',
-                nickname
-              }));
-            });
-          }
-        });
-      }
-      
-      if (window.location.pathname.includes('/auth/signin') && ${isAuthenticated}) {
-        console.log("Detected sign-in page while user is authenticated, blocking redirect");
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'REDIRECT_BLOCKED',
-            action: 'refresh',
-            destination: '/auth/signin'
-          }));
-        }
-        window.location.href = '${webViewUrl}';
-      }
-      
-      setupChatInterceptors();
-      setupProfileInterceptors();
-      setTimeout(() => {
-        setupChatInterceptors();
-        setupProfileInterceptors();
-      }, 1000);
-      setTimeout(() => {
-        setupChatInterceptors();
-        setupProfileInterceptors();
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'AUTH_STATUS',
+          isAuthenticated: !!token,
+          currentUrl: window.location.href
+        }));
       }, 2000);
       
-      const observer = new MutationObserver(mutations => {
-        let shouldSetup = false;
-        mutations.forEach(mutation => {
-          if (mutation.addedNodes.length) {
-            shouldSetup = true;
-          }
-        });
-        if (shouldSetup) {
-          setupChatInterceptors();
-          setupProfileInterceptors();
-        }
+      // Run initial setup
+      setupInterceptors();
+      
+      // Watch for dynamic content
+      const observer = new MutationObserver(() => {
+        setupInterceptors();
       });
       
       observer.observe(document.body, {
@@ -258,29 +249,36 @@ export default function ListingDetailScreen() {
       
       return true;
     })();
-  `;
+    `;
+  }, [tokens, user, product_id]);
 
-  // Handle navigation state changes (URL changes)
-  const handleNavigationStateChange = (navState: any) => {
+  // Handle navigation state changes
+  const handleNavigationStateChange = useCallback((navState: { url: string | string[]; }) => {
     console.log("Navigation state changed to:", navState.url);
+    
     if (navState.url.includes('/auth/signin') && isAuthenticated) {
-      console.log("Detected redirect to sign-in while authenticated, injecting tokens");
-      setTimeout(() => {
-        if (webViewRef.current) {
-          webViewRef.current.injectJavaScript(injectedJavaScript);
-        }
-      }, 500);
+      redirectAttempts.current += 1;
+      
+      if (redirectAttempts.current <= 3) {
+        console.log(`Navigation redirect attempt ${redirectAttempts.current}: Refreshing tokens and redirecting`);
+        refreshAuthTokens();
+        
+        setTimeout(() => {
+          if (webViewRef.current) {
+            webViewRef.current.injectJavaScript(`
+              (function() {
+                window.location.replace('${webViewUrl}?t=${Date.now()}');
+                return true;
+              })();
+            `);
+          }
+        }, 300);
+      }
+    } else if (navState.url.includes(webViewUrl)) {
+      // Reset counter when we successfully get to the correct page
+      redirectAttempts.current = 0;
     }
-  };
-
-  // Show loading spinner while initializing
-  if (isInitializing || !isReady) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6200EA" />
-      </View>
-    );
-  }
+  }, [isAuthenticated, refreshAuthTokens, webViewUrl]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -308,12 +306,6 @@ const styles = StyleSheet.create({
   webViewContainer: {
     flex: 1,
     backgroundColor: 'white',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
   },
   headerContainer: {
     flexDirection: 'row',
