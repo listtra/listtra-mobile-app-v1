@@ -1,476 +1,263 @@
-import { Feather, Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useRef, useMemo } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebViewMessageEvent } from 'react-native-webview';
+import WebViewScreen from '../../components/WebViewScreen';
 import { useAuth } from '../../context/AuthContext';
-import { getPlaceholderImage, optimizeCloudinaryUrl } from '../../utils/imageUtils';
 
-// Custom Header Component
-const ChatsHeader = () => {
-  const router = useRouter();
-  
+interface WebViewScreenRefInterface {
+  injectJavaScript: (script: string) => void;
+  reload: () => void;
+}
+
+// Custom Header Component for Chats - Memoized
+const ChatsHeader = React.memo(({ onSearchPress }: { onSearchPress: () => void }) => {
   return (
     <View style={styles.headerContainer}>
-      <TouchableOpacity 
-        style={styles.headerButton} 
-        onPress={() => router.push('/(tabs)')}
-      >
-        <Ionicons name="close" size={24} color="#333" />
+      <View style={styles.titleContainer}>
+        <View style={styles.title}>
+          <Ionicons name="chatbubble-ellipses" size={24} color="black" />
+          <Text style={styles.titleText}>Chats</Text>
+        </View>
+      </View>
+      <TouchableOpacity style={styles.searchButton} onPress={onSearchPress}>
+        <Ionicons name="search-outline" size={24} color="black" />
       </TouchableOpacity>
-      
-      <Text style={styles.headerTitle}>Chats</Text>
-      
-      {/* Empty view to balance the header */}
-      <View style={styles.headerButton} />
     </View>
   );
-};
+});
 
 export default function ChatsScreen() {
-  const { isInitializing, user, tokens, isAuthenticated } = useAuth();
+  const webViewRef = useRef<WebViewScreenRefInterface>(null);
   const router = useRouter();
-  const [chats, setChats] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated, tokens, user } = useAuth();
+  const lastNavigationRef = useRef<string | null>(null);
 
-  // Fetch chats data
-  const fetchChats = async (showRefreshing = false) => {
-    if (showRefreshing) {
-      setRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-    
-    // Check if user is authenticated
-    if (!isAuthenticated || !tokens?.accessToken) {
-      setError('Please sign in to view your chats');
-      setIsLoading(false);
-      setRefreshing(false);
-      return;
-    }
-    
+  // URL to load in WebView
+  const webUrl = 'https://listtra.com/chats';
+
+  // Handle search button press
+  const handleSearchPress = useCallback(() => {
+    router.push('/search');
+  }, [router]);
+
+  // Handle WebView messages
+  const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
-      const headers = {
-        Authorization: `Bearer ${tokens.accessToken}`
-      };
-      
-      const response = await axios.get(
-        'https://backend.listtra.com/api/chat/conversations/recent/',
-        { headers }
-      );
-      
-      // Filter out conversations with no meaningful activity
-      const activeChats = response.data.filter((chat: any) => {
-        // Include chat if it has at least one message with content
-        const hasMessages = chat.last_message && 
-                           chat.last_message.content && 
-                           chat.last_message.content.trim().length > 0;
-        
-        // Include chat if it has offers (you can expand this based on your data structure)
-        const hasOffers = chat.offers && chat.offers.length > 0;
-        
-        // Include chat if it has unread messages (indicates activity)
-        const hasUnreadActivity = chat.unread_count > 0;
-        
-        // Include chat if last message indicates meaningful activity (offers, responses, etc.)
-        const hasOfferActivity = chat.last_message && (
-          chat.last_message.message_type === 'offer' ||
-          chat.last_message.message_type === 'offer_response' ||
-          chat.last_message.content?.toLowerCase().includes('offer') ||
-          chat.last_message.content?.toLowerCase().includes('₹') ||
-          chat.last_message.content?.toLowerCase().includes('$')
-        );
-        
-        // Include chat if it has any meaningful activity
-        return hasMessages || hasOffers || hasUnreadActivity || hasOfferActivity;
-      });
-      
-      console.log(`Filtered chats: ${response.data.length} total -> ${activeChats.length} active`);
-      
-      setChats(activeChats);
-      setError(null);
-    } catch (error: any) {
-      console.error('Error fetching chats:', error);
-      setError(`Failed to load chats: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
+      console.log('🔵 WebView message received:', event.nativeEvent.data);
+
+      const data = JSON.parse(event.nativeEvent.data);
+      console.log('🟢 Parsed message data:', data);
+
+      if (data.type === 'NAVIGATE') {
+        console.log('🟡 NAVIGATE event detected with path:', data.path);
+
+        // Handle navigation to a specific chat
+        if (data.path.startsWith('/chat/')) {
+          const chatId = data.path.split('/chat/')[1].split('?')[0].split('#')[0];
+          console.log('🟣 Attempting to navigate to chat ID:', chatId);
+
+          // Store the current navigation to prevent duplicate navigations
+          if (lastNavigationRef.current === chatId) {
+            console.log('🔴 Ignoring duplicate navigation request');
+            return;
+          }
+          lastNavigationRef.current = chatId;
+
+          console.log('🟡 About to navigate to:', `/chat/${chatId}`);
+          router.push({
+            pathname: `/chat/${chatId}`,
+          });
+          console.log('🟢 Navigation instruction sent');
+        }
+      }
+    } catch (error) {
+      console.error('🔴 Error in handleMessage:', error);
     }
-  };
-  
-  // Initial data fetch
-  useEffect(() => {
-    // Skip if auth is still initializing
-    if (isInitializing) return;
-    
-    fetchChats();
-  }, [isInitializing, isAuthenticated, tokens]);
-  
-  // Format timestamp for display
-  const formatTimestamp = (dateString: string): string => {
-    if (!dateString) return '';
-    
-    try {
-      const now = new Date();
-      const date = new Date(dateString);
-      const diffMs = now.getTime() - date.getTime();
-      const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-      
-      if (diffHrs < 1) return "Just now";
-      if (diffHrs < 24) return `${diffHrs}hrs`;
-      return `${Math.floor(diffHrs / 24)}d`;
-    } catch (e) {
-      return '';
+  }, [router]);
+
+  // Refresh auth tokens in WebView
+  const refreshAuthTokens = useCallback(() => {
+    if (webViewRef.current && tokens?.accessToken) {
+      console.log('Refreshing auth tokens in Chat Webview');
+      webViewRef.current.injectJavaScript(`
+        (function() {
+          localStorage.setItem('token', '${tokens.accessToken}');
+          localStorage.setItem('refreshToken', '${tokens.refreshToken || ""}');
+          localStorage.setItem('user', '${JSON.stringify(user || {}).replace(/'/g, "\\'")}');
+          return true;
+        })();
+      `);
     }
-  };
-  
-  // Handle pull-to-refresh
-  const handleRefresh = () => {
-    fetchChats(true);
-  };
-  
-  // Show loading state
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ChatsHeader />
-        <View style={styles.container}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2528be" />
-            <Text style={styles.loadingText}>Loading chats...</Text>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-  
-  // Show error state
-  if (error) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ChatsHeader />
-        <View style={styles.container}>
-          <View style={styles.errorContainer}>
-            <Feather name="alert-circle" size={48} color="#ff3b30" />
-            <Text style={styles.errorText}>{error}</Text>
-            
-            <TouchableOpacity 
-              style={styles.retryButton}
-              onPress={() => fetchChats()}
-            >
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </TouchableOpacity>
-            
-            {!isAuthenticated && (
-              <TouchableOpacity 
-                style={styles.signInButton}
-                onPress={() => router.push('/auth/signin')}
-              >
-                <Text style={styles.signInButtonText}>Sign In</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-  
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ChatsHeader />
-      <View style={styles.container}>
-        {chats.length > 0 ? (
-          <FlatList
-            data={chats}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.chatItem}
-                onPress={() => router.push({
-                  pathname: '/chat/[id]',
-                  params: { id: item.id }
-                })}
-              >
-                <View style={styles.imageContainer}>
-                  {item.listing?.images?.[0]?.image_url ? (
-                    <Image 
-                      source={{ uri: optimizeCloudinaryUrl(item.listing.images[0].image_url, 150, 80) }} 
-                      style={styles.listingImage}
-                      contentFit="cover"
-                      transition={200}
-                      cachePolicy="memory-disk"
-                      placeholder={{ uri: getPlaceholderImage() }}
-                    />
-                  ) : (
-                    <View style={styles.imagePlaceholder}>
-                      <Text style={styles.placeholderText}>?</Text>
-                    </View>
-                  )}
-                </View>
-                
-                <View style={styles.chatContent}>
-                  <Text style={styles.listingTitle} numberOfLines={1}>
-                    {item.listing?.title || "Untitled"}
-                  </Text>
-                  
-                  <Text style={styles.listingPrice}>
-                    ${item.listing?.price || "-"}
-                  </Text>
-                  
-                  <Text style={styles.participantName} numberOfLines={1}>
-                    {item.listing?.seller_nickname || item.other_participant?.nickname || "-"}
-                  </Text>
-                  
-                  <Text style={styles.lastMessage} numberOfLines={1}>
-                    {item.last_message?.content || "Recent activity"}
-                  </Text>
-                </View>
-                
-                <View style={styles.rightContent}>
-                  <Text style={styles.timestamp}>
-                    {item.last_message?.created_at
-                      ? formatTimestamp(item.last_message.created_at)
-                      : ""}
-                  </Text>
-                  
-                  {item.unread_count > 0 && (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadCount}>{item.unread_count}</Text>
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-            )}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl 
-                refreshing={refreshing} 
-                onRefresh={handleRefresh}
-                colors={['#2528be']}
-                tintColor="#2528be"
-              />
+  }, [tokens, user]);
+
+  // Refresh tokens when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Chats screen focused');
+      if (webViewRef.current && isAuthenticated) {
+        refreshAuthTokens();
+
+        // Always ensure we're on the chats list when coming back
+        webViewRef.current.injectJavaScript(`
+          (function() {
+            if (!window.location.href.endsWith('/chats')) {
+              window.location.replace('${webUrl}?t=${Date.now()}');
             }
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-          />
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No active conversations</Text>
-            <Text style={styles.emptySubtext}>
-              Start a conversation by messaging someone about their listing
-            </Text>
-          </View>
-        )}
+            return true;
+          })();
+        `);
+      }
+    }, [refreshAuthTokens, isAuthenticated, webUrl])
+  );
+
+  // Custom JavaScript to inject into the WebView
+  const injectedJavaScript = useMemo(() => {
+    return `
+    (function() {
+      // Set up auth
+      localStorage.setItem('token', '${tokens?.accessToken || ""}');
+      localStorage.setItem('refreshToken', '${tokens?.refreshToken || ""}');
+      localStorage.setItem('user', '${JSON.stringify(user || {}).replace(/'/g, "\\'")}');
+      
+      // Add click logging
+      document.body.addEventListener('click', function(e) {
+        const chatLink = e.target.closest('a[href*="/chat/"]');
+        if (chatLink) {
+          e.preventDefault();
+          console.log('🟡 Chat link clicked:', chatLink.href);
+          const chatId = chatLink.href.split('/chat/')[1].split(/[?#]/)[0];
+          console.log('🟢 Extracted chat ID:', chatId);
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'NAVIGATE',
+            path: '/chat/' + chatId
+          }));
+          console.log('🟣 Message sent to React Native');
+        }
+      });
+  
+      // Log when script is injected
+      console.log('🟢 Chat enhancement script injected');
+      return true;
+    })();
+    `;
+  }, [tokens, user]);
+
+  // Handle navigation state changes - THIS IS KEY
+  const handleNavigationStateChange = useCallback((navState: { url: string }) => {
+    console.log("Navigation state changed to:", navState.url);
+
+    // Check if navigation is to a chat page
+    if (navState.url.includes('/chat/') && !navState.url.endsWith('/chats')) {
+      console.log('Detected WebView navigation to chat page, redirecting to native');
+
+      // Extract chat ID from URL
+      const urlParts = navState.url.split('/chat/');
+      if (urlParts.length > 1) {
+        const chatId = urlParts[1].split('?')[0].split('#')[0];
+
+        // Prevent duplicate navigations
+        if (lastNavigationRef.current === chatId) {
+          console.log('Ignoring duplicate navigation');
+          return;
+        }
+        lastNavigationRef.current = chatId;
+
+        console.log('Extracted chat ID from URL:', chatId);
+
+        // Navigate to native chat screen
+        router.push({
+          pathname: `/chat/${chatId}`,
+        });
+
+        // Navigate WebView back to chats list immediately
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            (function() {
+              window.location.replace('${webUrl}?t=${Date.now()}');
+              return true;
+            })();
+          `);
+        }
+
+        // Clear navigation ref after a delay
+        setTimeout(() => {
+          lastNavigationRef.current = null;
+        }, 1000);
+      }
+    } else if (navState.url.includes('/auth/signin') && isAuthenticated) {
+      console.log('Detected redirect to sign-in page, refreshing tokens');
+      refreshAuthTokens();
+
+      // After refreshing tokens, redirect back to chats
+      setTimeout(() => {
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            (function() {
+              window.location.replace('${webUrl}?t=${Date.now()}');
+              return true;
+            })();
+          `);
+        }
+      }, 300);
+    }
+  }, [isAuthenticated, refreshAuthTokens, webUrl, router]);
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ChatsHeader onSearchPress={handleSearchPress} />
+      <View style={styles.webViewContainer}>
+        <WebViewScreen
+          ref={webViewRef}
+          uri={webUrl}
+          showLoader={true}
+          requiresAuth={true}
+          injectedJavaScript={injectedJavaScript}
+          onMessage={handleMessage}
+          onNavigationStateChange={handleNavigationStateChange}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: 'white',
   },
-  container: {
+  webViewContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+  },
+  webView: {
+    flex: 1,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: 'white',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    zIndex: 10,
   },
-  headerButton: {
-    padding: 8,
-    borderRadius: 20,
-    width: 40,
+  titleContainer: {
+    flex: 1,
   },
-  headerTitle: {
+  title: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  titleText: {
+    marginLeft: 8,
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    flex: 1,
-    textAlign: 'center',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  searchButton: {
+    padding: 8,
   },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 20,
-    color: '#666',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
-    marginTop: 15,
-    marginBottom: 30,
-  },
-  retryButton: {
-    backgroundColor: '#2528be',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  signInButton: {
-    marginTop: 20,
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  signInButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  listContent: {
-    padding: 10,
-    paddingBottom: 80, // Extra padding at the bottom for better scrolling
-    width: '100%',
-  },
-  chatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 12,
-    marginVertical: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  imageContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
-    marginRight: 12,
-  },
-  listingImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#e0e0e0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#888',
-  },
-  chatContent: {
-    flex: 1,
-    marginRight: 8,
-    justifyContent: 'space-between',
-  },
-  listingTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 3,
-  },
-  listingPrice: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2528be',
-    marginBottom: 3,
-  },
-  participantName: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 3,
-  },
-  lastMessage: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  rightContent: {
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    height: 50,
-    minWidth: 48,
-    marginLeft: 2,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 8,
-  },
-  unreadBadge: {
-    backgroundColor: '#2528be',
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
-  unreadCount: {
-    color: 'white',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  separator: {
-    height: 8,
-    backgroundColor: 'transparent',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#777',
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-}); 
+});
