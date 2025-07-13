@@ -29,7 +29,14 @@ export default function ListingDetailScreen() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
-  const webViewUrl = `https://listtra.com/listings/${slug}/${product_id}`;
+  // Add user_id parameter to the URL to help with authentication
+  const webViewUrl = (() => {
+    let url = `https://listtra.com/listings/${slug}/${product_id}`;
+    if (user?.id) {
+      url += `?user_id=${user.id}`;
+    }
+    return url;
+  })();
 
   // Wait for auth to initialize
   useEffect(() => {
@@ -57,29 +64,14 @@ export default function ListingDetailScreen() {
         webViewRef.current.injectJavaScript(reloadScript);
       }
       return () => { };
-    }, [])
+    }, [webViewUrl])
   );
 
   // Handle refresh action
   const onRefresh = () => {
     if (webViewRef.current) {
-      console.log('User initiated retry, resetting retry count');
-      if (isAuthenticated && tokens?.accessToken) {
-        console.log('Injecting tokens before reload');
-        webViewRef.current.injectJavaScript(`
-          (function() {
-            try {
-              localStorage.setItem('token', '${tokens.accessToken}');
-              localStorage.setItem('refreshToken', '${tokens.refreshToken || ""}');
-              localStorage.setItem('user', '${JSON.stringify(user || {})}');
-              return true;
-            } catch (e) {
-              console.error('Error injecting tokens on refresh:', e);
-              return false;
-            }
-          })();
-        `);
-      }
+      console.log('User initiated retry');
+      injectAuthTokens();
       setTimeout(() => {
         console.log('Reloading WebView');
         webViewRef.current?.reload();
@@ -106,6 +98,7 @@ export default function ListingDetailScreen() {
             console.error('Chat navigation failed: Missing chatId');
             return;
           }
+          console.log('🟢 Navigating to individual chat:', data.chatId);
           router.push(`/chat/${data.chatId}`);
           break;
 
@@ -114,6 +107,7 @@ export default function ListingDetailScreen() {
             console.error('View all chats failed: Missing listingId');
             return;
           }
+          console.log('🟢 Navigating to listing chats:', data.listingId);
           router.push(`/chat?listing=${data.listingId}`);
           break;
 
@@ -126,14 +120,13 @@ export default function ListingDetailScreen() {
           break;
 
         case 'AUTH_REQUIRED':
-          router.push({
-            pathname: '/auth/signin',
-            params: { returnTo: data.returnTo }
-          });
+          console.log("Auth required, injecting tokens and retrying");
+          injectAuthTokens();
           break;
 
         case 'AUTH_STATUS':
-          if (!data.isAuthenticated && isAuthenticated && tokens.accessToken) {
+          if (!data.isAuthenticated && isAuthenticated && tokens?.accessToken) {
+            console.log("Auth status mismatch, injecting tokens");
             injectAuthTokens();
           }
           break;
@@ -148,6 +141,13 @@ export default function ListingDetailScreen() {
           }, 500);
           break;
 
+        case 'CHAT_CREATION_FAILED':
+          console.error("Chat creation failed:", data.error);
+          if (data.error?.includes('401') || data.error?.includes('unauthorized')) {
+            injectAuthTokens();
+          }
+          break;
+
         default:
           console.log("Unhandled message type:", data.type);
       }
@@ -157,22 +157,24 @@ export default function ListingDetailScreen() {
   };
 
   const injectAuthTokens = () => {
-    if (!webViewRef.current || !tokens.accessToken) return;
+    if (!webViewRef.current || !tokens?.accessToken) {
+      console.log("Cannot inject tokens: WebView or tokens not available");
+      return;
+    }
 
+    console.log("Injecting auth tokens");
     const authScript = `
       (function() {
         try {
           console.log("Injecting auth tokens into localStorage");
           localStorage.setItem('token', '${tokens.accessToken}');
           localStorage.setItem('refreshToken', '${tokens.refreshToken || ""}');
-          localStorage.setItem('user', '${JSON.stringify(user || {})}');
+          localStorage.setItem('user', '${JSON.stringify(user || {}).replace(/'/g, "\\'")}');
           
-          if (window.location.pathname.includes('/auth/signin')) {
-            window.location.href = '/listings/${slug}/${product_id}';
-          } else {
-            window.dispatchEvent(new Event('storage'));
-          }
+          // Dispatch storage event to notify the page
+          window.dispatchEvent(new Event('storage'));
           
+          console.log("Auth tokens injected successfully");
           return true;
         } catch (error) {
           console.error("Error injecting auth tokens:", error);
@@ -184,258 +186,313 @@ export default function ListingDetailScreen() {
     webViewRef.current.injectJavaScript(authScript);
   };
 
-  // Inject JS to handle authentication and navigation
+  // Enhanced injected JavaScript with better error handling
   const injectedJavaScript = `
     (function() {
       try {
-        console.log("Setting auth tokens in localStorage on page load");
-        localStorage.setItem('token', '${tokens?.accessToken || ""}');
-        localStorage.setItem('refreshToken', '${tokens?.refreshToken || ""}');
-        localStorage.setItem('user', '${JSON.stringify(user || {})}');
-      } catch (e) {
-        console.error("Error setting initial auth tokens:", e);
-      }
-      
-      function checkAuthStatus() {
-        const token = localStorage.getItem('token');
-        const isAuthenticated = !!token;
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'AUTH_STATUS',
-            isAuthenticated,
-            currentUrl: window.location.href
-          }));
-        }
-      }
-      
-      checkAuthStatus();
-      setInterval(checkAuthStatus, 3000);
-      
-      function setupChatInterceptors() {
-        console.log('Setting up chat interceptors');
+        console.log("Initializing listing detail page");
         
-        // For buyers - Make Offer button - try multiple selectors
-        const makeOfferSelectors = [
-          '[data-testid="make-offer-button"]',
-          'button:contains("Make Offer")',
-          'button.bg-primary.text-white.flex-1',
-          'button.bg-primary.text-white'
-        ];
+        // Set auth tokens with error handling
+        try {
+          const authData = {
+            'token': '${tokens?.accessToken || ""}',
+            'refreshToken': '${tokens?.refreshToken || ""}',
+            'user': '${JSON.stringify(user || {}).replace(/'/g, "\\'")}'
+          };
+          
+          Object.entries(authData).forEach(([key, value]) => {
+            if (value) {
+              localStorage.setItem(key, value);
+            }
+          });
+          
+          console.log("Auth tokens set successfully");
+        } catch (e) {
+          console.error("Error setting initial auth tokens:", e);
+        }
+        
+        // Check auth status periodically
+        function checkAuthStatus() {
+          const token = localStorage.getItem('token');
+          const isAuthenticated = !!token;
+          
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'AUTH_STATUS',
+              isAuthenticated,
+              currentUrl: window.location.href
+            }));
+          }
+        }
+        
+        // Initial auth check
+        checkAuthStatus();
+        
+        // Check auth every 3 seconds
+        setInterval(checkAuthStatus, 3000);
+        
+        function setupChatInterceptors() {
+          console.log('Setting up chat interceptors');
+          
+          // Enhanced Make Offer button interceptor
+          function interceptMakeOfferButtons() {
+            const makeOfferSelectors = [
+              '[data-testid="make-offer-button"]',
+              'button.bg-primary.text-white.flex-1',
+              'button.bg-primary.text-white',
+              'button:contains("Make Offer")'
+            ];
 
-        makeOfferSelectors.forEach(function(selector) {
-          const makeOfferButtons = document.querySelectorAll(selector);
-          console.log('Found ' + makeOfferButtons.length + ' buttons with selector: ' + selector);
+            makeOfferSelectors.forEach(function(selector) {
+              const buttons = document.querySelectorAll(selector);
+              console.log(\`Found \${buttons.length} buttons with selector: \${selector}\`);
 
-          makeOfferButtons.forEach(function(button) {
-            if (!button.dataset.intercepted) {
-              button.dataset.intercepted = 'true';
-              console.log('Adding click listener to Make Offer button');
-              
-              button.addEventListener('click', async (e) => {
-                console.log('Make Offer button clicked!');
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (!localStorage.getItem('token')) {
-                  console.log('No token found, redirecting to auth');
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'AUTH_REQUIRED',
-                    returnTo: '/listings/${slug}/${product_id}'
-                  }));
-                  return;
-                }
-                
-                try {
-                  console.log('Creating chat conversation...');
-                  const response = await fetch('/api/chat/conversations/', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': 'Bearer ' + localStorage.getItem('token')
-                    },
-                    body: JSON.stringify({
-                      listing: '${product_id}'
-                    })
-                  });
+              buttons.forEach(function(button) {
+                if (!button.dataset.intercepted) {
+                  button.dataset.intercepted = 'true';
+                  console.log('Adding click listener to Make Offer button');
                   
-                  if (!response.ok) {
-                    if (response.status === 401) {
-                      console.log('Unauthorized, redirecting to auth');
+                  button.addEventListener('click', async (e) => {
+                    console.log('Make Offer button clicked!');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const token = localStorage.getItem('token');
+                    if (!token) {
+                      console.log('No token found, requesting auth');
                       window.ReactNativeWebView.postMessage(JSON.stringify({
                         type: 'AUTH_REQUIRED',
                         returnTo: '/listings/${slug}/${product_id}'
                       }));
                       return;
                     }
-                    throw new Error('Failed to create chat');
-                  }
-                  
-                  const data = await response.json();
-                  console.log('Chat created successfully:', data);
-                  
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'NAVIGATE_CHAT',
-                    chatId: data.id
-                  }));
-                } catch (error) {
-                  console.error('Error creating chat:', error);
+                    
+                    try {
+                      console.log('Creating chat conversation...');
+                      const response = await fetch('/api/chat/conversations/', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': \`Bearer \${token}\`
+                        },
+                        body: JSON.stringify({
+                          listing: '${product_id}'
+                        })
+                      });
+                      
+                      if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Chat creation failed:', response.status, errorText);
+                        
+                        if (response.status === 401) {
+                          console.log('Unauthorized, requesting fresh tokens');
+                          window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'AUTH_REQUIRED',
+                            returnTo: '/listings/${slug}/${product_id}'
+                          }));
+                          return;
+                        }
+                        
+                        throw new Error(\`HTTP \${response.status}: \${errorText}\`);
+                      }
+                      
+                      const data = await response.json();
+                      console.log('Chat created successfully:', data);
+                      
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'NAVIGATE_CHAT',
+                        chatId: data.id
+                      }));
+                    } catch (error) {
+                      console.error('Error creating chat:', error);
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'CHAT_CREATION_FAILED',
+                        error: error.message
+                      }));
+                    }
+                  });
                 }
               });
-            }
-          });
-        });
+            });
+          }
 
-        // For sellers - View all chats button
-        const viewAllChatsButton = document.querySelector('[data-testid="view-all-chats-button"]');
-        if (viewAllChatsButton && !viewAllChatsButton.dataset.intercepted) {
-          viewAllChatsButton.dataset.intercepted = 'true';
-          viewAllChatsButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('View all chats clicked');
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'VIEW_ALL_CHATS',
-              listingId: '${product_id}'
-            }));
-          });
-        }
-
-        // Chat icon buttons (both cases)
-        const chatIconButtons = document.querySelectorAll('button.bg-white.rounded-lg.p-4');
-        chatIconButtons.forEach(button => {
-          if (!button.dataset.intercepted) {
-            button.dataset.intercepted = 'true';
-            button.addEventListener('click', async (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              console.log('Chat icon clicked');
+          // Enhanced View All Chats button interceptor
+          function interceptViewAllChatsButtons() {
+            const viewAllChatsButton = document.querySelector('[data-testid="view-all-chats-button"]');
+            if (viewAllChatsButton && !viewAllChatsButton.dataset.intercepted) {
+              viewAllChatsButton.dataset.intercepted = 'true';
+              console.log('Adding click listener to View All Chats button');
               
-              // Check if this is a seller's view
-              const isSellerView = !!document.querySelector('[data-testid="view-all-chats-button"]');
-              
-              if (isSellerView) {
+              viewAllChatsButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('View all chats clicked');
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                   type: 'VIEW_ALL_CHATS',
                   listingId: '${product_id}'
                 }));
-              } else {
-                if (!localStorage.getItem('token')) {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'AUTH_REQUIRED',
-                    returnTo: '/listings/${slug}/${product_id}'
-                  }));
-                  return;
-                }
+              });
+            }
+          }
+
+          // Enhanced Chat icon buttons interceptor
+          function interceptChatIconButtons() {
+            const chatIconButtons = document.querySelectorAll('[data-testid="chat-icon-button"]');
+            chatIconButtons.forEach(button => {
+              if (!button.dataset.intercepted) {
+                button.dataset.intercepted = 'true';
+                console.log('Adding click listener to Chat icon button');
                 
-                try {
-                  const response = await fetch('/api/chat/conversations/', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': 'Bearer ' + localStorage.getItem('token')
-                    },
-                    body: JSON.stringify({
-                      listing: '${product_id}'
-                    })
-                  });
+                button.addEventListener('click', async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Chat icon clicked');
                   
-                  if (!response.ok) {
-                    if (response.status === 401) {
+                  // Check if this is a seller's view
+                  const isSellerView = !!document.querySelector('[data-testid="view-all-chats-button"]');
+                  
+                  if (isSellerView) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'VIEW_ALL_CHATS',
+                      listingId: '${product_id}'
+                    }));
+                  } else {
+                    const token = localStorage.getItem('token');
+                    if (!token) {
                       window.ReactNativeWebView.postMessage(JSON.stringify({
                         type: 'AUTH_REQUIRED',
                         returnTo: '/listings/${slug}/${product_id}'
                       }));
                       return;
                     }
-                    throw new Error('Failed to create chat');
+                    
+                    try {
+                      const response = await fetch('/api/chat/conversations/', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': \`Bearer \${token}\`
+                        },
+                        body: JSON.stringify({
+                          listing: '${product_id}'
+                        })
+                      });
+                      
+                      if (!response.ok) {
+                        if (response.status === 401) {
+                          window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'AUTH_REQUIRED',
+                            returnTo: '/listings/${slug}/${product_id}'
+                          }));
+                          return;
+                        }
+                        throw new Error(\`HTTP \${response.status}\`);
+                      }
+                      
+                      const data = await response.json();
+                      console.log('Chat created:', data);
+                      
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'NAVIGATE_CHAT',
+                        chatId: data.id
+                      }));
+                    } catch (error) {
+                      console.error('Error creating chat:', error);
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'CHAT_CREATION_FAILED',
+                        error: error.message
+                      }));
+                    }
                   }
-                  
-                  const data = await response.json();
-                  console.log('Chat created:', data);
-                  
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'NAVIGATE_CHAT',
-                    chatId: data.id
-                  }));
-                } catch (error) {
-                  console.error('Error creating chat:', error);
-                }
+                });
               }
             });
           }
-        });
-      }
 
-      function setupProfileInterceptors() {
-        console.log('Setting up profile interceptors');
-        const profileLinks = document.querySelectorAll('a[href^="/profiles/"]');
-        profileLinks.forEach(link => {
-          if (!link.dataset.intercepted) {
-            link.dataset.intercepted = 'true';
-            link.addEventListener('click', (e) => {
-              e.preventDefault();
-              const nickname = link.href.split('/').pop();
-              console.log('Profile link clicked:', nickname);
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'SELLER_PROFILE_CLICKED',
-                nickname
-              }));
-            });
-          }
-        });
-      }
-
-      // Initial setup
-      setupChatInterceptors();
-      setupProfileInterceptors();
-
-      // Set up a single observer for both chat and profile interceptors
-      const observer = new MutationObserver((mutations) => {
-        let shouldSetup = false;
-        mutations.forEach(mutation => {
-          if (mutation.addedNodes.length) {
-            shouldSetup = true;
-          }
-        });
-        if (shouldSetup) {
-          console.log('DOM changed, re-running setup');
-          setupChatInterceptors();
-          setupProfileInterceptors();
+          // Run all interceptors
+          interceptMakeOfferButtons();
+          interceptViewAllChatsButtons();
+          interceptChatIconButtons();
         }
-      });
 
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
+        function setupProfileInterceptors() {
+          console.log('Setting up profile interceptors');
+          const profileLinks = document.querySelectorAll('a[href^="/profiles/"]');
+          profileLinks.forEach(link => {
+            if (!link.dataset.intercepted) {
+              link.dataset.intercepted = 'true';
+              link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const nickname = link.href.split('/').pop();
+                console.log('Profile link clicked:', nickname);
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'SELLER_PROFILE_CLICKED',
+                  nickname
+                }));
+              });
+            }
+          });
+        }
 
-      // Handle auth redirect
-      if (window.location.pathname.includes('/auth/signin') && ${isAuthenticated}) {
-        console.log("Detected sign-in page while user is authenticated, blocking redirect");
-        if (window.ReactNativeWebView) {
+        // Initial setup
+        setupChatInterceptors();
+        setupProfileInterceptors();
+
+        // Set up observer for dynamic content
+        const observer = new MutationObserver((mutations) => {
+          let shouldSetup = false;
+          mutations.forEach(mutation => {
+            if (mutation.addedNodes.length > 0) {
+              shouldSetup = true;
+            }
+          });
+          if (shouldSetup) {
+            console.log('DOM changed, re-running setup');
+            setupChatInterceptors();
+            setupProfileInterceptors();
+          }
+        });
+
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+
+        // Handle auth redirect blocking
+        if (window.location.pathname.includes('/auth/signin') && ${isAuthenticated}) {
+          console.log("Detected sign-in page while user is authenticated, blocking redirect");
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'REDIRECT_BLOCKED',
             action: 'refresh',
             destination: '/auth/signin'
           }));
+          // Redirect back to listing
+          window.location.href = '${webViewUrl}';
         }
-        window.location.href = '${webViewUrl}';
-      }
 
-      return true;
+        console.log("Listing detail page initialization complete");
+        return true;
+      } catch (error) {
+        console.error("Error in injected JavaScript:", error);
+        return false;
+      }
     })();
   `;
 
   // Handle navigation state changes (URL changes)
   const handleNavigationStateChange = (navState: any) => {
     console.log("Navigation state changed to:", navState.url);
+    
     if (navState.url.includes('/auth/signin') && isAuthenticated) {
       console.log("Detected redirect to sign-in while authenticated, injecting tokens");
+      injectAuthTokens();
       setTimeout(() => {
         if (webViewRef.current) {
-          webViewRef.current.injectJavaScript(injectedJavaScript);
+          webViewRef.current.injectJavaScript(`
+            window.location.href = '${webViewUrl}';
+          `);
         }
-      }, 500);
+      }, 1000);
     }
   };
 
@@ -444,6 +501,7 @@ export default function ListingDetailScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6200EA" />
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
@@ -480,6 +538,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 16,
   },
   headerContainer: {
     flexDirection: 'row',
