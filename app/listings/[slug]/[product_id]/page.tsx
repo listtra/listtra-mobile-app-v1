@@ -28,6 +28,7 @@ export default function ListingDetailScreen() {
   const webViewRef = useRef<{ injectJavaScript: (script: string) => void; reload: () => void }>(null);
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const hasInitialized = useRef(false);
 
   // Add user_id parameter to the URL to help with authentication
   const webViewUrl = (() => {
@@ -45,26 +46,19 @@ export default function ListingDetailScreen() {
     }
   }, [isInitializing]);
 
-  // Use useFocusEffect to reload the WebView when the screen comes into focus
+  // Modified useFocusEffect to only initialize once and avoid unnecessary reloads
   useFocusEffect(
     useCallback(() => {
-      console.log('Listing detail page focused, performing quick reload');
-      if (webViewRef.current?.injectJavaScript) {
-        const reloadScript = `
-          (function() {
-            console.log('Forcing quick reload of listing detail page');
-            if (window.location.href.includes('listtra.com/listings')) {
-              window.location.reload();
-            } else {
-              window.location.href = '${webViewUrl}';
-            }
-            return true;
-          })();
-        `;
-        webViewRef.current.injectJavaScript(reloadScript);
+      if (!hasInitialized.current && isReady && webViewRef.current) {
+        console.log('Listing detail page focused for first time, injecting auth tokens');
+        // Only inject auth tokens on first focus, don't reload
+        setTimeout(() => {
+          injectAuthTokens();
+        }, 1000);
+        hasInitialized.current = true;
       }
-      return () => { };
-    }, [webViewUrl])
+      return () => {};
+    }, [isReady, webViewUrl])
   );
 
   // Handle refresh action
@@ -186,7 +180,7 @@ export default function ListingDetailScreen() {
     webViewRef.current.injectJavaScript(authScript);
   };
 
-  // Enhanced injected JavaScript with better error handling
+  // Enhanced injected JavaScript with better seller/buyer detection
   const injectedJavaScript = `
     (function() {
       try {
@@ -231,11 +225,56 @@ export default function ListingDetailScreen() {
         // Check auth every 3 seconds
         setInterval(checkAuthStatus, 3000);
         
+        // Helper function to determine if user is seller
+        function isUserSeller() {
+          // Check for seller-specific elements
+          const sellerIndicators = [
+            '[data-testid="view-all-chats-button"]',
+            '[data-testid="seller-dashboard"]',
+            '.seller-view',
+            '[data-role="seller"]'
+          ];
+          
+          for (const selector of sellerIndicators) {
+            if (document.querySelector(selector)) {
+              console.log('Seller detected via selector:', selector);
+              return true;
+            }
+          }
+          
+          // Check URL parameters
+          const urlParams = new URLSearchParams(window.location.search);
+          const currentUserId = urlParams.get('user_id');
+          
+          // Check if current user owns this listing
+          const userFromStorage = localStorage.getItem('user');
+          if (userFromStorage && currentUserId) {
+            try {
+              const user = JSON.parse(userFromStorage);
+              const isSeller = user.id === currentUserId;
+              console.log('Seller check via user ID:', isSeller);
+              return isSeller;
+            } catch (e) {
+              console.error('Error parsing user from storage:', e);
+            }
+          }
+          
+          return false;
+        }
+        
         function setupChatInterceptors() {
           console.log('Setting up chat interceptors');
           
-          // Enhanced Make Offer button interceptor
+          const userIsSeller = isUserSeller();
+          console.log('User is seller:', userIsSeller);
+          
+          // Enhanced Make Offer button interceptor (only for buyers)
           function interceptMakeOfferButtons() {
+            if (userIsSeller) {
+              console.log('Skipping Make Offer button setup - user is seller');
+              return;
+            }
+            
             const makeOfferSelectors = [
               '[data-testid="make-offer-button"]',
               'button.bg-primary.text-white.flex-1',
@@ -316,8 +355,13 @@ export default function ListingDetailScreen() {
             });
           }
 
-          // Enhanced View All Chats button interceptor
+          // Enhanced View All Chats button interceptor (only for sellers)
           function interceptViewAllChatsButtons() {
+            if (!userIsSeller) {
+              console.log('Skipping View All Chats button setup - user is not seller');
+              return;
+            }
+            
             const viewAllChatsButton = document.querySelector('[data-testid="view-all-chats-button"]');
             if (viewAllChatsButton && !viewAllChatsButton.dataset.intercepted) {
               viewAllChatsButton.dataset.intercepted = 'true';
@@ -348,15 +392,14 @@ export default function ListingDetailScreen() {
                   e.stopPropagation();
                   console.log('Chat icon clicked');
                   
-                  // Check if this is a seller's view
-                  const isSellerView = !!document.querySelector('[data-testid="view-all-chats-button"]');
-                  
-                  if (isSellerView) {
+                  if (userIsSeller) {
+                    console.log('Seller clicking chat icon - navigating to all chats');
                     window.ReactNativeWebView.postMessage(JSON.stringify({
                       type: 'VIEW_ALL_CHATS',
                       listingId: '${product_id}'
                     }));
                   } else {
+                    console.log('Buyer clicking chat icon - creating new chat');
                     const token = localStorage.getItem('token');
                     if (!token) {
                       window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -434,9 +477,25 @@ export default function ListingDetailScreen() {
           });
         }
 
-        // Initial setup
-        setupChatInterceptors();
-        setupProfileInterceptors();
+        // Wait for page to fully load before setting up interceptors
+        function waitForPageLoad() {
+          return new Promise((resolve) => {
+            if (document.readyState === 'complete') {
+              resolve();
+            } else {
+              window.addEventListener('load', resolve);
+            }
+          });
+        }
+
+        // Initial setup with delay to ensure page is fully loaded
+        waitForPageLoad().then(() => {
+          setTimeout(() => {
+            console.log('Page loaded, setting up interceptors');
+            setupChatInterceptors();
+            setupProfileInterceptors();
+          }, 1000);
+        });
 
         // Set up observer for dynamic content
         const observer = new MutationObserver((mutations) => {
@@ -448,8 +507,10 @@ export default function ListingDetailScreen() {
           });
           if (shouldSetup) {
             console.log('DOM changed, re-running setup');
-            setupChatInterceptors();
-            setupProfileInterceptors();
+            setTimeout(() => {
+              setupChatInterceptors();
+              setupProfileInterceptors();
+            }, 500);
           }
         });
 
