@@ -1,10 +1,13 @@
-// Enhanced PersistentWebView with proper logout handling
+// Enhanced PersistentWebView with proper back navigation handling
+import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
-import { useRouter } from 'expo-router';
-import Constants from 'expo-constants';
+
+// Common base URL configuration
+const BASE_URL = 'http://192.168.1.2:3000';
 
 type PersistentWebViewProps = {
   route: string;
@@ -21,7 +24,7 @@ export default function PersistentWebView({
   const { tokens, logout, isAuthenticated, user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentUrl, setCurrentUrl] = useState(`http://localhost:3000/${route}`);
+  const [currentUrl, setCurrentUrl] = useState(`${BASE_URL}/${route}`);
   const router = useRouter();
   const hasNavigated = useRef(false);
   const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
@@ -113,7 +116,34 @@ export default function PersistentWebView({
   const handleMessage = (event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('WebView message received:', data.type);
+      console.log('=== WebView message received ===');
+      console.log('Message type:', data.type);
+      console.log('Full message data:', data);
+
+      if (data.type === 'GO_BACK') {
+        console.log('GO_BACK message received');
+        
+        // Instead of forcing navigation to chats, use browser history
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            (function() {
+              // Use browser history instead of direct URL change
+              if (window.history.length > 1) {
+                console.log('Using window.history.back()');
+                window.history.back();
+              } else {
+                // Fallback for when history is empty
+                console.log('History empty, navigating to base URL');
+                window.location.href = "${BASE_URL}/chats";
+              }
+              return true;
+            })();
+          `);
+        }
+        
+        // Don't update router or current URL here, let the navigation state change handler do it
+        return;
+      }
 
       if (data.type === 'LISTING_CLICKED') {
         if (data.slug && data.product_id) {
@@ -215,7 +245,7 @@ export default function PersistentWebView({
 
   // Update WebView when route changes
   useEffect(() => {
-    const newUrl = `http://localhost:3000/${route}`;
+    const newUrl = `${BASE_URL}/${route}`;
     if (webViewRef.current && currentUrl !== newUrl && !hasNavigated.current) {
       const finalUrl = isAuthenticated ? getAuthenticatedUrl(newUrl) : newUrl;
       webViewRef.current.injectJavaScript(`
@@ -265,6 +295,15 @@ export default function PersistentWebView({
         }
       }
       
+      // Check if we've navigated to the chats page from a chat detail
+      if (navState.url.includes('/chats') && route.includes('chat/')) {
+        console.log('Detected navigation from chat detail to chats list');
+        if (!hasNavigated.current) {
+          hasNavigated.current = true;
+          router.replace('/chats');
+        }
+      }
+      
       // Handle chat navigation - BUT ONLY if we're NOT already on a chat page
       if (navState.url.includes('/chat') && !route.includes('chat')) {
         if (navState.url.includes('/chat?listing=')) {
@@ -303,8 +342,8 @@ export default function PersistentWebView({
 
   // Create final URL with tokens if authenticated
   const finalUrl = isAuthenticated && tokens.accessToken && tokens.refreshToken
-    ? getAuthenticatedUrl(`http://localhost:3000/${route}`)
-    : `http://localhost:3000/${route}`;
+    ? getAuthenticatedUrl(`${BASE_URL}/${route}`)
+    : `${BASE_URL}/${route}`;
 
   // Enhanced combined script with logout handling
   const combinedScript = `
