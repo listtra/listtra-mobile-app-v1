@@ -31,7 +31,14 @@ export default function RootLayout() {
               <>
                 <Stack>
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen name="auth" options={{ headerShown: false }} />
+                  <Stack.Screen 
+                    name="auth" 
+                    options={{ 
+                      headerShown: false,
+                      presentation: 'modal',
+                      animation: 'slide_from_bottom'
+                    }} 
+                  />
                   <Stack.Screen name="chat" options={{ headerShown: false }} />
                   <Stack.Screen name="notifications" options={{ headerShown: false }} />
                   <Stack.Screen name="search/page" options={{ headerShown: false }} />

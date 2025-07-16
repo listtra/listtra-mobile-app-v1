@@ -6,23 +6,33 @@ import { useAuth } from '../context/AuthContext';
 
 /**
  * AuthGuard is a component that redirects users based on authentication state.
- * With the WebView approach, we only need to handle auth for specific routes.
+ * Redirects unauthenticated users to sign-in page when they try to access protected routes.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const segments = useSegments();
   const router = useRouter();
-  const { user, isInitializing } = useAuth();
+  const { user, isInitializing, isAuthenticated } = useAuth();
 
   useEffect(() => {
     if (isInitializing) return;
 
     const inAuthGroup = segments[0] === 'auth';
+    const inProtectedRoute = segments[0] === '(tabs)' || 
+                            segments[0] === 'chat' || 
+                            segments[0] === 'notifications' || 
+                            segments[0] === 'profiles' || 
+                            segments[0] === 'listings' ||
+                            segments[0] === 'search';
     
     // If user is authenticated and tries to access auth routes, redirect to home
-    if (user && inAuthGroup) {
+    if (isAuthenticated && inAuthGroup) {
       router.replace('/(tabs)');
+    } 
+    // If user is NOT authenticated and tries to access protected routes, redirect to sign-in
+    else if (!isAuthenticated && inProtectedRoute) {
+      router.replace('/auth/signin');
     }
-  }, [user, segments, isInitializing]);
+  }, [isAuthenticated, segments, isInitializing]);
 
   if (isInitializing) {
     // While checking authentication state, show a loading indicator

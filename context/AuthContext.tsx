@@ -500,7 +500,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setUser(null);
     await clearTokens();
-    router.replace('/auth/signin');
+    //router.replace('/auth/signin');
   };
 
   // Clear error messages
@@ -568,7 +568,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // If profile fetch fails, don't set user
         }
       }
-
+      
+      // Navigate to home screen with tabs
+      console.log('Navigating to home screen from setTokensDirectly');
+      router.replace('/(tabs)');
+      
       return true;
     } catch (error) {
       console.error('Error setting tokens directly:', error);

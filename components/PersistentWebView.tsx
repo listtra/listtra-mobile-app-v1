@@ -7,7 +7,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 
 // Common base URL configuration
-const BASE_URL = 'http://192.168.1.2:3000';
+const BASE_URL = 'http://192.168.31.224:3000';
 
 type PersistentWebViewProps = {
   route: string;
@@ -215,8 +215,8 @@ export default function PersistentWebView({
       // Enhanced logout handler
       if (data.type === 'AUTH_LOGOUT') {
         console.log('Logout request received from web app');
-        handleLogout();
-        return;
+        //handleLogout();
+        //return;
       }
 
       if (data.type === 'AUTH_VALIDATION_FAILED') {
