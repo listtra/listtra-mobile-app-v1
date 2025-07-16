@@ -347,68 +347,6 @@ export default function PersistentWebView({
 
   // Enhanced combined script with logout handling
   const combinedScript = `
-  (function() {
-    // Header hiding script
-    function applyStyles() {
-      let style = document.getElementById('mobile-app-styles');
-      if (!style) {
-        style = document.createElement('style');
-        style.id = 'mobile-app-styles';
-        document.head.appendChild(style);
-      }
-
-      style.textContent = \`
-        nav, header, .navbar, .nav-container, .header-container, .search-container, .menu-container,
-        [role="navigation"], .top-bar, .site-header, .app-header, .main-header, .navigation, .search-bar,
-        div[class*="header"], div[class*="navbar"], div[class*="nav-container"], div[class*="navigation"] {
-          display: none !important;
-          height: 0 !important;
-          min-height: 0 !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          visibility: hidden !important;
-          opacity: 0 !important;
-        }
-        
-        body, #__next, main, .main-content, .container, 
-        div[class*="content"], div[class*="main"], div[class*="container"] {
-          padding-top: 0 !important;
-          margin-top: 0 !important;
-        }
-        
-        body {
-          padding-bottom: 70px !important;
-          background-color: white !important;
-        }
-      \`;
-    }
-
-    applyStyles();
-    setTimeout(applyStyles, 300);
-    setTimeout(applyStyles, 1000);
-    
-    const observer = new MutationObserver(() => {
-      applyStyles();
-    });
-    
-    if (document.readyState === 'complete') {
-      observer.observe(document.body, { 
-        childList: true, 
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'class'] 
-      });
-    } else {
-      window.addEventListener('load', () => {
-        observer.observe(document.body, { 
-          childList: true, 
-          subtree: true,
-          attributes: true,
-          attributeFilter: ['style', 'class']
-        });
-      });
-    }
-    
     // Auth and navigation script
     try {
       if ("${tokens.accessToken}") {
