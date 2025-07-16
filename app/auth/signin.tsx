@@ -10,31 +10,36 @@ export default function SignInScreen() {
   const { setTokensDirectly } = useAuth();
   console.log('SignInScreen Mounted');
 
+  // app/auth/signin.tsx - Update the handleMessage function
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('data', data);
-      
+      console.log('SignIn WebView message:', data);
+
       if (data.type === 'AUTH_LOGIN_SUCCESS' && data.tokens) {
         // Handle successful login
         setTokensDirectly(data.tokens.accessToken, data.tokens.refreshToken, data.user);
-        
-        // Explicitly navigate to tabs after authentication
+
         setTimeout(() => {
           router.replace('/(tabs)');
-        }, 300); // Small delay to ensure tokens are set
+        }, 300);
+      } else if (data.type === 'EMAIL_NOT_VERIFIED' && data.email) {
+        // Navigate to verify email for unverified users
+        router.push({
+          pathname: '/auth/verify-email',
+          params: { email: data.email }
+        });
       }
     } catch (error) {
       console.error('Error handling WebView message:', error);
     }
   };
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
-        <PersistentWebView 
-          route="auth/signin" 
-          onMessage={handleMessage} 
+        <PersistentWebView
+          route="auth/signin"
+          onMessage={handleMessage}
         />
       </View>
     </SafeAreaView>

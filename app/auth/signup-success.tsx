@@ -1,152 +1,48 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import {
-  Image,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import PersistentWebView from '../../components/PersistentWebView';
 
-export default function SignUpSuccessScreen() {
-  const router = useRouter();
-
-  const handleGoToSignIn = () => {
-    router.replace('/auth/signin');
-  };
-
-  const handleGoBack = () => {
-    router.back();
-  };
-
-  return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+export default function SignupSuccessScreen() {
+  console.log('SignupSuccessScreen Mounted');
+  
+  const handleMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      console.log('SignupSuccess WebView message:', data);
       
-      {/* Header with back button */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleGoBack}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
+      if (data.type === 'NAVIGATE_TO_SIGNIN') {
+        // Navigate to signin screen
+        router.replace('/auth/signin');
+      } else if (data.type === 'NAVIGATE_BACK') {
+        // Handle back navigation
+        router.back();
+      }
+    } catch (error) {
+      console.error('Error handling WebView message:', error);
+    }
+  };
+  
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.webViewContainer}>
+        <PersistentWebView
+          route="auth/signup-success"
+          onMessage={handleMessage}
+        />
       </View>
-
-      {/* Content */}
-      <View style={styles.content}>
-        {/* Title */}
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>Awesome!</Text>
-          <Text style={styles.subtitle}>Your account is ready to go.</Text>
-        </View>
-
-        {/* Success Image */}
-        <View style={styles.imageContainer}>
-          <Image
-            source={require('../../assets/images/password-reset-success.png')}
-            style={styles.successImage}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Bottom Section */}
-        <View style={styles.bottomSection}>
-          <Text style={styles.actionText}>Sign in and start exploring!</Text>
-          
-          <TouchableOpacity
-            style={styles.signInButton}
-            onPress={handleGoToSignIn}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.buttonText}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'white',
   },
-  header: {
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  content: {
+  webViewContainer: {
     flex: 1,
-    paddingHorizontal: 20,
-    justifyContent: 'space-between',
-    paddingBottom: 40,
+    backgroundColor: 'white',
   },
-  titleContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#757575',
-    textAlign: 'center',
-  },
-  imageContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  successImage: {
-    width: '100%',
-    height: '100%',
-    maxWidth: 350,
-    maxHeight: 400,
-  },
-  bottomSection: {
-    alignItems: 'center',
-    paddingTop: 20,
-  },
-  actionText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  signInButton: {
-    backgroundColor: '#2528be',
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    alignItems: 'center',
-    width: '100%',
-    shadowColor: '#2528be',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-}); 
+});
