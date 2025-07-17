@@ -15,10 +15,10 @@ type PersistentWebViewProps = {
   disableAutoNavigation?: boolean;
 };
 
-export default function PersistentWebView({ 
-  route, 
+export default function PersistentWebView({
+  route,
   onMessage,
-  disableAutoNavigation = false 
+  disableAutoNavigation = false
 }: PersistentWebViewProps) {
   const webViewRef = useRef<WebView>(null);
   const { tokens, logout, isAuthenticated, user } = useAuth();
@@ -67,19 +67,19 @@ export default function PersistentWebView({
   const handleLogout = async () => {
     try {
       console.log('Starting logout process...');
-      
+
       // 1. Clear WebView authentication state first
       clearWebViewAuth();
-      
+
       // 2. Wait a bit for WebView to process
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // 3. Call the context logout function
       await logout();
-      
+
       // 4. Navigate to login screen
       router.replace('/auth/signin');
-      
+
       console.log('Logout completed successfully');
     } catch (error) {
       console.error('Error during logout:', error);
@@ -100,7 +100,7 @@ export default function PersistentWebView({
       url.searchParams.append('access_token', tokens.accessToken);
       url.searchParams.append('refresh_token', tokens.refreshToken);
       url.searchParams.append('isNativeApp', 'true');
-      
+
       if (user?.id) {
         url.searchParams.append('user_id', user.id.toString());
       }
@@ -122,8 +122,20 @@ export default function PersistentWebView({
 
       if (data.type === 'GO_BACK') {
         console.log('GO_BACK message received');
-        
-        // Instead of forcing navigation to chats, use browser history
+        console.log("currentUrl", currentUrl);
+        console.log("route", route);
+
+        // Handle add page navigation back to tabs
+        if (currentUrl.includes('/add') || route === 'add') {
+          console.log('GO_BACK from add page, navigating to listings tab');
+          hasNavigated.current = true;
+          setCurrentUrl('');
+          setIsLoading(true);
+          router.replace('/(tabs)'); // Navigate to the React Native tab, not the web page
+          return;
+        }
+
+        // For other pages (like chat), use browser history
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
             (function() {
@@ -140,7 +152,7 @@ export default function PersistentWebView({
             })();
           `);
         }
-        
+
         // Don't update router or current URL here, let the navigation state change handler do it
         return;
       }
@@ -221,12 +233,12 @@ export default function PersistentWebView({
 
       if (data.type === 'AUTH_VALIDATION_FAILED') {
         console.error('Token validation failed:', data.message);
-        
+
         if (Constants.executionEnvironment === 'storeClient') {
           console.log('Expo Go detected, attempting to continue without validation');
           return;
         }
-        
+
         // Handle token validation failure by logging out
         handleLogout();
         return;
@@ -265,13 +277,13 @@ export default function PersistentWebView({
     if (navState.url !== currentUrl) {
       console.log('Navigation state change:', navState.url);
       setCurrentUrl(navState.url);
-      
+
       // Skip auto-navigation if disabled or if we're already on a detail page
       if (disableAutoNavigation || isDetailPage.current) {
         console.log('Auto-navigation skipped:', disableAutoNavigation ? 'disabled by prop' : 'already on detail page');
         return;
       }
-      
+
       // Handle listing detail navigation
       if (navState.url.includes('/listings/') && !navState.url.endsWith('/listings/')) {
         const match = navState.url.match(/\/listings\/([^\/]+)\/([^\/]+)/);
@@ -282,9 +294,9 @@ export default function PersistentWebView({
           if (queryIndex !== -1) {
             productId = productId.substring(0, queryIndex);
           }
-          
+
           console.log('Detected navigation to listing detail:', slug, productId);
-          
+
           if (!hasNavigated.current) {
             hasNavigated.current = true;
             router.push({
@@ -294,7 +306,7 @@ export default function PersistentWebView({
           }
         }
       }
-      
+
       // Check if we've navigated to the chats page from a chat detail
       if (navState.url.includes('/chats') && route.includes('chat/')) {
         console.log('Detected navigation from chat detail to chats list');
@@ -303,7 +315,7 @@ export default function PersistentWebView({
           router.back();
         }
       }
-      
+
       // Handle chat navigation - BUT ONLY if we're NOT already on a chat page
       if (navState.url.includes('/chat') && !route.includes('chat')) {
         if (navState.url.includes('/chat?listing=')) {
@@ -311,7 +323,7 @@ export default function PersistentWebView({
           if (match && match.length >= 2) {
             const listingId = match[1];
             console.log('Detected navigation to chat with listing:', listingId);
-            
+
             if (!hasNavigated.current) {
               hasNavigated.current = true;
               router.push({
@@ -326,7 +338,7 @@ export default function PersistentWebView({
           if (match && match.length >= 2) {
             const chatId = match[1];
             console.log('Detected navigation to specific chat:', chatId);
-            
+
             if (!hasNavigated.current) {
               hasNavigated.current = true;
               router.push({
