@@ -7,7 +7,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 
 // Common base URL configuration
-const BASE_URL = 'http://192.168.31.224:3000';
+const BASE_URL = 'http://192.168.1.44:3000';
 
 type PersistentWebViewProps = {
   route: string;
@@ -300,7 +300,7 @@ export default function PersistentWebView({
         console.log('Detected navigation from chat detail to chats list');
         if (!hasNavigated.current) {
           hasNavigated.current = true;
-          router.replace('/chats');
+          router.back();
         }
       }
       
