@@ -8,7 +8,7 @@ export default function AddScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
-        <PersistentWebView route="listings/add" />
+        <PersistentWebView route="add" />
     </View>
     </SafeAreaView>
   );
