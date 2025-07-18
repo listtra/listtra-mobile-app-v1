@@ -17,20 +17,6 @@ export default function ChatConversation() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity 
-          style={styles.headerButton} 
-          onPress={handleBackPress}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        
-        <View style={styles.titleContainer}>
-          <View style={styles.title}>
-            <Ionicons name="chatbubble-ellipses-outline" size={24} color="black" />
-          </View>
-        </View>
-      </View>
 
       <View style={styles.webViewContainer}>
         <PersistentWebView route={`chat/${id}`} />
