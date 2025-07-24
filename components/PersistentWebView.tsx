@@ -120,6 +120,10 @@ export default function PersistentWebView({
       console.log('Message type:', data.type);
       console.log('Full message data:', data);
 
+      if (onMessage) {
+        onMessage(event);
+      }
+
       if (data.type === 'GO_BACK') {
         console.log('GO_BACK message received');
         console.log("currentUrl", currentUrl);
@@ -128,6 +132,14 @@ export default function PersistentWebView({
         const isFromAddPage = currentUrl?.includes('/add') || route === 'add';
         const isFromListingDetail = currentUrl?.includes('/listings/');
         const isFromChatPage = currentUrl?.includes('/chat?listing=');
+        const isFromSigninPage = currentUrl?.includes('/auth/signin') || route === 'auth/signin';
+
+        if (isFromSigninPage) {
+          console.log('GO_BACK from signin page, clearing auth and navigating to tabs');
+          // Let the SignInScreen handle this case
+          return;
+        }
+
 
         // Handle add page navigation back to tabs
         if (isFromAddPage || isFromListingDetail) {
@@ -377,193 +389,236 @@ export default function PersistentWebView({
 
   // Enhanced combined script with conditional listing interception
   const combinedScript = `
-    (function() {
-      // Auth and navigation script
+  (function() {
+    // Auth and navigation script
+    try {
+      if ("${tokens.accessToken}") {
+        localStorage.setItem('token', "${tokens.accessToken}");
+        localStorage.setItem('refreshToken', "${tokens.refreshToken}");
+        localStorage.setItem('user', '${user ? JSON.stringify(user).replace(/'/g, "\\'").replace(/"/g, '\\"') : "{}"}');
+        console.log('Auth tokens injected from native app');
+        
+        window.dispatchEvent(new CustomEvent('native-auth-changed', { 
+          detail: { isAuthenticated: true }
+        }));
+      }
+    } catch (e) {
+      console.error('Error injecting auth data:', e);
+    }
+    
+    // Listen for logout events from native app
+    window.addEventListener('native-auth-logout', function(event) {
+      console.log('Native app logout event received');
       try {
-        if ("${tokens.accessToken}") {
-          localStorage.setItem('token', "${tokens.accessToken}");
-          localStorage.setItem('refreshToken', "${tokens.refreshToken}");
-          localStorage.setItem('user', '${user ? JSON.stringify(user).replace(/'/g, "\\'").replace(/"/g, '\\"') : "{}"}');
-          console.log('Auth tokens injected from native app');
-          
-          window.dispatchEvent(new CustomEvent('native-auth-changed', { 
-            detail: { isAuthenticated: true }
-          }));
+        if (window.AuthContext && window.AuthContext.logout) {
+          window.AuthContext.logout();
         }
       } catch (e) {
-        console.error('Error injecting auth data:', e);
+        console.log('Web app logout cleanup completed');
       }
+    });
+    
+    window.nativeApp = {
+      login: function(tokens, user) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'AUTH_LOGIN_SUCCESS',
+          tokens: tokens,
+          user: user
+        }));
+      },
+      logout: function() {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'AUTH_LOGOUT'
+        }));
+      },
+      navigate: function(path) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'NAVIGATE',
+          path: path
+        }));
+      },
+      navigateToListing: function(slug, productId) {
+        console.log('nativeApp.navigateToListing called:', slug, productId);
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'LISTING_CLICKED',
+          slug: slug,
+          product_id: productId
+        }));
+      },
+      navigateToProfile: function(nickname) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'PROFILE_CLICKED',
+          nickname: nickname
+        }));
+      },
+      navigateToChat: function(chatId) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'NAVIGATE_CHAT',
+          chatId: chatId
+        }));
+      },
+      viewAllChats: function(listingId) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'VIEW_ALL_CHATS',
+          listingId: listingId
+        }));
+      }
+    };
+    
+    function setupInterceptors() {
+      const shouldInterceptListings = ${!disableAutoNavigation};
       
-      // Listen for logout events from native app
-      window.addEventListener('native-auth-logout', function(event) {
-        console.log('Native app logout event received');
-        // Additional cleanup if needed
-        try {
-          // Clear any auth-related UI state
-          if (window.AuthContext && window.AuthContext.logout) {
-            window.AuthContext.logout();
-          }
-        } catch (e) {
-          console.log('Web app logout cleanup completed');
-        }
-      });
-      
-      window.nativeApp = {
-        login: function(tokens, user) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'AUTH_LOGIN_SUCCESS',
-            tokens: tokens,
-            user: user
-          }));
-        },
-        logout: function() {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'AUTH_LOGOUT'
-          }));
-        },
-        navigate: function(path) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'NAVIGATE',
-            path: path
-          }));
-        },
-        navigateToListing: function(slug, productId) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'LISTING_CLICKED',
-            slug: slug,
-            product_id: productId
-          }));
-        },
-        navigateToProfile: function(nickname) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'PROFILE_CLICKED',
-            nickname: nickname
-          }));
-        },
-        navigateToChat: function(chatId) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'NAVIGATE_CHAT',
-            chatId: chatId
-          }));
-        },
-        viewAllChats: function(listingId) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'VIEW_ALL_CHATS',
-            listingId: listingId
-          }));
-        }
-      };
-      
-      function setupInterceptors() {
-        // Only intercept listing links if auto navigation is enabled
-        const shouldInterceptListings = ${!disableAutoNavigation};
-        
-        if (shouldInterceptListings) {
-          // Listing card links
-          document.querySelectorAll('a[href^="/listings/"]').forEach(function(link) {
-            if (link.getAttribute('data-intercepted') === 'true') return;
-            link.setAttribute('data-intercepted', 'true');
+      if (shouldInterceptListings) {
+        // Global click listener for data-listing-item elements (most reliable)
+        document.addEventListener('click', function(e) {
+          const listingItem = e.target.closest('[data-listing-item="true"]');
+          if (listingItem) {
+            const productId = listingItem.getAttribute('data-product-id');
+            const slug = listingItem.getAttribute('data-slug');
             
-            link.addEventListener('click', function(e) {
+            if (productId && slug) {
+              console.log('Data attribute listing clicked:', slug, productId);
               e.preventDefault();
               e.stopPropagation();
               
-              const href = link.getAttribute('href');
-              const match = href.match(/\\/listings\\/([^\\/]+)\\/([^\\/]+)/);
-              
-              if (match && match.length >= 3) {
-                const slug = match[1];
-                const productId = match[2];
-                console.log('Listing card clicked:', slug, productId);
-                window.nativeApp.navigateToListing(slug, productId);
-              }
-            });
-          });
-          
-          // Product cards
-          document.querySelectorAll('.product-card, .listing-card, [data-listing-id]').forEach(function(card) {
-            if (card.getAttribute('data-intercepted') === 'true') return;
-            card.setAttribute('data-intercepted', 'true');
-            
-            card.addEventListener('click', function(e) {
-              const slug = card.getAttribute('data-slug') || 'item';
-              const productId = card.getAttribute('data-listing-id') || card.getAttribute('data-product-id');
-              
-              if (productId) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Product card clicked:', slug, productId);
-                window.nativeApp.navigateToListing(slug, productId);
-              }
-            });
-          });
-        } else {
-          console.log('Listing interception disabled for this WebView');
-        }
-        
-        // Always intercept profile links
-        document.querySelectorAll('a[href^="/profiles/"]').forEach(function(link) {
-          if (link.getAttribute('data-intercepted') === 'true') return;
-          link.setAttribute('data-intercepted', 'true');
-          
-          link.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const href = link.getAttribute('href');
-            const nickname = href.split('/profiles/')[1];
-            
-            if (nickname) {
-              console.log('Profile link clicked:', nickname);
-              window.nativeApp.navigateToProfile(nickname);
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'LISTING_CLICKED',
+                slug: slug,
+                product_id: productId
+              }));
             }
-          });
-        });
-        
-        // Always intercept chat links
-        document.querySelectorAll('a[href^="/chat/"]').forEach(function(link) {
-          if (link.getAttribute('data-intercepted') === 'true') return;
-          link.setAttribute('data-intercepted', 'true');
-          
-          link.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const href = link.getAttribute('href');
-            const chatId = href.split('/chat/')[1];
-            
-            if (chatId) {
-              console.log('Chat link clicked:', chatId);
-              window.nativeApp.navigateToChat(chatId);
-            }
-          });
-        });
-      }
-      
-      setupInterceptors();
-      
-      const contentObserver = new MutationObserver(function(mutations) {
-        let shouldSetupInterceptors = false;
-        
-        mutations.forEach(function(mutation) {
-          if (mutation.addedNodes.length > 0) {
-            shouldSetupInterceptors = true;
           }
         });
         
-        if (shouldSetupInterceptors) {
-          setupInterceptors();
+        // Listen for custom events from React components
+        window.addEventListener('listingClicked', function(event) {
+          console.log('Custom listingClicked event received:', event.detail);
+          
+          const { slug, product_id } = event.detail;
+          
+          if (slug && product_id) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'LISTING_CLICKED',
+              slug: slug,
+              product_id: product_id
+            }));
+          }
+        });
+        
+        // Regular listing card links
+        document.querySelectorAll('a[href^="/listings/"]').forEach(function(link) {
+          if (link.getAttribute('data-intercepted') === 'true') return;
+          link.setAttribute('data-intercepted', 'true');
+          
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const href = link.getAttribute('href');
+            const match = href.match(/\\/listings\\/([^\\/]+)\\/([^\\/]+)/);
+            
+            if (match && match.length >= 3) {
+              const slug = match[1];
+              const productId = match[2];
+              console.log('Listing card clicked:', slug, productId);
+              window.nativeApp.navigateToListing(slug, productId);
+            }
+          });
+        });
+        
+        // Product cards with data attributes
+        document.querySelectorAll('.product-card, .listing-card, [data-listing-id]').forEach(function(card) {
+          if (card.getAttribute('data-intercepted') === 'true') return;
+          card.setAttribute('data-intercepted', 'true');
+          
+          card.addEventListener('click', function(e) {
+            const slug = card.getAttribute('data-slug') || 'item';
+            const productId = card.getAttribute('data-listing-id') || card.getAttribute('data-product-id');
+            
+            if (productId) {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Product card clicked:', slug, productId);
+              window.nativeApp.navigateToListing(slug, productId);
+            }
+          });
+        });
+        
+      } else {
+        console.log('Listing interception disabled for this WebView');
+      }
+      
+      // Always intercept profile links
+      document.querySelectorAll('a[href^="/profiles/"]').forEach(function(link) {
+        if (link.getAttribute('data-intercepted') === 'true') return;
+        link.setAttribute('data-intercepted', 'true');
+        
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const href = link.getAttribute('href');
+          const nickname = href.split('/profiles/')[1];
+          
+          if (nickname) {
+            console.log('Profile link clicked:', nickname);
+            window.nativeApp.navigateToProfile(nickname);
+          }
+        });
+      });
+      
+      // Always intercept chat links
+      document.querySelectorAll('a[href^="/chat/"]').forEach(function(link) {
+        if (link.getAttribute('data-intercepted') === 'true') return;
+        link.setAttribute('data-intercepted', 'true');
+        
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const href = link.getAttribute('href');
+          const chatId = href.split('/chat/')[1];
+          
+          if (chatId) {
+            console.log('Chat link clicked:', chatId);
+            window.nativeApp.navigateToChat(chatId);
+          }
+        });
+      });
+    }
+    
+    // Setup immediately
+    setupInterceptors();
+    
+    // Also setup on DOM changes
+    const contentObserver = new MutationObserver(function(mutations) {
+      let shouldSetupInterceptors = false;
+      
+      mutations.forEach(function(mutation) {
+        if (mutation.addedNodes.length > 0) {
+          shouldSetupInterceptors = true;
         }
       });
       
-      contentObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-      
-      return true;
-    })();
-  `;
+      if (shouldSetupInterceptors) {
+        setupInterceptors();
+      }
+    });
+    
+    contentObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    
+    // Debug: Log what's available
+    console.log('WebView script loaded. Available methods:');
+    console.log('- window.nativeApp:', !!window.nativeApp);
+    console.log('- window.ReactNativeWebView:', !!window.ReactNativeWebView);
+    console.log('- shouldInterceptListings:', ${!disableAutoNavigation});
+    
+    return true;
+  })();
+`;
 
   return (
     <View style={styles.container}>

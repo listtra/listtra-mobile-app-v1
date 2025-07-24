@@ -3,8 +3,10 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import React from 'react';
 import 'react-native-reanimated';
+import { View, Platform } from 'react-native';
 import { AuthGuard } from '../components/AuthGuard';
 import ReviewNotification from '../components/ReviewNotification';
 import { AuthProvider } from '../context/AuthContext';
@@ -18,66 +20,73 @@ export default function RootLayout() {
   });
 
   if (!loaded) {
-    // Async font loading only occurs in development
     return null;
   }
 
   return (
-    <AuthProvider>
-      <PushNotificationProvider>
-        <NotificationProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <AuthGuard>
-              <>
-                <Stack>
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen 
-                    name="auth" 
-                    options={{ 
-                      headerShown: false,
-                      presentation: 'modal',
-                      animation: 'slide_from_bottom'
-                    }} 
-                  />
-                  <Stack.Screen name="chat" options={{ headerShown: false }} />
-                  <Stack.Screen name="notifications" options={{ headerShown: false }} />
-                  <Stack.Screen name="search/page" options={{ headerShown: false }} />
-                  <Stack.Screen name="profiles/[nickname]" options={{ headerShown: false }} />
-                  <Stack.Screen name="listings" options={{headerShown: false}}/>
-                  <Stack.Screen 
-                    name="web" 
-                    options={{ 
-                      headerShown: false,
-                      title: "",
-                      headerTitle: "",
-                      headerBackTitle: "",
-                      headerBackVisible: false,
-                      headerTransparent: true,
-                      presentation: 'card'
-                    }} 
-                  />
-                  <Stack.Screen 
-                    name="listings/[slug]/[product_id]/page" 
-                    options={{ 
-                      headerShown: false, 
-                      title: "",
-                      headerTitle: "",
-                      headerBackTitle: "",
-                      headerBackVisible: false,
-                      headerTransparent: true,
-                      presentation: 'card'
-                    }} 
-                  />
-                  <Stack.Screen name="+not-found" />
-                </Stack>
-                
-                <ReviewNotification />
-              </>
-            </AuthGuard>
-            <StatusBar style="auto" />
-          </ThemeProvider>
-        </NotificationProvider>
-      </PushNotificationProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <PushNotificationProvider>
+          <NotificationProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <View style={{ flex: 1, backgroundColor: 'white' }}>
+                <StatusBar 
+                  style="dark" 
+                  backgroundColor="white"
+                  translucent={true}
+                />
+                <AuthGuard>
+                  <>
+                    <Stack>
+                      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                      <Stack.Screen
+                        name="auth"
+                        options={{
+                          headerShown: false,
+                          presentation: 'modal',
+                          animation: 'slide_from_bottom'
+                        }}
+                      />
+                      <Stack.Screen name="chat" options={{ headerShown: false }} />
+                      <Stack.Screen name="notifications" options={{ headerShown: false }} />
+                      <Stack.Screen name="search/page" options={{ headerShown: false }} />
+                      <Stack.Screen name="profiles/[nickname]" options={{ headerShown: false }} />
+                      <Stack.Screen name="listings" options={{ headerShown: false }} />
+                      <Stack.Screen
+                        name="web"
+                        options={{
+                          headerShown: false,
+                          title: "",
+                          headerTitle: "",
+                          headerBackTitle: "",
+                          headerBackVisible: false,
+                          headerTransparent: true,
+                          presentation: 'card'
+                        }}
+                      />
+                      <Stack.Screen
+                        name="listings/[slug]/[product_id]/page"
+                        options={{
+                          headerShown: false,
+                          title: "",
+                          headerTitle: "",
+                          headerBackTitle: "",
+                          headerBackVisible: false,
+                          headerTransparent: true,
+                          presentation: 'card'
+                        }}
+                      />
+                      <Stack.Screen name="+not-found" />
+                    </Stack>
+
+                    <ReviewNotification />
+                  </>
+                </AuthGuard>
+              </View>
+            </ThemeProvider>
+          </NotificationProvider>
+        </PushNotificationProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
