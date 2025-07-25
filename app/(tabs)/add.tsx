@@ -6,8 +6,6 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import PersistentWebView from '../../components/PersistentWebView';
 
-console.log("add screen");
-
 export default function AddScreen() {
   const router = useRouter();
   const [key, setKey] = useState(0);

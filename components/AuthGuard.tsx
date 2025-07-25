@@ -13,11 +13,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, isInitializing, isAuthenticated } = useAuth();
 
+  console.log("user", user);
+  console.log("isInitializing", isInitializing);
+  console.log("isAuthenticated", isAuthenticated);
+
   useEffect(() => {
     if (isInitializing) return;
 
     const inAuthGroup = segments[0] === 'auth';
-    const inProtectedRoute = segments[0] === '(tabs)' || 
+    const inProtectedRoute = 
                             segments[0] === 'chat' || 
                             segments[0] === 'notifications' || 
                             segments[0] === 'profiles' || 

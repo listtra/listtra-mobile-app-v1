@@ -1,3 +1,4 @@
+import { useTabAuth } from '@/hooks/useTabAuth';
 import { Ionicons } from '@expo/vector-icons';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -45,6 +46,7 @@ function TabBarIcon(props: {
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
+  const { checkTabAuth } = useTabAuth();
   // Hide tab bar on add screen
   const currentRoute = state.routes[state.index];
   if (currentRoute.name === 'add') {
@@ -195,7 +197,9 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           });
 
           if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
+            if (checkTabAuth(route.name)) {
+              navigation.navigate(route.name);
+            }
           }
         };
 

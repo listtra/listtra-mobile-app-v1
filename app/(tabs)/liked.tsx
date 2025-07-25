@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView from '../../components/PersistentWebView';
 
 export default function LikedScreen() {
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>

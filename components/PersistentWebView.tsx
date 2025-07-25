@@ -1,7 +1,7 @@
-// Enhanced PersistentWebView with proper back navigation handling
+// Enhanced PersistentWebView with proper back navigation handling and refresh methods
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
@@ -15,11 +15,17 @@ type PersistentWebViewProps = {
   disableAutoNavigation?: boolean;
 };
 
-export default function PersistentWebView({
+export interface PersistentWebViewRef {
+  refresh: () => void;
+  reload: () => void;
+  injectJavaScript: (script: string) => void;
+}
+
+const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(({
   route,
   onMessage,
-  disableAutoNavigation = false
-}: PersistentWebViewProps) {
+  disableAutoNavigation = false,
+}, ref) => {
   const webViewRef = useRef<WebView>(null);
   const { tokens, logout, isAuthenticated, user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +34,53 @@ export default function PersistentWebView({
   const router = useRouter();
   const hasNavigated = useRef(false);
   const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    refresh: () => {
+      if (webViewRef.current) {
+        // Smart refresh - try to refresh data without full page reload
+        webViewRef.current.injectJavaScript(`
+          (function() {
+            try {
+              // Try to call a specific refresh function first
+              if (typeof window.refreshData === 'function') {
+                console.log('Calling window.refreshData()');
+                window.refreshData();
+                return true;
+              }
+              
+              // Try to refresh listings specifically
+              if (typeof window.refreshListings === 'function') {
+                console.log('Calling window.refreshListings()');
+                window.refreshListings();
+                return true;
+              }
+              
+              // Fallback to location reload
+              console.log('Fallback to location.reload()');
+              location.reload();
+              return true;
+            } catch (error) {
+              console.error('Error during refresh:', error);
+              location.reload();
+              return false;
+            }
+          })();
+        `);
+      }
+    },
+    reload: () => {
+      if (webViewRef.current) {
+        webViewRef.current.reload();
+      }
+    },
+    injectJavaScript: (script: string) => {
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(script);
+      }
+    }
+  }));
 
   // Function to clear WebView authentication state
   const clearWebViewAuth = () => {
@@ -140,7 +193,6 @@ export default function PersistentWebView({
           return;
         }
 
-
         // Handle add page navigation back to tabs
         if (isFromAddPage || isFromListingDetail) {
           console.log('GO_BACK from add or listing detail page, navigating to tabs');
@@ -208,6 +260,24 @@ export default function PersistentWebView({
             params: { nickname: data.nickname }
           });
         }
+        return;
+      }
+
+      if (data.type === 'NAVIGATE_TO_LISTINGS') {
+        console.log("currentUrl", currentUrl);
+        console.log("route", route);
+        console.log('NAVIGATE_TO_LISTINGS', data);
+        hasNavigated.current = true;
+        router.push('/(tabs)');
+        return;
+      }
+
+      if (data.type === 'NAVIGATE_TO_ADD') {
+        console.log("currentUrl", currentUrl);
+        console.log("route", route);
+        console.log('NAVIGATE_TO_ADD', data);
+        hasNavigated.current = true;
+        router.push('/(tabs)/add');
         return;
       }
 
@@ -650,7 +720,11 @@ export default function PersistentWebView({
       )}
     </View>
   );
-}
+});
+
+PersistentWebView.displayName = 'PersistentWebView';
+
+export default PersistentWebView;
 
 const styles = StyleSheet.create({
   container: {

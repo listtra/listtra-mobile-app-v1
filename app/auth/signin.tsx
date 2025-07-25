@@ -7,7 +7,7 @@ import PersistentWebView from '../../components/PersistentWebView';
 import { useAuth } from '../../context/AuthContext';
 
 export default function SignInScreen() {
-  const { setTokensDirectly } = useAuth();
+  const { setTokensDirectly, logout } = useAuth();
   console.log('SignInScreen Mounted');
 
   // app/auth/signin.tsx - Update the handleMessage function
@@ -28,6 +28,15 @@ export default function SignInScreen() {
         router.push({
           pathname: '/auth/verify-email',
           params: { email: data.email }
+        });
+      } else if (data.type === 'GO_BACK') {
+        console.log('SignInScreen Go_BACK message received');
+        // Clear tokens first, then navigate to main tabs (index)
+        logout().then(() => {
+          // Add a small delay to ensure tokens are cleared
+          setTimeout(() => {
+            router.replace('/(tabs)');
+          }, 100);
         });
       }
     } catch (error) {

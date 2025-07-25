@@ -91,14 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       scopes: ['profile', 'email'],
     });
 
-  console.log("Is Expo Go:", isExpoGo);
-  console.log("Redirect URI:", request?.redirectUri);
-  console.log('Redirect URI:', AuthSession.makeRedirectUri());
-  console.log("App scheme:", APP_SCHEME);
-  console.log("Owner:", Constants.expoConfig?.owner);
-  console.log("Slug:", Constants.expoConfig?.slug);
-  console.log("Responseee", response)
-
   // Function to store tokens securely
   const storeTokens = async (accessToken: string, refreshToken: string) => {
     try {
