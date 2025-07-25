@@ -17,7 +17,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerContainer}>
+      {/* <View style={styles.headerContainer}>
         <TouchableOpacity 
           style={styles.headerButton} 
           onPress={handleBackPress}
@@ -30,7 +30,7 @@ export default function ProfileScreen() {
             <Ionicons name="person-outline" size={24} color="black" />
           </View>
         </View>
-      </View>
+      </View> */}
 
       <View style={styles.webViewContainer}>
         <PersistentWebView route={`profiles/${nickname}`} />

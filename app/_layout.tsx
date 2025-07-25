@@ -8,7 +8,6 @@ import React from 'react';
 import 'react-native-reanimated';
 import { View, Platform } from 'react-native';
 import { AuthGuard } from '../components/AuthGuard';
-import ReviewNotification from '../components/ReviewNotification';
 import { AuthProvider } from '../context/AuthContext';
 import { NotificationProvider } from '../context/NotificationContext';
 import { PushNotificationProvider } from '../context/PushNotificationContext';
@@ -30,8 +29,8 @@ export default function RootLayout() {
           <NotificationProvider>
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
               <View style={{ flex: 1, backgroundColor: 'white' }}>
-                <StatusBar 
-                  style="dark" 
+                <StatusBar
+                  style="dark"
                   backgroundColor="white"
                   translucent={true}
                 />
@@ -79,7 +78,6 @@ export default function RootLayout() {
                       <Stack.Screen name="+not-found" />
                     </Stack>
 
-                    <ReviewNotification />
                   </>
                 </AuthGuard>
               </View>

@@ -19,7 +19,7 @@ function TabBarIcon(props: {
   animatedStyle?: any;
 }) {
   const { iconType = 'ionicons', animatedStyle, ...rest } = props;
-  
+
   const IconComponent = () => {
     if (iconType === 'material') {
       return <MaterialIcons size={props.size || 24} {...rest} />;
@@ -31,7 +31,7 @@ function TabBarIcon(props: {
       return <Ionicons size={props.size || 24} {...rest} />;
     }
   };
-  
+
   if (animatedStyle) {
     return (
       <Animated.View style={animatedStyle}>
@@ -39,13 +39,12 @@ function TabBarIcon(props: {
       </Animated.View>
     );
   }
-  
+
   return <IconComponent />;
 }
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
-  
   // Hide tab bar on add screen
   const currentRoute = state.routes[state.index];
   if (currentRoute.name === 'add') {
@@ -62,7 +61,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
       opacity: new Animated.Value(state.index === 0 ? 0 : 1)
     }))
   ).current;
-  
+
   // Update animations when tab changes
   useEffect(() => {
     // Animate bubble position
@@ -72,7 +71,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
       tension: 70,
       friction: 7
     }).start();
-    
+
     // Animate bubble scale
     Animated.sequence([
       Animated.timing(animatedScale, {
@@ -86,7 +85,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         friction: 4
       })
     ]).start();
-    
+
     // Animate icons
     state.routes.forEach((_: any, i: number) => {
       Animated.parallel([
@@ -103,7 +102,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
       ]).start();
     });
   }, [state.index]);
-  
+
   const getTabIcon = (routeName: string, isFocused: boolean) => {
     switch (routeName) {
       case 'index':
@@ -149,14 +148,14 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         };
     }
   };
-  
+
   // Animation styles
   const bubbleTranslateX = animatedValue.interpolate({
     inputRange: [0, SCREEN_WIDTH - tabWidth],
     outputRange: [(tabWidth - 34) / 2, SCREEN_WIDTH - tabWidth + (tabWidth - 34) / 2],
     extrapolate: 'clamp'
   });
-  
+
   const bubbleTransformStyle = {
     transform: [
       { translateX: bubbleTranslateX },
@@ -171,7 +170,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   return (
     <View style={[styles.tabBarContainer, { paddingBottom: safeBottomPadding }]}>
       <View />
-      
+
       {/* Animated Floating Bubble */}
       <Animated.View style={[styles.floatingBubble, bubbleTransformStyle]}>
         <TabBarIcon
@@ -183,7 +182,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           solid={getTabIcon(state.routes[state.index].name, true).solid}
         />
       </Animated.View>
-      
+
       {state.routes.map((route: any, index: number) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
@@ -201,7 +200,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         };
 
         const tabIcon = getTabIcon(route.name, isFocused);
-        
+
         const iconAnimatedStyle = {
           transform: [{ scale: iconAnimations[index].scale }],
           opacity: iconAnimations[index].opacity
