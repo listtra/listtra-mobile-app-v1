@@ -7,7 +7,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 
 // Common base URL configuration
-const BASE_URL = 'https://listtra.com';
+const BASE_URL = 'http://192.168.31.224:3000';
 
 type PersistentWebViewProps = {
   route: string;
@@ -30,9 +30,9 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   const { tokens, logout, isAuthenticated, user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentUrl, setCurrentUrl] = useState(`${BASE_URL}/${route}`);
   const router = useRouter();
   const hasNavigated = useRef(false);
+  // const [currentUrl, setCurrentUrl] = useState(`${BASE_URL}/${route}`);
   const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
 
   // Expose methods to parent component
@@ -82,89 +82,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     }
   }));
 
-  // Function to clear WebView authentication state
-  const clearWebViewAuth = () => {
-    if (webViewRef.current) {
-      // Clear localStorage and sessionStorage in WebView
-      webViewRef.current.injectJavaScript(`
-        (function() {
-          try {
-            // Clear all auth-related items from localStorage
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('user');
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            
-            // Clear sessionStorage as well
-            sessionStorage.clear();
-            
-            // Dispatch logout event to notify web app
-            window.dispatchEvent(new CustomEvent('native-auth-logout', { 
-              detail: { isAuthenticated: false }
-            }));
-            
-            console.log('WebView authentication state cleared');
-            return true;
-          } catch (error) {
-            console.error('Error clearing WebView auth state:', error);
-            return false;
-          }
-        })();
-      `);
-    }
-  };
-
-  // Enhanced logout function
-  const handleLogout = async () => {
-    try {
-      console.log('Starting logout process...');
-
-      // 1. Clear WebView authentication state first
-      clearWebViewAuth();
-
-      // 2. Wait a bit for WebView to process
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // 3. Call the context logout function
-      await logout();
-
-      // 4. Navigate to login screen
-      router.replace('/auth/signin');
-
-      console.log('Logout completed successfully');
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Even if there's an error, try to clear tokens and redirect
-      await logout();
-      router.replace('/auth/signin');
-    }
-  };
-
-  // Construct proper URL with tokens as query parameters
-  const getAuthenticatedUrl = (baseUrl: string) => {
-    if (!tokens.accessToken || !tokens.refreshToken) {
-      return baseUrl;
-    }
-
-    try {
-      const url = new URL(baseUrl);
-      url.searchParams.append('access_token', tokens.accessToken);
-      url.searchParams.append('refresh_token', tokens.refreshToken);
-      url.searchParams.append('isNativeApp', 'true');
-
-      if (user?.id) {
-        url.searchParams.append('user_id', user.id.toString());
-      }
-
-      return url.toString();
-    } catch (e) {
-      console.error('Error constructing URL:', e);
-      return baseUrl;
-    }
-  };
-
   // Handle message from WebView
   const handleMessage = (event: WebViewMessageEvent) => {
     try {
@@ -185,10 +102,12 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         const isFromAddPage = currentUrl?.includes('/add') || route === 'add';
         const isFromListingDetail = currentUrl?.includes('/listings/');
         const isFromChatPage = currentUrl?.includes('/chat?listing=');
+        const isFromChatIndexPage = currentUrl?.includes('/chat/');
         const isFromSigninPage = currentUrl?.includes('/auth/signin') || route === 'auth/signin';
 
         if (isFromSigninPage) {
           console.log('GO_BACK from signin page, clearing auth and navigating to tabs');
+          router.replace('/(tabs)');
           // Let the SignInScreen handle this case
           return;
         }
@@ -203,14 +122,13 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           return;
         }
 
-        if (isFromChatPage) {
+        if (isFromChatPage || isFromChatIndexPage) {
           console.log('GO_BACK from chat page, navigating to chats');
           hasNavigated.current = true;
           router.back();
           return;
         }
 
-        // For other pages (like chat), use browser history
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
             (function() {
@@ -229,6 +147,12 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         }
 
         // Don't update router or current URL here, let the navigation state change handler do it
+        return;
+      }
+
+      if (data.type === 'AUTH_REQUIRED') {
+        console.log('AUTH_REQUIRED', data);
+        router.replace('/auth/signin');
         return;
       }
 
@@ -325,11 +249,15 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       }
 
       // Enhanced logout handler
-      if (data.type === 'AUTH_LOGOUT') {
-        console.log('Logout request received from web app');
-        //handleLogout();
-        //return;
+      if (data.type === 'WEB_LOGOUT_SUCCESS') {
+        console.log("Web logout confirmed");
+        console.log('data', data);
+        logout().then(() => {
+          router.replace('/(tabs)');
+        }); // Clear tokens from mobile side
+
       }
+
 
       if (data.type === 'AUTH_VALIDATION_FAILED') {
         console.error('Token validation failed:', data.message);
@@ -340,7 +268,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         }
 
         // Handle token validation failure by logging out
-        handleLogout();
         return;
       }
 
@@ -355,353 +282,41 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     }
   };
 
-  // Update WebView when route changes
-  useEffect(() => {
-    const newUrl = `${BASE_URL}/${route}`;
-    if (webViewRef.current && currentUrl !== newUrl && !hasNavigated.current) {
-      const finalUrl = isAuthenticated ? getAuthenticatedUrl(newUrl) : newUrl;
-      webViewRef.current.injectJavaScript(`
-        (function() {
-          window.location.href = "${finalUrl.replace(/"/g, '\\"')}";
-          return true;
-        })();
-      `);
-      setCurrentUrl(newUrl);
-    }
-    hasNavigated.current = false;
-    isDetailPage.current = route.includes('/listings/') && route !== 'listings';
-  }, [route, isAuthenticated]);
+  const buildUrl = (baseRoute: string) => {
+    const url = new URL(`${BASE_URL}/${baseRoute}`);
 
-  // Handle navigation state changes
-  const handleNavigationStateChange = (navState: any) => {
-    if (navState.url !== currentUrl) {
-      console.log('Navigation state change:', navState.url);
-      setCurrentUrl(navState.url);
+    // Always pass tokens in production for cross-domain compatibility
+    if (isAuthenticated && tokens.accessToken && tokens.refreshToken) {
+      url.searchParams.set('access_token', tokens.accessToken);
+      url.searchParams.set('refresh_token', tokens.refreshToken);
+      url.searchParams.set('isNativeAuth', 'true');
 
-      // Skip auto-navigation if disabled or if we're already on a detail page
-      if (disableAutoNavigation || isDetailPage.current) {
-        console.log('Auto-navigation skipped:', disableAutoNavigation ? 'disabled by prop' : 'already on detail page');
-        return;
-      }
-
-      // Handle listing detail navigation
-      if (navState.url.includes('/listings/') && !navState.url.endsWith('/listings/')) {
-        const match = navState.url.match(/\/listings\/([^\/]+)\/([^\/]+)/);
-        if (match && match.length >= 3) {
-          const slug = match[1];
-          let productId = match[2];
-          const queryIndex = productId.indexOf('?');
-          if (queryIndex !== -1) {
-            productId = productId.substring(0, queryIndex);
-          }
-
-          console.log('Detected navigation to listing detail:', slug, productId);
-
-          if (!hasNavigated.current) {
-            hasNavigated.current = true;
-            router.push({
-              pathname: "/listings/[slug]/[product_id]/page",
-              params: { slug, product_id: productId }
-            });
-          }
-        }
-      }
-
-      // Check if we've navigated to the chats page from a chat detail
-      if (navState.url.includes('/chats') && route.includes('chat/')) {
-        console.log('Detected navigation from chat detail to chats list');
-        if (!hasNavigated.current) {
-          hasNavigated.current = true;
-          router.back();
-        }
-      }
-
-      // Handle chat navigation - BUT ONLY if we're NOT already on a chat page
-      if (navState.url.includes('/chat') && !route.includes('chat')) {
-        if (navState.url.includes('/chat?listing=')) {
-          const match = navState.url.match(/\/chat\?listing=([^&]+)/);
-          if (match && match.length >= 2) {
-            const listingId = match[1];
-            console.log('Detected navigation to chat with listing:', listingId);
-
-            if (!hasNavigated.current) {
-              hasNavigated.current = true;
-              router.push({
-                pathname: "/chat",
-                params: { listingId: listingId }
-              });
-            }
-          }
-        }
-        else if (navState.url.match(/\/chat\/\d+/)) {
-          const match = navState.url.match(/\/chat\/(\d+)/);
-          if (match && match.length >= 2) {
-            const chatId = match[1];
-            console.log('Detected navigation to specific chat:', chatId);
-
-            if (!hasNavigated.current) {
-              hasNavigated.current = true;
-              router.push({
-                pathname: "/chat/[id]",
-                params: { id: chatId }
-              });
-            }
-          }
-        }
+      // Add user ID for ownership checks
+      if (user?.id) {
+        url.searchParams.set('user_id', user.id);
       }
     }
+
+    return url.toString();
   };
 
-  // Create final URL with tokens if authenticated
-  const finalUrl = isAuthenticated && tokens.accessToken && tokens.refreshToken
-    ? getAuthenticatedUrl(`${BASE_URL}/${route}`)
-    : `${BASE_URL}/${route}`;
+  const [currentUrl, setCurrentUrl] = useState(buildUrl(route));
 
-  // Enhanced combined script with conditional listing interception
-  const combinedScript = `
-  (function() {
-    // Auth and navigation script
-    try {
-      if ("${tokens.accessToken}") {
-        localStorage.setItem('token', "${tokens.accessToken}");
-        localStorage.setItem('refreshToken', "${tokens.refreshToken}");
-        localStorage.setItem('user', '${user ? JSON.stringify(user).replace(/'/g, "\\'").replace(/"/g, '\\"') : "{}"}');
-        console.log('Auth tokens injected from native app');
-        
-        window.dispatchEvent(new CustomEvent('native-auth-changed', { 
-          detail: { isAuthenticated: true }
-        }));
-      }
-    } catch (e) {
-      console.error('Error injecting auth data:', e);
-    }
-    
-    // Listen for logout events from native app
-    window.addEventListener('native-auth-logout', function(event) {
-      console.log('Native app logout event received');
-      try {
-        if (window.AuthContext && window.AuthContext.logout) {
-          window.AuthContext.logout();
-        }
-      } catch (e) {
-        console.log('Web app logout cleanup completed');
-      }
-    });
-    
-    window.nativeApp = {
-      login: function(tokens, user) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'AUTH_LOGIN_SUCCESS',
-          tokens: tokens,
-          user: user
-        }));
-      },
-      logout: function() {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'AUTH_LOGOUT'
-        }));
-      },
-      navigate: function(path) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'NAVIGATE',
-          path: path
-        }));
-      },
-      navigateToListing: function(slug, productId) {
-        console.log('nativeApp.navigateToListing called:', slug, productId);
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'LISTING_CLICKED',
-          slug: slug,
-          product_id: productId
-        }));
-      },
-      navigateToProfile: function(nickname) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'PROFILE_CLICKED',
-          nickname: nickname
-        }));
-      },
-      navigateToChat: function(chatId) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'NAVIGATE_CHAT',
-          chatId: chatId
-        }));
-      },
-      viewAllChats: function(listingId) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'VIEW_ALL_CHATS',
-          listingId: listingId
-        }));
-      }
-    };
-    
-    function setupInterceptors() {
-      const shouldInterceptListings = ${!disableAutoNavigation};
-      
-      if (shouldInterceptListings) {
-        // Global click listener for data-listing-item elements (most reliable)
-        document.addEventListener('click', function(e) {
-          const listingItem = e.target.closest('[data-listing-item="true"]');
-          if (listingItem) {
-            const productId = listingItem.getAttribute('data-product-id');
-            const slug = listingItem.getAttribute('data-slug');
-            
-            if (productId && slug) {
-              console.log('Data attribute listing clicked:', slug, productId);
-              e.preventDefault();
-              e.stopPropagation();
-              
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'LISTING_CLICKED',
-                slug: slug,
-                product_id: productId
-              }));
-            }
-          }
-        });
-        
-        // Listen for custom events from React components
-        window.addEventListener('listingClicked', function(event) {
-          console.log('Custom listingClicked event received:', event.detail);
-          
-          const { slug, product_id } = event.detail;
-          
-          if (slug && product_id) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'LISTING_CLICKED',
-              slug: slug,
-              product_id: product_id
-            }));
-          }
-        });
-        
-        // Regular listing card links
-        document.querySelectorAll('a[href^="/listings/"]').forEach(function(link) {
-          if (link.getAttribute('data-intercepted') === 'true') return;
-          link.setAttribute('data-intercepted', 'true');
-          
-          link.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const href = link.getAttribute('href');
-            const match = href.match(/\\/listings\\/([^\\/]+)\\/([^\\/]+)/);
-            
-            if (match && match.length >= 3) {
-              const slug = match[1];
-              const productId = match[2];
-              console.log('Listing card clicked:', slug, productId);
-              window.nativeApp.navigateToListing(slug, productId);
-            }
-          });
-        });
-        
-        // Product cards with data attributes
-        document.querySelectorAll('.product-card, .listing-card, [data-listing-id]').forEach(function(card) {
-          if (card.getAttribute('data-intercepted') === 'true') return;
-          card.setAttribute('data-intercepted', 'true');
-          
-          card.addEventListener('click', function(e) {
-            const slug = card.getAttribute('data-slug') || 'item';
-            const productId = card.getAttribute('data-listing-id') || card.getAttribute('data-product-id');
-            
-            if (productId) {
-              e.preventDefault();
-              e.stopPropagation();
-              console.log('Product card clicked:', slug, productId);
-              window.nativeApp.navigateToListing(slug, productId);
-            }
-          });
-        });
-        
-      } else {
-        console.log('Listing interception disabled for this WebView');
-      }
-      
-      // Always intercept profile links
-      document.querySelectorAll('a[href^="/profiles/"]').forEach(function(link) {
-        if (link.getAttribute('data-intercepted') === 'true') return;
-        link.setAttribute('data-intercepted', 'true');
-        
-        link.addEventListener('click', function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          
-          const href = link.getAttribute('href');
-          const nickname = href.split('/profiles/')[1];
-          
-          if (nickname) {
-            console.log('Profile link clicked:', nickname);
-            window.nativeApp.navigateToProfile(nickname);
-          }
-        });
-      });
-      
-      // Always intercept chat links
-      document.querySelectorAll('a[href^="/chat/"]').forEach(function(link) {
-        if (link.getAttribute('data-intercepted') === 'true') return;
-        link.setAttribute('data-intercepted', 'true');
-        
-        link.addEventListener('click', function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          
-          const href = link.getAttribute('href');
-          const chatId = href.split('/chat/')[1];
-          
-          if (chatId) {
-            console.log('Chat link clicked:', chatId);
-            window.nativeApp.navigateToChat(chatId);
-          }
-        });
-      });
-    }
-    
-    // Setup immediately
-    setupInterceptors();
-    
-    // Also setup on DOM changes
-    const contentObserver = new MutationObserver(function(mutations) {
-      let shouldSetupInterceptors = false;
-      
-      mutations.forEach(function(mutation) {
-        if (mutation.addedNodes.length > 0) {
-          shouldSetupInterceptors = true;
-        }
-      });
-      
-      if (shouldSetupInterceptors) {
-        setupInterceptors();
-      }
-    });
-    
-    contentObserver.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-    
-    // Debug: Log what's available
-    console.log('WebView script loaded. Available methods:');
-    console.log('- window.nativeApp:', !!window.nativeApp);
-    console.log('- window.ReactNativeWebView:', !!window.ReactNativeWebView);
-    console.log('- shouldInterceptListings:', ${!disableAutoNavigation});
-    
-    return true;
-  })();
-`;
+  // Update URL when authentication state changes
+  useEffect(() => {
+    setCurrentUrl(buildUrl(route));
+  }, [route, isAuthenticated, tokens.accessToken, tokens.refreshToken, user?.id]);
 
   return (
     <View style={styles.container}>
       <WebView
         ref={webViewRef}
-        source={{ uri: finalUrl }}
+        source={{ uri: currentUrl }}
         style={styles.webView}
         onLoad={() => setIsLoading(false)}
         onError={(e) => setError(`WebView error: ${e.nativeEvent.description}`)}
         onHttpError={(e) => setError(`HTTP error: ${e.nativeEvent.statusCode}`)}
-        onNavigationStateChange={handleNavigationStateChange}
         onMessage={handleMessage}
-        injectedJavaScript={combinedScript}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         cacheEnabled={true}

@@ -9,7 +9,7 @@ export default {
     apiUrl: "https://backend.listtra.com",
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
     eas: {
-      projectId: "820e18da-a912-4bce-b322-c20119032f5b"
+      projectId: "ef242669-581a-4988-924f-6bf58ec279d9"
     }
   },
   ios: {
@@ -32,5 +32,5 @@ export default {
   web: {
     bundler: "metro",
   },
-  owner: "pre_02",
+  owner: "jibinb",
 }; 

@@ -12,9 +12,9 @@ export default function ListingsScreen() {
   useFocusEffect(
     React.useCallback(() => {
       const now = Date.now();
-      // Only refresh if it's been more than 30 seconds since last refresh
+      // Only refresh if it's been more than 10 seconds since last refresh
       // Adjust this threshold based on how often your data actually changes
-      const REFRESH_THRESHOLD = 5 * 1000; // 30 seconds
+      const REFRESH_THRESHOLD = 10 * 1000; // 10 seconds
       
       if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
         console.log('Refreshing listings data...');

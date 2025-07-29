@@ -10,6 +10,8 @@ export default function ChatConversation() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
+  console.log('ChatConversation Mounted', id);
+
   // Handle back button press
   const handleBackPress = () => {
     router.back();

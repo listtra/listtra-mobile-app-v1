@@ -33,7 +33,7 @@ export default function ProfileScreen() {
       <View style={styles.webViewContainer}>
         <PersistentWebView 
           route="profile" 
-          onMessage={handleMessage}
+          // onMessage={handleMessage}
         />
       </View>
     </SafeAreaView>
