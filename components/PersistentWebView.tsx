@@ -7,7 +7,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 
 // Common base URL configuration
-const BASE_URL = 'http://192.168.31.224:3000';
+const BASE_URL = 'https://listtra.com';
 
 type PersistentWebViewProps = {
   route: string;
@@ -158,8 +158,9 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
       // FIXED: Only handle listing clicks if auto navigation is NOT disabled
       if (data.type === 'LISTING_CLICKED' && !disableAutoNavigation) {
-        if (data.slug && data.product_id) {
-          console.log(`Navigating to listing: ${data.slug}/${data.product_id}`);
+        console.log("LISTING_CLICKED", data);
+        if (data.listing.slug && data.listing.product_id) {
+          console.log(`Navigating to listing: ${data.listing.slug}/${data.listing.product_id}`);
           hasNavigated.current = true;
           router.push({
             pathname: "/listings/[slug]/[product_id]/page",
