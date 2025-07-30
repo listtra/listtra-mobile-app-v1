@@ -7,7 +7,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 
 // Common base URL configuration
-const BASE_URL = 'http://192.168.1.37:3000';
+const BASE_URL = 'http://192.168.31.224:3000';
 
 type PersistentWebViewProps = {
   route: string;
@@ -19,6 +19,7 @@ export interface PersistentWebViewRef {
   refresh: () => void;
   reload: () => void;
   injectJavaScript: (script: string) => void;
+  clearWebViewAuth: () => void;
 }
 
 const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(({
@@ -32,8 +33,48 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const hasNavigated = useRef(false);
-  // const [currentUrl, setCurrentUrl] = useState(`${BASE_URL}/${route}`);
+  const [currentUrl, setCurrentUrl] = useState('');
   const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
+
+  // Function to clear WebView authentication state
+  // Function to clear WebView authentication state (simplified for HttpOnly cookies)
+  // Function to clear WebView authentication state (simplified for HttpOnly cookies)
+  const clearWebViewAuth = () => {
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`
+      (function() {
+        try {
+          console.log('Clearing WebView authentication state');
+          
+          // Clear only what you actually use
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          
+          // Clear sessionStorage for safety
+          sessionStorage.clear();
+          
+          // Note: HttpOnly cookies (__Secure-authjs.session-token, etc.) 
+          // are handled by the server-side logout process
+          // We can't clear them from JavaScript, but that's by design for security
+          
+          console.log('WebView authentication state cleared');
+          
+          // Notify mobile app that auth state is cleared
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'WEBVIEW_AUTH_CLEARED'
+            }));
+          }
+          
+          return true;
+        } catch (error) {
+          console.error('Error clearing WebView auth state:', error);
+          return false;
+        }
+      })();
+    `);
+    }
+  };
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -79,7 +120,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(script);
       }
-    }
+    },
+    clearWebViewAuth
   }));
 
   // Handle message from WebView
@@ -250,15 +292,33 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       }
 
       // Enhanced logout handler
+      // Enhanced logout handler
       if (data.type === 'WEB_LOGOUT_SUCCESS') {
         console.log("Web logout confirmed");
         console.log('data', data);
-        logout().then(() => {
-          router.replace('/(tabs)');
-        }); // Clear tokens from mobile side
 
+        // Clear WebView authentication state first
+        clearWebViewAuth();
+
+        // Force WebView to reload immediately (no setTimeout needed)
+        if (webViewRef.current) {
+          console.log('Forcing WebView reload after logout');
+          webViewRef.current.reload();
+        }
+
+        // Then clear mobile app tokens and navigate
+        logout().then(() => {
+          // Add a small delay to ensure reload happens
+          setTimeout(() => {
+            router.replace('/auth/signin');
+          }, 100);
+        });
       }
 
+      // Handle WebView auth cleared confirmation
+      if (data.type === 'WEBVIEW_AUTH_CLEARED') {
+        console.log('WebView authentication state cleared successfully');
+      }
 
       if (data.type === 'AUTH_VALIDATION_FAILED') {
         console.error('Token validation failed:', data.message);
@@ -286,7 +346,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   const buildUrl = (baseRoute: string) => {
     const url = new URL(`${BASE_URL}/${baseRoute}`);
 
-    // Always pass tokens in production for cross-domain compatibility
+    // Only pass tokens if authenticated
     if (isAuthenticated && tokens.accessToken && tokens.refreshToken) {
       url.searchParams.set('access_token', tokens.accessToken);
       url.searchParams.set('refresh_token', tokens.refreshToken);
@@ -296,17 +356,30 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       if (user?.id) {
         url.searchParams.set('user_id', user.id);
       }
+    } else {
+      // Clear any existing tokens from URL if not authenticated
+      url.searchParams.delete('access_token');
+      url.searchParams.delete('refresh_token');
+      url.searchParams.delete('isNativeAuth');
+      url.searchParams.delete('user_id');
     }
 
     return url.toString();
   };
 
-  const [currentUrl, setCurrentUrl] = useState(buildUrl(route));
-
   // Update URL when authentication state changes
   useEffect(() => {
-    setCurrentUrl(buildUrl(route));
+    const newUrl = buildUrl(route);
+    setCurrentUrl(newUrl);
   }, [route, isAuthenticated, tokens.accessToken, tokens.refreshToken, user?.id]);
+
+  // Clear WebView auth state when mobile app logs out
+  useEffect(() => {
+    if (!isAuthenticated && !tokens.accessToken) {
+      // Clear WebView authentication state when mobile app is not authenticated
+      clearWebViewAuth();
+    }
+  }, [isAuthenticated, tokens.accessToken]);
 
   return (
     <View style={styles.container}>
@@ -328,6 +401,81 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         allowsInlineMediaPlayback={true}
         allowFileAccess={true}
         allowUniversalAccessFromFileURLs={true}
+        injectedJavaScript={`
+          (function() {
+            try {
+              console.log('WebView authentication state manager initialized');
+              
+              // Check if we're in a mobile WebView
+              const isInWebView = !!(window.ReactNativeWebView || 
+                window.webkit?.messageHandlers || 
+                navigator.userAgent.includes('wv'));
+              
+              if (isInWebView) {
+                console.log('Running in mobile WebView - setting up auth state management');
+                
+                // Set up periodic check for authentication state
+                setInterval(() => {
+                  const token = localStorage.getItem('token');
+                  const refreshToken = localStorage.getItem('refreshToken');
+                  const user = localStorage.getItem('user');
+                  
+                  // If no tokens but we're on a protected page, notify mobile app
+                  if (!token && !refreshToken) {
+                    const protectedRoutes = ['/profile', '/add', '/chats', '/liked'];
+                    const currentPath = window.location.pathname;
+                    
+                    if (protectedRoutes.some(route => currentPath.startsWith(route))) {
+                      console.log('No tokens found on protected route, notifying mobile app');
+                      if (window.ReactNativeWebView) {
+                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                          type: 'AUTH_REQUIRED',
+                          path: currentPath
+                        }));
+                      }
+                    }
+                  }
+                }, 5000); // Check every 5 seconds
+                
+                // Override logout function to ensure proper cleanup
+                const originalLogout = window.logout;
+                window.logout = function() {
+                  console.log('Logout called from WebView');
+                  
+                  // Clear all auth state
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('refreshToken');
+                  localStorage.removeItem('user');
+                  localStorage.removeItem('next-auth.session-token');
+                  localStorage.removeItem('next-auth.refresh-token');
+                  sessionStorage.clear();
+                  
+                  // Clear cookies
+                  document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                  });
+                  
+                  // Notify mobile app
+                  if (window.ReactNativeWebView) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'AUTH_LOGOUT',
+                      message: 'Logout initiated from WebView'
+                    }));
+                  }
+                  
+                  // Call original logout if it exists
+                  if (typeof originalLogout === 'function') {
+                    originalLogout();
+                  }
+                };
+                
+                console.log('WebView auth state management setup complete');
+              }
+            } catch (error) {
+              console.error('Error setting up WebView auth state management:', error);
+            }
+          })();
+        `}
       />
       {isLoading && (
         <View style={styles.loaderContainer}>

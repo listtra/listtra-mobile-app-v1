@@ -490,9 +490,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Logout user
   const logout = async () => {
+    console.log('Logging out user from mobile app');
+    
+    // Clear user state first
     setUser(null);
+    
+    // Clear tokens from secure storage
     await clearTokens();
-    //router.replace('/auth/signin');
+    
+    console.log('Mobile app logout completed - tokens and user cleared');
+    
+    // Note: WebView auth clearing is handled in PersistentWebView component
+    // when isAuthenticated becomes false
   };
 
   // Clear error messages
