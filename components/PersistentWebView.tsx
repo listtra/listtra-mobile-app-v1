@@ -7,7 +7,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 
 // Common base URL configuration
-const BASE_URL = 'https://listtra.com';
+const BASE_URL = 'http://192.168.1.37:3000';
 
 type PersistentWebViewProps = {
   route: string;
