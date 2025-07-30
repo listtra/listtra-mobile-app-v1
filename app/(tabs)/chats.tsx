@@ -1,14 +1,28 @@
 // app/(tabs)/chats.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import PersistentWebView from '../../components/PersistentWebView';
 
 export default function ChatsScreen() {
+  const [key, setKey] = useState(0);
+
+  // Force WebView refresh every time the screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('ChatsScreen focused, forcing WebView refresh');
+      setKey(prev => prev + 1);
+    }, [])
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
-        <PersistentWebView route="chats" />
+        <PersistentWebView 
+          key={key} // This forces a complete re-render every time
+          route="chats" 
+        />
       </View>
     </SafeAreaView>
   );
