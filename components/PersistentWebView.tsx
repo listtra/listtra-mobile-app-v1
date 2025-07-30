@@ -164,7 +164,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           hasNavigated.current = true;
           router.push({
             pathname: "/listings/[slug]/[product_id]/page",
-            params: { slug: data.slug, product_id: data.product_id }
+            params: { slug: data.listing.slug, product_id: data.listing.product_id }
           });
         }
         return;
