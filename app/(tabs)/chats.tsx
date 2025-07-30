@@ -1,27 +1,51 @@
 // app/(tabs)/chats.tsx
-import React, { useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import PersistentWebView from '../../components/PersistentWebView';
+import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
 
 export default function ChatsScreen() {
-  const [key, setKey] = useState(0);
+  const webViewRef = useRef<PersistentWebViewRef>(null);
+  const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Force WebView refresh every time the screen is focused
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    if (webViewRef.current) {
+      setIsRefreshing(true);
+      console.log('Pull-to-refresh triggered for chats');
+      webViewRef.current.refresh();
+      setLastRefreshTime(Date.now());
+      // Add a small delay to show the refresh indicator
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
+  }, []);
+
+  // Handle focus-based refresh with throttling
   useFocusEffect(
     React.useCallback(() => {
-      console.log('ChatsScreen focused, forcing WebView refresh');
-      setKey(prev => prev + 1);
-    }, [])
+      const now = Date.now();
+      const REFRESH_THRESHOLD = 15 * 1000; // 15 seconds for chats
+      
+      if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
+        console.log('Refreshing chats data...');
+        webViewRef.current.refresh();
+        setLastRefreshTime(now);
+      } else {
+        console.log('Skipping chats refresh - too soon since last refresh');
+      }
+    }, [lastRefreshTime])
   );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
         <PersistentWebView 
-          key={key} // This forces a complete re-render every time
           route="chats" 
+          ref={webViewRef}
+          onRefresh={handleRefresh}
+          refreshing={isRefreshing}
         />
       </View>
     </SafeAreaView>

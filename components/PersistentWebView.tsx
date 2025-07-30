@@ -2,17 +2,19 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, RefreshControl, ScrollView } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 
 // Common base URL configuration
-const BASE_URL = 'http://192.168.31.224:3000';
+const BASE_URL = 'http://192.168.1.37:3000';
 
 type PersistentWebViewProps = {
   route: string;
   onMessage?: (event: WebViewMessageEvent) => void;
   disableAutoNavigation?: boolean;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 };
 
 export interface PersistentWebViewRef {
@@ -26,6 +28,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   route,
   onMessage,
   disableAutoNavigation = false,
+  onRefresh,
+  refreshing = false,
 }, ref) => {
   const webViewRef = useRef<WebView>(null);
   const { tokens, logout, isAuthenticated, user } = useAuth();
@@ -381,102 +385,128 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     }
   }, [isAuthenticated, tokens.accessToken]);
 
+  // Handle pull-to-refresh
+  const handleRefresh = () => {
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      // Default refresh behavior
+      if (webViewRef.current) {
+        webViewRef.current.reload();
+      }
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <WebView
-        ref={webViewRef}
-        source={{ uri: currentUrl }}
-        style={styles.webView}
-        onLoad={() => setIsLoading(false)}
-        onError={(e) => setError(`WebView error: ${e.nativeEvent.description}`)}
-        onHttpError={(e) => setError(`HTTP error: ${e.nativeEvent.statusCode}`)}
-        onMessage={handleMessage}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        cacheEnabled={true}
-        thirdPartyCookiesEnabled={true}
-        sharedCookiesEnabled={true}
-        originWhitelist={['*']}
-        mixedContentMode="always"
-        allowsInlineMediaPlayback={true}
-        allowFileAccess={true}
-        allowUniversalAccessFromFileURLs={true}
-        injectedJavaScript={`
-          (function() {
-            try {
-              console.log('WebView authentication state manager initialized');
-              
-              // Check if we're in a mobile WebView
-              const isInWebView = !!(window.ReactNativeWebView || 
-                window.webkit?.messageHandlers || 
-                navigator.userAgent.includes('wv'));
-              
-              if (isInWebView) {
-                console.log('Running in mobile WebView - setting up auth state management');
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#2528be']}
+            tintColor="#2528be"
+          />
+        }
+        scrollEventThrottle={16}
+      >
+        <WebView
+          ref={webViewRef}
+          source={{ uri: currentUrl }}
+          style={styles.webView}
+          onLoad={() => setIsLoading(false)}
+          onError={(e) => setError(`WebView error: ${e.nativeEvent.description}`)}
+          onHttpError={(e) => setError(`HTTP error: ${e.nativeEvent.statusCode}`)}
+          onMessage={handleMessage}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          cacheEnabled={true}
+          thirdPartyCookiesEnabled={true}
+          sharedCookiesEnabled={true}
+          originWhitelist={['*']}
+          mixedContentMode="always"
+          allowsInlineMediaPlayback={true}
+          allowFileAccess={true}
+          allowUniversalAccessFromFileURLs={true}
+          injectedJavaScript={`
+            (function() {
+              try {
+                console.log('WebView authentication state manager initialized');
                 
-                // Set up periodic check for authentication state
-                setInterval(() => {
-                  const token = localStorage.getItem('token');
-                  const refreshToken = localStorage.getItem('refreshToken');
-                  const user = localStorage.getItem('user');
+                // Check if we're in a mobile WebView
+                const isInWebView = !!(window.ReactNativeWebView || 
+                  window.webkit?.messageHandlers || 
+                  navigator.userAgent.includes('wv'));
+                
+                if (isInWebView) {
+                  console.log('Running in mobile WebView - setting up auth state management');
                   
-                  // If no tokens but we're on a protected page, notify mobile app
-                  if (!token && !refreshToken) {
-                    const protectedRoutes = ['/profile', '/add', '/chats', '/liked'];
-                    const currentPath = window.location.pathname;
+                  // Set up periodic check for authentication state
+                  setInterval(() => {
+                    const token = localStorage.getItem('token');
+                    const refreshToken = localStorage.getItem('refreshToken');
+                    const user = localStorage.getItem('user');
                     
-                    if (protectedRoutes.some(route => currentPath.startsWith(route))) {
-                      console.log('No tokens found on protected route, notifying mobile app');
-                      if (window.ReactNativeWebView) {
-                        window.ReactNativeWebView.postMessage(JSON.stringify({
-                          type: 'AUTH_REQUIRED',
-                          path: currentPath
-                        }));
+                    // If no tokens but we're on a protected page, notify mobile app
+                    if (!token && !refreshToken) {
+                      const protectedRoutes = ['/profile', '/add', '/chats', '/liked'];
+                      const currentPath = window.location.pathname;
+                      
+                      if (protectedRoutes.some(route => currentPath.startsWith(route))) {
+                        console.log('No tokens found on protected route, notifying mobile app');
+                        if (window.ReactNativeWebView) {
+                          window.ReactNativeWebView.postMessage(JSON.stringify({
+                            type: 'AUTH_REQUIRED',
+                            path: currentPath
+                          }));
+                        }
                       }
                     }
-                  }
-                }, 5000); // Check every 5 seconds
-                
-                // Override logout function to ensure proper cleanup
-                const originalLogout = window.logout;
-                window.logout = function() {
-                  console.log('Logout called from WebView');
+                  }, 5000); // Check every 5 seconds
                   
-                  // Clear all auth state
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('refreshToken');
-                  localStorage.removeItem('user');
-                  localStorage.removeItem('next-auth.session-token');
-                  localStorage.removeItem('next-auth.refresh-token');
-                  sessionStorage.clear();
+                  // Override logout function to ensure proper cleanup
+                  const originalLogout = window.logout;
+                  window.logout = function() {
+                    console.log('Logout called from WebView');
+                    
+                    // Clear all auth state
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('refreshToken');
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('next-auth.session-token');
+                    localStorage.removeItem('next-auth.refresh-token');
+                    sessionStorage.clear();
+                    
+                    // Clear cookies
+                    document.cookie.split(";").forEach(function(c) { 
+                      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                    });
+                    
+                    // Notify mobile app
+                    if (window.ReactNativeWebView) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'AUTH_LOGOUT',
+                        message: 'Logout initiated from WebView'
+                      }));
+                    }
+                    
+                    // Call original logout if it exists
+                    if (typeof originalLogout === 'function') {
+                      originalLogout();
+                    }
+                  };
                   
-                  // Clear cookies
-                  document.cookie.split(";").forEach(function(c) { 
-                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-                  });
-                  
-                  // Notify mobile app
-                  if (window.ReactNativeWebView) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify({
-                      type: 'AUTH_LOGOUT',
-                      message: 'Logout initiated from WebView'
-                    }));
-                  }
-                  
-                  // Call original logout if it exists
-                  if (typeof originalLogout === 'function') {
-                    originalLogout();
-                  }
-                };
-                
-                console.log('WebView auth state management setup complete');
+                  console.log('WebView auth state management setup complete');
+                }
+              } catch (error) {
+                console.error('Error setting up WebView auth state management:', error);
               }
-            } catch (error) {
-              console.error('Error setting up WebView auth state management:', error);
-            }
-          })();
-        `}
-      />
+            })();
+          `}
+        />
+      </ScrollView>
       {isLoading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#2528be" />
@@ -495,8 +525,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+  },
   webView: {
     flex: 1,
+    minHeight: '100%',
   },
   loaderContainer: {
     ...StyleSheet.absoluteFillObject,

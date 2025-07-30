@@ -1,6 +1,6 @@
 // app/(tabs)/index.tsx
-import React, { useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useRef, useState, useCallback } from 'react';
+import { StyleSheet, View, RefreshControl, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
 import { useFocusEffect } from '@react-navigation/native';
@@ -9,18 +9,30 @@ import { useAuth } from '../../context/AuthContext';
 export default function ListingsScreen() {
   const webViewRef = useRef<PersistentWebViewRef>(null);
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { isAuthenticated } = useAuth();
   
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    if (webViewRef.current) {
+      setIsRefreshing(true);
+      console.log('Pull-to-refresh triggered for listings');
+      webViewRef.current.refresh();
+      setLastRefreshTime(Date.now());
+      // Add a small delay to show the refresh indicator
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
+  }, []);
+
+  // Handle focus-based refresh with throttling
   useFocusEffect(
     React.useCallback(() => {
       const now = Date.now();
-      // Only refresh if it's been more than 10 seconds since last refresh
-      // Adjust this threshold based on how often your data actually changes
       const REFRESH_THRESHOLD = 10 * 1000; // 10 seconds
       
       if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
         console.log('Refreshing listings data...');
-        webViewRef.current.refresh(); // Uses smart refresh (data-only if possible)
+        webViewRef.current.refresh();
         setLastRefreshTime(now);
       } else {
         console.log('Skipping refresh - too soon since last refresh');
@@ -54,6 +66,8 @@ export default function ListingsScreen() {
           route="listings" 
           ref={webViewRef}
           onMessage={handleMessage}
+          onRefresh={handleRefresh}
+          refreshing={isRefreshing}
         />
       </View>
     </SafeAreaView>
