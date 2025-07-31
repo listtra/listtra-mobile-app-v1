@@ -1,6 +1,6 @@
 // app/(tabs)/add.tsx
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -19,14 +19,20 @@ export default function AddScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.webViewContainer}>
-        <PersistentWebView
-          key={key} // This forces a complete re-render every time
-          route="add" // Use the full route name
-        />
-      </View>
-    </SafeAreaView>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.webViewContainer}>
+          <PersistentWebView
+            key={key} // This forces a complete re-render every time
+            route="add" // Use the full route name
+            disableRefresh={true}
+          />
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -34,6 +40,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  safeArea: {
+    flex: 1,
   },
   webViewContainer: {
     flex: 1,

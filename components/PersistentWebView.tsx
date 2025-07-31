@@ -16,6 +16,7 @@ type PersistentWebViewProps = {
   disableAutoNavigation?: boolean;
   onRefresh?: () => void;
   refreshing?: boolean;
+  disableRefresh?: boolean;
 };
 
 export interface PersistentWebViewRef {
@@ -31,6 +32,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   disableAutoNavigation = false,
   onRefresh,
   refreshing = false,
+  disableRefresh = false
 }, ref) => {
   const webViewRef = useRef<WebView>(null);
   const { tokens, logout, isAuthenticated, user } = useAuth();
@@ -147,6 +149,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         console.log("route", route);
 
         const isFromAddPage = currentUrl?.includes('/add') || route === 'add';
+        const isFromAddSuccessPage = currentUrl?.includes('/add-success') || route === 'add-success';
         const isFromListingDetail = currentUrl?.includes('/listings/');
         const isFromChatPage = currentUrl?.includes('/chat?listing=');
         const isFromChatIndexPage = currentUrl?.includes('/chat/');
@@ -160,7 +163,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         }
 
         // Handle add page navigation back to tabs
-        if (isFromAddPage || isFromListingDetail) {
+        if (isFromAddPage || isFromListingDetail || isFromAddSuccessPage) {
           console.log('GO_BACK from add or listing detail page, navigating to tabs');
           hasNavigated.current = true;
           setCurrentUrl('');
@@ -241,6 +244,19 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         console.log('NAVIGATE_TO_LISTINGS', data);
         hasNavigated.current = true;
         router.push('/(tabs)');
+        return;
+      }
+
+      if (data.type === 'NAVIGATE_TO_LISTING') {
+        console.log('NAVIGATE_TO_LISTING message received:', data);
+        if (data.slug && data.productId) {
+          console.log(`Navigating to listing: ${data.slug}/${data.productId}`);
+          hasNavigated.current = true;
+          router.push({
+            pathname: "/listings/[slug]/[product_id]/page",
+            params: { slug: data.slug, product_id: data.productId }
+          });
+        }
         return;
       }
 
@@ -400,19 +416,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollViewContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#2528be']}
-            tintColor="#2528be"
-          />
-        }
-        scrollEventThrottle={16}
-      >
+      {disableRefresh ? (
         <WebView
           ref={webViewRef}
           source={{ uri: currentUrl }}
@@ -432,6 +436,114 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           allowFileAccess={true}
           allowUniversalAccessFromFileURLs={true}
           injectedJavaScript={`
+        (function() {
+          try {
+            console.log('WebView authentication state manager initialized');
+            
+            // Check if we're in a mobile WebView
+            const isInWebView = !!(window.ReactNativeWebView || 
+              window.webkit?.messageHandlers || 
+              navigator.userAgent.includes('wv'));
+            
+            if (isInWebView) {
+              console.log('Running in mobile WebView - setting up auth state management');
+              
+              // Set up periodic check for authentication state
+              setInterval(() => {
+                const token = localStorage.getItem('token');
+                const refreshToken = localStorage.getItem('refreshToken');
+                const user = localStorage.getItem('user');
+                
+                // If no tokens but we're on a protected page, notify mobile app
+                if (!token && !refreshToken) {
+                  const protectedRoutes = ['/profile', '/add', '/chats', '/liked'];
+                  const currentPath = window.location.pathname;
+                  
+                  if (protectedRoutes.some(route => currentPath.startsWith(route))) {
+                    console.log('No tokens found on protected route, notifying mobile app');
+                    if (window.ReactNativeWebView) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify({
+                        type: 'AUTH_REQUIRED',
+                        path: currentPath
+                      }));
+                    }
+                  }
+                }
+              }, 5000); // Check every 5 seconds
+              
+              // Override logout function to ensure proper cleanup
+              const originalLogout = window.logout;
+              window.logout = function() {
+                console.log('Logout called from WebView');
+                
+                // Clear all auth state
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
+                localStorage.removeItem('user');
+                localStorage.removeItem('next-auth.session-token');
+                localStorage.removeItem('next-auth.refresh-token');
+                sessionStorage.clear();
+                
+                // Clear cookies
+                document.cookie.split(";").forEach(function(c) { 
+                  document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                // Notify mobile app
+                if (window.ReactNativeWebView) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'AUTH_LOGOUT',
+                    message: 'Logout initiated from WebView'
+                  }));
+                }
+                
+                // Call original logout if it exists
+                if (typeof originalLogout === 'function') {
+                  originalLogout();
+                }
+              };
+              
+              console.log('WebView auth state management setup complete');
+            }
+          } catch (error) {
+            console.error('Error setting up WebView auth state management:', error);
+          }
+        })();
+      `}
+        />
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#2528be']}
+              tintColor="#2528be"
+            />
+          }
+          scrollEventThrottle={16}
+        >
+          <WebView
+            ref={webViewRef}
+            source={{ uri: currentUrl }}
+            style={styles.webView}
+            onLoad={() => setIsLoading(false)}
+            onError={(e) => setError(`WebView error: ${e.nativeEvent.description}`)}
+            onHttpError={(e) => setError(`HTTP error: ${e.nativeEvent.statusCode}`)}
+            onMessage={handleMessage}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            cacheEnabled={true}
+            thirdPartyCookiesEnabled={true}
+            sharedCookiesEnabled={true}
+            originWhitelist={['*']}
+            mixedContentMode="always"
+            allowsInlineMediaPlayback={true}
+            allowFileAccess={true}
+            allowUniversalAccessFromFileURLs={true}
+            injectedJavaScript={`
             (function() {
               try {
                 console.log('WebView authentication state manager initialized');
@@ -506,8 +618,9 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               }
             })();
           `}
-        />
-      </ScrollView>
+          />
+        </ScrollView>
+      )}
       {isLoading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#2528be" />

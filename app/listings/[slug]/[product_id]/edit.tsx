@@ -38,6 +38,7 @@ export default function ListingEditScreen() {
         <PersistentWebView 
           route={`listings/${slug}/${product_id}/edit`} 
           disableAutoNavigation={true}
+          disableRefresh={true}
         />
       </View>
     </SafeAreaView>
