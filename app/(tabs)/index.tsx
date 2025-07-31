@@ -25,20 +25,20 @@ export default function ListingsScreen() {
   }, []);
 
   // Handle focus-based refresh with throttling
-  useFocusEffect(
-    React.useCallback(() => {
-      const now = Date.now();
-      const REFRESH_THRESHOLD = 10 * 1000; // 10 seconds
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     const now = Date.now();
+  //     const REFRESH_THRESHOLD = 10 * 1000; // 10 seconds
       
-      if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
-        console.log('Refreshing listings data...');
-        webViewRef.current.refresh();
-        setLastRefreshTime(now);
-      } else {
-        console.log('Skipping refresh - too soon since last refresh');
-      }
-    }, [lastRefreshTime])
-  );
+  //     if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
+  //       console.log('Refreshing listings data...');
+  //       webViewRef.current.refresh();
+  //       setLastRefreshTime(now);
+  //     } else {
+  //       console.log('Skipping refresh - too soon since last refresh');
+  //     }
+  //   }, [lastRefreshTime])
+  // );
 
   // Handle WebView messages
   const handleMessage = (event: any) => {

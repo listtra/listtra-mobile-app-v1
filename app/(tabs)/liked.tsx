@@ -23,20 +23,20 @@ export default function LikedScreen() {
   }, []);
 
   // Handle focus-based refresh with throttling
-  useFocusEffect(
-    React.useCallback(() => {
-      const now = Date.now();
-      const REFRESH_THRESHOLD = 20 * 1000; // 20 seconds for liked items
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     const now = Date.now();
+  //     const REFRESH_THRESHOLD = 20 * 1000; // 20 seconds for liked items
       
-      if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
-        console.log('Refreshing liked items data...');
-        webViewRef.current.refresh();
-        setLastRefreshTime(now);
-      } else {
-        console.log('Skipping liked refresh - too soon since last refresh');
-      }
-    }, [lastRefreshTime])
-  );
+  //     if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
+  //       console.log('Refreshing liked items data...');
+  //       webViewRef.current.refresh();
+  //       setLastRefreshTime(now);
+  //     } else {
+  //       console.log('Skipping liked refresh - too soon since last refresh');
+  //     }
+  //   }, [lastRefreshTime])
+  // );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

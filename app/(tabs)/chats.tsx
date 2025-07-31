@@ -23,20 +23,20 @@ export default function ChatsScreen() {
   }, []);
 
   // Handle focus-based refresh with throttling
-  useFocusEffect(
-    React.useCallback(() => {
-      const now = Date.now();
-      const REFRESH_THRESHOLD = 15 * 1000; // 15 seconds for chats
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     const now = Date.now();
+  //     const REFRESH_THRESHOLD = 15 * 1000; // 15 seconds for chats
       
-      if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
-        console.log('Refreshing chats data...');
-        webViewRef.current.refresh();
-        setLastRefreshTime(now);
-      } else {
-        console.log('Skipping chats refresh - too soon since last refresh');
-      }
-    }, [lastRefreshTime])
-  );
+  //     if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
+  //       console.log('Refreshing chats data...');
+  //       webViewRef.current.refresh();
+  //       setLastRefreshTime(now);
+  //     } else {
+  //       console.log('Skipping chats refresh - too soon since last refresh');
+  //     }
+  //   }, [lastRefreshTime])
+  // );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

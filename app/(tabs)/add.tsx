@@ -21,7 +21,7 @@ export default function AddScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
-        <PersistentWebView 
+        <PersistentWebView
           key={key} // This forces a complete re-render every time
           route="add" // Use the full route name
         />

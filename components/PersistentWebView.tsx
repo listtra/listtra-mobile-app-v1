@@ -7,7 +7,8 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 
 // Common base URL configuration
-const BASE_URL = 'http://192.168.1.37:3000';
+const BASE_URL = 'http://192.168.31.224:3000';
+
 
 type PersistentWebViewProps = {
   route: string;
