@@ -238,6 +238,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const { exp } = JSON.parse(jsonPayload);
         const expiresIn = exp * 1000 - Date.now();
+        const minutes = Math.floor(expiresIn / 60000);
+        const seconds = Math.floor((expiresIn % 60000) / 1000);
+        console.log(`Token expires in: ${minutes} minutes and ${seconds} seconds`);
+
 
         // If token expires in less than 5 minutes, refresh it
         if (expiresIn < 5 * 60 * 1000) {

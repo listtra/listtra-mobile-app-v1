@@ -5,9 +5,11 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } f
 import { ActivityIndicator, StyleSheet, View, RefreshControl, ScrollView } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
+import OfflineScreen from './OfflineScreen';
+import NetInfo from '@react-native-community/netinfo';
 
 // Common base URL configuration
-const BASE_URL = 'https://listtra-git-reworking6-listtra.vercel.app';
+const BASE_URL = 'http://192.168.31.224:3000';
 
 type PersistentWebViewProps = {
   route: string;
@@ -37,10 +39,56 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   const { tokens, logout, isAuthenticated, user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
+  const [isDeviceOffline, setIsDeviceOffline] = useState(false);
   const router = useRouter();
   const hasNavigated = useRef(false);
   const [currentUrl, setCurrentUrl] = useState('');
   const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsDeviceOffline(!state.isConnected);
+      if (!state.isConnected) {
+        setIsOffline(true);
+        setError('No internet connection');
+      } else {
+        setIsOffline(false);
+        setError(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Function to check if error is network-related
+  const isNetworkError = (errorMessage: string) => {
+    const networkErrors = [
+      'net::ERR_INTERNET_DISCONNECTED',
+      'net::ERR_NETWORK_CHANGED',
+      'net::ERR_CONNECTION_REFUSED',
+      'net::ERR_CONNECTION_TIMED_OUT',
+      'net::ERR_NAME_NOT_RESOLVED',
+      'ERR_INTERNET_DISCONNECTED',
+      'ERR_NETWORK_CHANGED',
+      'ERR_CONNECTION_REFUSED',
+      'ERR_CONNECTION_TIMED_OUT',
+      'ERR_NAME_NOT_RESOLVED'
+    ];
+
+    return networkErrors.some(error => errorMessage.includes(error));
+  };
+
+  // Function to handle retry
+  const handleRetry = () => {
+    setIsOffline(false);
+    setError(null);
+    setIsLoading(true);
+
+    if (webViewRef.current) {
+      webViewRef.current.reload();
+    }
+  };
 
   // Function to clear WebView authentication state
   const clearWebViewAuth = () => {
@@ -459,28 +507,80 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     }
   };
 
+  const handleError = (e: any) => {
+    const errorMessage = e.nativeEvent.description || e.nativeEvent.message || '';
+    console.error('WebView error:', errorMessage);
+    console.log('Error event:', e.nativeEvent);
+    console.log('Is network error?', isNetworkError(errorMessage));
+
+    if (isNetworkError(errorMessage)) {
+      console.log('Setting offline state to true');
+      setIsOffline(true);
+      setError('No internet connection');
+    } else {
+      console.log('Setting regular error');
+      setError(`WebView error: ${errorMessage}`);
+    }
+    setIsLoading(false);
+  };
+
+  // Handle HTTP errors
+  const handleHttpError = (e: any) => {
+    const errorMessage = `HTTP error: ${e.nativeEvent.statusCode}`;
+    console.error(errorMessage);
+    console.log('HTTP error event:', e.nativeEvent);
+
+    if (e.nativeEvent.statusCode >= 500) {
+      // Server errors might be network-related
+      console.log('Setting offline state to true for server error');
+      setIsOffline(true);
+      setError('Server error - please check your connection');
+    } else {
+      console.log('Setting regular HTTP error');
+      setError(errorMessage);
+    }
+    setIsLoading(false);
+  };
+
+  // Add this useEffect for debugging
+  useEffect(() => {
+    console.log('Current state:', {
+      isOffline,
+      error,
+      isLoading,
+      currentUrl
+    });
+  }, [isOffline, error, isLoading, currentUrl]);
+
   return (
     <View style={styles.container}>
-      {disableRefresh ? (
-        <WebView
-          ref={webViewRef}
-          source={{ uri: currentUrl }}
-          style={styles.webView}
-          onLoad={() => setIsLoading(false)}
-          onError={(e) => setError(`WebView error: ${e.nativeEvent.description}`)}
-          onHttpError={(e) => setError(`HTTP error: ${e.nativeEvent.statusCode}`)}
-          onMessage={handleMessage}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          cacheEnabled={true}
-          thirdPartyCookiesEnabled={true}
-          sharedCookiesEnabled={true}
-          originWhitelist={['*']}
-          mixedContentMode="always"
-          allowsInlineMediaPlayback={true}
-          allowFileAccess={true}
-          allowUniversalAccessFromFileURLs={true}
-          injectedJavaScript={`
+      {isOffline ? (
+        <OfflineScreen onRetry={handleRetry} message={error || 'No internet connection'} />
+      ) :
+        disableRefresh ? (
+          <WebView
+            ref={webViewRef}
+            source={{ uri: currentUrl }}
+            style={styles.webView}
+            onLoad={() => {
+              setIsLoading(false);
+              setIsOffline(false);
+              setError(null);
+            }}
+            onError={handleError}
+            onHttpError={handleHttpError}
+            onMessage={handleMessage}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            cacheEnabled={true}
+            thirdPartyCookiesEnabled={true}
+            sharedCookiesEnabled={true}
+            originWhitelist={['*']}
+            mixedContentMode="always"
+            allowsInlineMediaPlayback={true}
+            allowFileAccess={true}
+            allowUniversalAccessFromFileURLs={true}
+            injectedJavaScript={`
         (function() {
           try {
             console.log('WebView authentication state manager initialized');
@@ -555,40 +655,44 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           }
         })();
       `}
-        />
-      ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollViewContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={['#2528be']}
-              tintColor="#2528be"
-            />
-          }
-          scrollEventThrottle={16}
-        >
-          <WebView
-            ref={webViewRef}
-            source={{ uri: currentUrl }}
-            style={styles.webView}
-            onLoad={() => setIsLoading(false)}
-            onError={(e) => setError(`WebView error: ${e.nativeEvent.description}`)}
-            onHttpError={(e) => setError(`HTTP error: ${e.nativeEvent.statusCode}`)}
-            onMessage={handleMessage}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            cacheEnabled={true}
-            thirdPartyCookiesEnabled={true}
-            sharedCookiesEnabled={true}
-            originWhitelist={['*']}
-            mixedContentMode="always"
-            allowsInlineMediaPlayback={true}
-            allowFileAccess={true}
-            allowUniversalAccessFromFileURLs={true}
-            injectedJavaScript={`
+          />
+        ) : (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={['#2528be']}
+                tintColor="#2528be"
+              />
+            }
+            scrollEventThrottle={16}
+          >
+            <WebView
+              ref={webViewRef}
+              source={{ uri: currentUrl }}
+              style={styles.webView}
+              onLoad={() => {
+                setIsLoading(false);
+                setIsOffline(false);
+                setError(null);
+              }}
+              onError={handleError}
+              onHttpError={handleHttpError}
+              onMessage={handleMessage}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              cacheEnabled={true}
+              thirdPartyCookiesEnabled={true}
+              sharedCookiesEnabled={true}
+              originWhitelist={['*']}
+              mixedContentMode="always"
+              allowsInlineMediaPlayback={true}
+              allowFileAccess={true}
+              allowUniversalAccessFromFileURLs={true}
+              injectedJavaScript={`
             (function() {
               try {
                 console.log('WebView authentication state manager initialized');
@@ -663,9 +767,9 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               }
             })();
           `}
-          />
-        </ScrollView>
-      )}
+            />
+          </ScrollView>
+        )}
       {isLoading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#2528be" />
