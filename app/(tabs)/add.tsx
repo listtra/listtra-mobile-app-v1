@@ -20,14 +20,15 @@ export default function AddScreen() {
 
   return (
     <KeyboardAvoidingView
+      style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.flex} edges={['top','left','right']}>
         <View style={styles.webViewContainer}>
           <PersistentWebView
-            key={key} // This forces a complete re-render every time
-            route="add" // Use the full route name
+            key={key}
+            route="add"
             disableRefresh={true}
           />
         </View>
@@ -37,15 +38,6 @@ export default function AddScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  safeArea: {
-    flex: 1,
-  },
-  webViewContainer: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
+  flex: { flex: 1 },
+  webViewContainer: { flex: 1, backgroundColor: 'white' },
 });

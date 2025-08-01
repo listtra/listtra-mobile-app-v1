@@ -7,8 +7,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 
 // Common base URL configuration
-const BASE_URL = 'http://192.168.31.224:3000';
-
+const BASE_URL = 'https://listtra-git-reworking6-listtra.vercel.app';
 
 type PersistentWebViewProps = {
   route: string;
@@ -44,8 +43,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
 
   // Function to clear WebView authentication state
-  // Function to clear WebView authentication state (simplified for HttpOnly cookies)
-  // Function to clear WebView authentication state (simplified for HttpOnly cookies)
   const clearWebViewAuth = () => {
     if (webViewRef.current) {
       webViewRef.current.injectJavaScript(`
@@ -80,6 +77,40 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         }
       })();
     `);
+    }
+  };
+
+  // Add this new function to restore WebView authentication state
+  const restoreWebViewAuth = () => {
+    if (webViewRef.current && isAuthenticated && tokens.accessToken && tokens.refreshToken) {
+      webViewRef.current.injectJavaScript(`
+        (function() {
+          try {
+            console.log('Restoring WebView authentication state');
+            
+            // Store tokens in localStorage
+            localStorage.setItem('token', '${tokens.accessToken}');
+            localStorage.setItem('refreshToken', '${tokens.refreshToken}');
+            
+            // Set user data if available
+            ${user ? `localStorage.setItem('user', JSON.stringify(${JSON.stringify(user)}));` : ''}
+            
+            // Notify the web app that authentication has been restored
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'AUTH_RESTORED',
+                user: ${user ? JSON.stringify(user) : 'null'}
+              }));
+            }
+            
+            console.log('WebView authentication state restored');
+            return true;
+          } catch (error) {
+            console.error('Error restoring WebView auth state:', error);
+            return false;
+          }
+        })();
+      `);
     }
   };
 
@@ -163,12 +194,19 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         }
 
         // Handle add page navigation back to tabs
-        if (isFromAddPage || isFromListingDetail || isFromAddSuccessPage) {
-          console.log('GO_BACK from add or listing detail page, navigating to tabs');
+        if (isFromAddPage || isFromAddSuccessPage) {
+          console.log('GO_BACK from add or add success page, navigating to tabs');
           hasNavigated.current = true;
           setCurrentUrl('');
           setIsLoading(true);
           router.replace('/(tabs)');
+          return;
+        }
+
+        if (isFromListingDetail) {
+          console.log('GO_BACK from listing detail, navigating back to listings');
+          hasNavigated.current = true;
+          router.back();
           return;
         }
 
@@ -313,7 +351,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       }
 
       // Enhanced logout handler
-      // Enhanced logout handler
       if (data.type === 'WEB_LOGOUT_SUCCESS') {
         console.log("Web logout confirmed");
         console.log('data', data);
@@ -392,6 +429,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   useEffect(() => {
     const newUrl = buildUrl(route);
     setCurrentUrl(newUrl);
+
+    // Restore WebView authentication state when tokens are available
+    if (isAuthenticated && tokens.accessToken && tokens.refreshToken) {
+      // Add a small delay to ensure WebView is loaded
+      setTimeout(() => {
+        restoreWebViewAuth();
+      }, 500);
+    }
   }, [route, isAuthenticated, tokens.accessToken, tokens.refreshToken, user?.id]);
 
   // Clear WebView auth state when mobile app logs out

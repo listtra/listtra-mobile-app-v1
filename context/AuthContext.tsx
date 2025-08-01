@@ -95,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const storeTokens = async (accessToken: string, refreshToken: string) => {
     try {
       console.log('Storing tokens, token lengths:', accessToken.length, refreshToken.length);
-      
+
       // Special handling for Expo Go
       if (isExpoGo) {
         console.log('Using Expo Go token storage approach');
@@ -103,25 +103,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // First clear any existing tokens
         await SecureStore.deleteItemAsync('accessToken');
         await SecureStore.deleteItemAsync('refreshToken');
-        
+
         // Small delay to ensure deletion is complete
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         // Now store the new tokens
         await SecureStore.setItemAsync('accessToken', accessToken);
         await SecureStore.setItemAsync('refreshToken', refreshToken);
-        
+
         // Verify tokens were stored correctly
         const storedAccessToken = await SecureStore.getItemAsync('accessToken');
         const storedRefreshToken = await SecureStore.getItemAsync('refreshToken');
-        
+
         console.log('Tokens stored verification:', {
           accessTokenStored: !!storedAccessToken,
           refreshTokenStored: !!storedRefreshToken,
           accessTokenLength: storedAccessToken?.length,
           refreshTokenLength: storedRefreshToken?.length
         });
-        
+
         if (!storedAccessToken || !storedRefreshToken) {
           console.error('Failed to store tokens in Expo Go');
         }
@@ -130,7 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await SecureStore.setItemAsync('accessToken', accessToken);
         await SecureStore.setItemAsync('refreshToken', refreshToken);
       }
-      
+
       // Update state
       setTokens({ accessToken, refreshToken });
       console.log('Token state updated');
@@ -259,26 +259,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Function to handle refresh token
+  // Function to handle refresh token
   const refreshAccessToken = async (refreshToken: string | null) => {
+    console.log('=== TOKEN REFRESH STARTED ===');
+    console.log('Refresh token available:', !!refreshToken);
+
     if (!refreshToken) {
+      console.log('No refresh token, clearing auth state');
       await clearTokens();
       setUser(null);
       return false;
     }
 
     try {
+      console.log('Making token refresh request...');
       const response = await axios.post(`${API_URL}/api/token/refresh/`, {
         refresh: refreshToken
       });
 
       if (response.data.access) {
+        console.log('Token refresh successful, storing new tokens');
         await storeTokens(response.data.access, refreshToken);
+
+        // Fetch user profile after token refresh to maintain authentication state
+        console.log('Fetching user profile after token refresh...');
+        try {
+          const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
+            headers: {
+              Authorization: `Bearer ${response.data.access}`,
+              'X-Expo-Go': isExpoGo ? 'true' : 'false'
+            }
+          });
+
+          console.log('Profile refreshed successfully:', profileResponse.data);
+          console.log('User state before update:', user);
+          setUser(profileResponse.data);
+          console.log('User state updated after token refresh');
+          console.log('isAuthenticated should now be:', !!(profileResponse.data && response.data.access));
+        } catch (profileError) {
+          console.error('Error fetching profile after token refresh:', profileError);
+          console.log('Clearing auth state due to profile fetch failure');
+          // If profile fetch fails after token refresh, clear everything
+          await clearTokens();
+          setUser(null);
+          return false;
+        }
+
+        console.log('=== TOKEN REFRESH COMPLETED SUCCESSFULLY ===');
         return true;
       }
 
+      console.log('Token refresh response missing access token');
       return false;
     } catch (error) {
       console.error('Token refresh failed:', error);
+      console.log('Clearing auth state due to token refresh failure');
       await clearTokens();
       setUser(null);
       return false;
@@ -370,7 +405,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Starting login process with email:', email);
       console.log('Is Expo Go environment:', isExpoGo);
-      
+
       const response = await axios.post(`${API_URL}/api/token/`, {
         email,
         password,
@@ -402,7 +437,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               Authorization: `Bearer ${response.data.access}`
             }
           });
-          
+
           console.log('Profile fetched successfully:', JSON.stringify({
             has_profile_data: !!profileResponse.data,
             profile_keys: profileResponse.data ? Object.keys(profileResponse.data) : []
@@ -491,15 +526,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Logout user
   const logout = async () => {
     console.log('Logging out user from mobile app');
-    
+
     // Clear user state first
     setUser(null);
-    
+
     // Clear tokens from secure storage
     await clearTokens();
-    
+
     console.log('Mobile app logout completed - tokens and user cleared');
-    
+
     // Note: WebView auth clearing is handled in PersistentWebView component
     // when isAuthenticated becomes false
   };
@@ -569,11 +604,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // If profile fetch fails, don't set user
         }
       }
-      
+
       // Navigate to home screen with tabs
       console.log('Navigating to home screen from setTokensDirectly');
       router.replace('/(tabs)');
-      
+
       return true;
     } catch (error) {
       console.error('Error setting tokens directly:', error);

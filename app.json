@@ -52,6 +52,7 @@
       "package": "com.listtra.app",
       "edgeToEdgeEnabled": false,
       "statusBarStyle":"dark-content",
+      "softInputMode": "adjustResize",
       "statusBarBackgroundColor": "#ffffff",
       "statusBarTranslucent": true,
       "googleServicesFile": "./android/app/google-services.json",
