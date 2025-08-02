@@ -9,7 +9,9 @@ import OfflineScreen from './OfflineScreen';
 import NetInfo from '@react-native-community/netinfo';
 
 // Common base URL configuration
-const BASE_URL = 'http://192.168.31.224:3000';
+const BASE_URL = 'https://listtra-git-reworking6-listtra.vercel.app';
+//const BASE_URL = 'http://192.168.31.224:3000';
+
 
 type PersistentWebViewProps = {
   route: string;
@@ -232,6 +234,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         const isFromListingDetail = currentUrl?.includes('/listings/');
         const isFromChatPage = currentUrl?.includes('/chat?listing=');
         const isFromChatIndexPage = currentUrl?.includes('/chat/');
+        const isFromChatsPage = currentUrl?.includes('/chats') || route === 'chats';
         const isFromSigninPage = currentUrl?.includes('/auth/signin') || route === 'auth/signin';
 
         if (isFromSigninPage) {
@@ -251,6 +254,13 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           return;
         }
 
+        if (isFromChatsPage) {
+          console.log('GO_BACK from chats page, navigating to (tabs)');
+          hasNavigated.current = true;
+          router.replace('/(tabs)');
+          return;
+        }
+
         if (isFromListingDetail) {
           console.log('GO_BACK from listing detail, navigating back to listings');
           hasNavigated.current = true;
@@ -258,10 +268,17 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           return;
         }
 
-        if (isFromChatPage || isFromChatIndexPage) {
+        if (isFromChatPage) {
           console.log('GO_BACK from chat page, navigating to chats');
           hasNavigated.current = true;
           router.back();
+          return;
+        }
+
+        if (isFromChatIndexPage) {
+          console.log('GO_BACK from chat index page, navigating to chats');
+          hasNavigated.current = true;
+          router.push('/(tabs)/chats');
           return;
         }
 
@@ -358,6 +375,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       if (data.type === 'NAVIGATE_CHAT') {
         if (data.chatId) {
           console.log(`Navigating to chat: ${data.chatId}`);
+          console.log('Current route before navigation:', route);
           hasNavigated.current = true;
           router.push({
             pathname: "/chat/[id]",
@@ -451,6 +469,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
   const buildUrl = (baseRoute: string) => {
     const url = new URL(`${BASE_URL}/${baseRoute}`);
+    console.log('buildUrl', url);
 
     // Only pass tokens if authenticated
     if (isAuthenticated && tokens.accessToken && tokens.refreshToken) {

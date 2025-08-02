@@ -9,7 +9,7 @@ export default function ChatsScreen() {
   const webViewRef = useRef<PersistentWebViewRef>(null);
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
   const [isRefreshing, setIsRefreshing] = useState(false);
-
+  const [key, setKey] = useState(0);
   // Handle pull-to-refresh
   const handleRefresh = useCallback(async () => {
     if (webViewRef.current) {
@@ -21,6 +21,16 @@ export default function ChatsScreen() {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   }, []);
+
+
+
+  // Force WebView refresh every time the screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('ChatScreen focused, forcing WebView refresh');
+      setKey(prev => prev + 1);
+    }, [])
+  );
 
   // Handle focus-based refresh with throttling
   // useFocusEffect(
@@ -46,6 +56,7 @@ export default function ChatsScreen() {
           ref={webViewRef}
           onRefresh={handleRefresh}
           refreshing={isRefreshing}
+          //key={key}
         />
       </View>
     </SafeAreaView>
