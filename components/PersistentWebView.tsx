@@ -9,7 +9,7 @@ import OfflineScreen from './OfflineScreen';
 import NetInfo from '@react-native-community/netinfo';
 
 // Common base URL configuration
-const BASE_URL = 'https://listtra-git-reworking6-listtra.vercel.app';
+const BASE_URL = 'https://listtra.com';
 //const BASE_URL = 'http://192.168.31.224:3000';
 
 

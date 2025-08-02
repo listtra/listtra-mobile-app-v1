@@ -48,6 +48,7 @@ export default function ProfileScreen() {
           ref={webViewRef}
           route="profile" 
           onMessage={handleMessage}
+          disableRefresh={true}
         />
       </View>
     </SafeAreaView>
