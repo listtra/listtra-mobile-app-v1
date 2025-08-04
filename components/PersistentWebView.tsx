@@ -9,8 +9,8 @@ import OfflineScreen from './OfflineScreen';
 import NetInfo from '@react-native-community/netinfo';
 
 // Common base URL configuration
-const BASE_URL = 'https://listtra.com';
-//const BASE_URL = 'http://192.168.31.224:3000';
+//const BASE_URL = 'https://listtra.com';
+const BASE_URL = 'http://192.168.1.37:3000';
 
 
 type PersistentWebViewProps = {
@@ -612,28 +612,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             if (isInWebView) {
               console.log('Running in mobile WebView - setting up auth state management');
               
-              // Set up periodic check for authentication state
-              setInterval(() => {
-                const token = localStorage.getItem('token');
-                const refreshToken = localStorage.getItem('refreshToken');
-                const user = localStorage.getItem('user');
-                
-                // If no tokens but we're on a protected page, notify mobile app
-                if (!token && !refreshToken) {
-                  const protectedRoutes = ['/profile', '/add', '/chats', '/liked'];
-                  const currentPath = window.location.pathname;
-                  
-                  if (protectedRoutes.some(route => currentPath.startsWith(route))) {
-                    console.log('No tokens found on protected route, notifying mobile app');
-                    if (window.ReactNativeWebView) {
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'AUTH_REQUIRED',
-                        path: currentPath
-                      }));
-                    }
-                  }
-                }
-              }, 5000); // Check every 5 seconds
+              // Authentication state is now checked only when needed, not on a timer
               
               // Override logout function to ensure proper cleanup
               const originalLogout = window.logout;
@@ -724,28 +703,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
                 if (isInWebView) {
                   console.log('Running in mobile WebView - setting up auth state management');
                   
-                  // Set up periodic check for authentication state
-                  setInterval(() => {
-                    const token = localStorage.getItem('token');
-                    const refreshToken = localStorage.getItem('refreshToken');
-                    const user = localStorage.getItem('user');
-                    
-                    // If no tokens but we're on a protected page, notify mobile app
-                    if (!token && !refreshToken) {
-                      const protectedRoutes = ['/profile', '/add', '/chats', '/liked'];
-                      const currentPath = window.location.pathname;
-                      
-                      if (protectedRoutes.some(route => currentPath.startsWith(route))) {
-                        console.log('No tokens found on protected route, notifying mobile app');
-                        if (window.ReactNativeWebView) {
-                          window.ReactNativeWebView.postMessage(JSON.stringify({
-                            type: 'AUTH_REQUIRED',
-                            path: currentPath
-                          }));
-                        }
-                      }
-                    }
-                  }, 5000); // Check every 5 seconds
+                  // Authentication state is now checked only when needed, not on a timer
                   
                   // Override logout function to ensure proper cleanup
                   const originalLogout = window.logout;
