@@ -21,7 +21,7 @@ export default function ChatConversation() {
     <SafeAreaView style={styles.container} edges={['top']}>
 
       <View style={styles.webViewContainer}>
-        <PersistentWebView route={`chat/${id}`} />
+        <PersistentWebView route={`chat/${id}`} disableRefresh={true}/>
       </View>
     </SafeAreaView>
   );
