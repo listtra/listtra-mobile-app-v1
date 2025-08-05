@@ -7,8 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import OfflineScreen from './OfflineScreen';
 import NetInfo from '@react-native-community/netinfo';
 
-//const BASE_URL = 'https://listtra.com';
-const BASE_URL = 'http://192.168.31.224:3000';
+const BASE_URL = 'https://listtra.com';
+//const BASE_URL = 'http://192.168.31.224:3000';
 
 type PersistentWebViewProps = {
   route: string;
@@ -153,70 +153,7 @@ const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>
   }
 });
 
-// Memoized injected JavaScript
-const injectedJavaScript = useMemo(() => `
-  (function() {
-    try {
-      console.log('WebView authentication state manager initialized');
-      
-      const isInWebView = !!(window.ReactNativeWebView || 
-        window.webkit?.messageHandlers || 
-        navigator.userAgent.includes('wv'));
-      
-      if (isInWebView) {
-        console.log('Running in mobile WebView - setting up auth state management');
-        
-        setInterval(() => {
-          const token = localStorage.getItem('token');
-          const refreshToken = localStorage.getItem('refreshToken');
-          
-          if (!token && !refreshToken) {
-            const protectedRoutes = ['/profile', '/add', '/chats', '/liked'];
-            const currentPath = window.location.pathname;
-            
-            if (protectedRoutes.some(route => currentPath.startsWith(route))) {
-              if (window.ReactNativeWebView) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'AUTH_REQUIRED',
-                  path: currentPath
-                }));
-              }
-            }
-          }
-        }, 5000);
-        
-        const originalLogout = window.logout;
-        window.logout = function() {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          localStorage.removeItem('next-auth.session-token');
-          localStorage.removeItem('next-auth.refresh-token');
-          sessionStorage.clear();
-          
-          document.cookie.split(";").forEach(function(c) { 
-            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-          });
-          
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'AUTH_LOGOUT',
-              message: 'Logout initiated from WebView'
-            }));
-          }
-          
-          if (typeof originalLogout === 'function') {
-            originalLogout();
-          }
-        };
-        
-        console.log('WebView auth state management setup complete');
-      }
-    } catch (error) {
-      console.error('Error setting up WebView auth state management:', error);
-    }
-  })();
-`, []);
+
 
 const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(({
   route,
@@ -236,6 +173,71 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   const hasNavigated = useRef(false);
   const [currentUrl, setCurrentUrl] = useState('');
   const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
+
+  // Memoized injected JavaScript
+  const injectedJavaScript = useMemo(() => `
+(function() {
+  try {
+    console.log('WebView authentication state manager initialized');
+    
+    const isInWebView = !!(window.ReactNativeWebView || 
+      window.webkit?.messageHandlers || 
+      navigator.userAgent.includes('wv'));
+    
+    if (isInWebView) {
+      console.log('Running in mobile WebView - setting up auth state management');
+      
+      setInterval(() => {
+        const token = localStorage.getItem('token');
+        const refreshToken = localStorage.getItem('refreshToken');
+        
+        if (!token && !refreshToken) {
+          const protectedRoutes = ['/profile', '/add', '/chats', '/liked'];
+          const currentPath = window.location.pathname;
+          
+          if (protectedRoutes.some(route => currentPath.startsWith(route))) {
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'AUTH_REQUIRED',
+                path: currentPath
+              }));
+            }
+          }
+        }
+      }, 5000);
+      
+      const originalLogout = window.logout;
+      window.logout = function() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('next-auth.session-token');
+        localStorage.removeItem('next-auth.refresh-token');
+        sessionStorage.clear();
+        
+        document.cookie.split(";").forEach(function(c) { 
+          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        });
+        
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'AUTH_LOGOUT',
+            message: 'Logout initiated from WebView'
+          }));
+        }
+        
+        if (typeof originalLogout === 'function') {
+          originalLogout();
+        }
+      };
+      
+      console.log('WebView auth state management setup complete');
+    }
+  } catch (error) {
+    console.error('Error setting up WebView auth state management:', error);
+  }
+})();
+`, []);
 
   // Memoized message handlers
   const messageHandlers = useMemo(() =>
