@@ -239,33 +239,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 })();
 `, []);
 
-  // Memoized message handlers
-  const messageHandlers = useMemo(() =>
-    createMessageHandlers(
-      router,
-      webViewRef as React.RefObject<WebView<{}>>,
-      currentUrl,
-      route,
-      hasNavigated,
-      disableAutoNavigation,
-      clearWebViewAuth,
-      logout
-    ),
-    [router, currentUrl, route, disableAutoNavigation, logout]
-  );
-
-  // Network error detection
-  const isNetworkError = useCallback((errorMessage: string) => {
-    const networkErrors = [
-      'net::ERR_INTERNET_DISCONNECTED', 'net::ERR_NETWORK_CHANGED',
-      'net::ERR_CONNECTION_REFUSED', 'net::ERR_CONNECTION_TIMED_OUT',
-      'net::ERR_NAME_NOT_RESOLVED', 'ERR_INTERNET_DISCONNECTED',
-      'ERR_NETWORK_CHANGED', 'ERR_CONNECTION_REFUSED',
-      'ERR_CONNECTION_TIMED_OUT', 'ERR_NAME_NOT_RESOLVED'
-    ];
-    return networkErrors.some(error => errorMessage.includes(error));
-  }, []);
-
   // Clear WebView authentication state
   const clearWebViewAuth = useCallback(() => {
     webViewRef.current?.injectJavaScript(`
@@ -314,6 +287,37 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       `);
     }
   }, [isAuthenticated, tokens.accessToken, tokens.refreshToken, user]);
+
+  // Memoized message handlers
+  const messageHandlers = useMemo(() =>
+    createMessageHandlers(
+      router,
+      webViewRef as React.RefObject<WebView<{}>>,
+      currentUrl,
+      route,
+      hasNavigated,
+      disableAutoNavigation,
+      clearWebViewAuth,
+      logout
+    ),
+    [router, currentUrl, route, disableAutoNavigation, logout]
+  );
+
+  // Network error detection
+  const isNetworkError = useCallback((errorMessage: string) => {
+    const networkErrors = [
+      'net::ERR_INTERNET_DISCONNECTED', 'net::ERR_NETWORK_CHANGED',
+      'net::ERR_CONNECTION_REFUSED', 'net::ERR_CONNECTION_TIMED_OUT',
+      'net::ERR_NAME_NOT_RESOLVED', 'ERR_INTERNET_DISCONNECTED',
+      'ERR_NETWORK_CHANGED', 'ERR_CONNECTION_REFUSED',
+      'ERR_CONNECTION_TIMED_OUT', 'ERR_NAME_NOT_RESOLVED'
+    ];
+    return networkErrors.some(error => errorMessage.includes(error));
+  }, []);
+
+
+
+
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
