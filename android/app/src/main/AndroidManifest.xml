@@ -24,7 +24,10 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="listtra"/>
+        <data
+          android:scheme="com.googleusercontent.apps.827930578004-t4j3tr0jes7dfobhib7h2779cir92fq4"
+          android:host="oauth2redirect"
+          android:path="/google" />      
       </intent-filter>
     </activity>
   </application>

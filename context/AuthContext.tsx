@@ -4,8 +4,9 @@ import * as Google from 'expo-auth-session/providers/google';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 // Configure Google WebBrowser auth
 WebBrowser.maybeCompleteAuthSession();
@@ -14,7 +15,7 @@ WebBrowser.maybeCompleteAuthSession();
 const API_URL = 'https://backend.listtra.com'; // Local development server
 
 // Define app scheme for deep linking
-const APP_SCHEME = 'listtra';
+const APP_SCHEME = 'com.listtra.app';
 
 // Define types for our context
 type User = {
@@ -75,20 +76,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
+  const WEB_CLIENT_ID = (Constants.expoConfig?.extra as any)?.GOOGLE_WEB_CLIENT_ID;
+  const ANDROID_CLIENT_ID = (Constants.expoConfig?.extra as any)?.GOOGLE_ANDROID_CLIENT_ID;
+  const IOS_CLIENT_ID = (Constants.expoConfig?.extra as any)?.GOOGLE_IOS_CLIENT_ID;
+
+  console.log('isExpoGo', isExpoGo);
+  console.log('WEB_CLIENT_ID', WEB_CLIENT_ID);
+  console.log('ANDROID_CLIENT_ID', ANDROID_CLIENT_ID);
+  console.log('IOS_CLIENT_ID', IOS_CLIENT_ID);
+
+  // Generate a nonce for implicit id_token flow (required by Google when requesting id_token)
+  const nonce = useMemo(() => {
+    const bytes: number[] = Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+    return bytes.map((b) => ('0' + b.toString(16)).slice(-2)).join('');
+  }, []);
+
   // Configure Google OAuth based on environment
   const [request, response, promptAsyncOriginal] = isExpoGo
     ? Google.useAuthRequest({
       // For Expo Go - use web client with proxy URI
-      clientId: '827930578004-5um6tcqvf554guian9o8uqlui2mso2am.apps.googleusercontent.com',
-      scopes: ['profile', 'email'],
-      redirectUri: 'https://auth.expo.io/@pre_02/listtra-mobile-app',
+      clientId: WEB_CLIENT_ID,
+      scopes: ['profile', 'email', 'openid'],
+      redirectUri: AuthSession.makeRedirectUri({ useProxy: true } as any),
+      responseType: 'id_token' as any,
+      usePKCE: false as any,
+      extraParams: { prompt: 'select_account', nonce }
     })
     : Google.useAuthRequest({
       // For development builds - use platform-specific clients
-      androidClientId: '827930578004-t4j3tr0jes7dfobhib7h2779cir92fq4.apps.googleusercontent.com',
-      iosClientId: '827930578004-9t2a9k7cmjevruiee4s0iq5k9h5p3eqg.apps.googleusercontent.com',
-      webClientId: '827930578004-5um6tcqvf554guian9o8uqlui2mso2am.apps.googleusercontent.com',
-      scopes: ['profile', 'email'],
+      androidClientId: ANDROID_CLIENT_ID,
+      iosClientId: IOS_CLIENT_ID,
+      webClientId: WEB_CLIENT_ID,
+      scopes: ['profile', 'email', 'openid'],
+      responseType: 'code' as any,
+      usePKCE: true as any,
+      extraParams: { prompt: 'select_account' },
     });
 
   // Function to store tokens securely
@@ -209,15 +231,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Handle Google auth response
   useEffect(() => {
     console.log('Google auth response received:', response);
-    if (response?.type === 'success') {
-      console.log('Google auth success response:', JSON.stringify(response, null, 2));
-      handleGoogleAuth(response.authentication);
-    } else if (response?.type === 'error') {
-      console.error('Google sign-in error details:', JSON.stringify(response.error, null, 2));
-      setError(`Google sign in failed: ${response.error?.message || 'Unknown error'}`);
-    } else if (response) {
-      console.log('Other response type:', response.type);
-    }
+    const doExchange = async () => {
+      try {
+        if (response?.type !== 'success') return;
+        console.log('Google auth success response:', JSON.stringify(response, null, 2));
+
+        // Native (code + PKCE): exchange the code for tokens to get id_token
+        const authParams: any = (response as any)?.params || {};
+        if (authParams.code) {
+          const code: string = authParams.code;
+          const redirectUri = (request as any)?.redirectUri || AuthSession.makeRedirectUri({ scheme: APP_SCHEME, path: 'oauthredirect' });
+          console.log('Using redirectUri for exchange:', redirectUri);
+          const clientIdToUse = Platform.OS === 'android' ? ANDROID_CLIENT_ID : IOS_CLIENT_ID;
+          const discovery = {
+            authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+            tokenEndpoint: 'https://oauth2.googleapis.com/token',
+          } as const;
+
+          const tokenResult: any = await AuthSession.exchangeCodeAsync(
+            {
+              clientId: clientIdToUse,
+              code,
+              redirectUri,
+              extraParams: { code_verifier: (request as any)?.codeVerifier },
+            },
+            discovery
+          );
+
+          const idTokenExchanged: string | undefined = tokenResult?.id_token;
+          await handleGoogleAuth({ idToken: idTokenExchanged });
+          return;
+        }
+
+        // Expo Go (implicit): use id_token directly
+        const idToken = (response as any)?.params?.id_token || (response as any)?.authentication?.idToken;
+        await handleGoogleAuth({ idToken });
+      } catch (err) {
+        console.error('Error during Google code exchange:', err);
+        setError('Google sign in failed during token exchange');
+      }
+    };
+
+    doExchange();
   }, [response]);
 
   // Set up token refresh mechanism
@@ -324,43 +379,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Process Google authentication
-  const handleGoogleAuth = async (authentication: any) => {
+  // Process Google authentication using ID token only
+  const handleGoogleAuth = async ({ idToken }: { idToken?: string }) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log('Google auth success, getting user info');
-      console.log('Authentication object:', JSON.stringify(authentication, null, 2));
-
-      if (!authentication || !authentication.accessToken) {
-        console.error('Invalid authentication object');
-        setError('Authentication failed: missing access token');
+      console.log('Handling Google auth with ID token');
+      if (!idToken) {
+        console.error('Missing ID token in Google auth response');
+        setError('Authentication failed: missing ID token');
         setIsLoading(false);
         return false;
       }
 
-      // Get user info from Google
-      const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-        headers: { Authorization: `Bearer ${authentication.accessToken}` },
-      });
-
-      if (!userInfoResponse.ok) {
-        console.error('Failed to fetch user info:', userInfoResponse.status);
-        setError(`Failed to fetch user info: ${userInfoResponse.statusText}`);
-        setIsLoading(false);
-        return false;
-      }
-
-      const userInfo = await userInfoResponse.json();
-      console.log('Google user info:', userInfo);
-
-      // Call your backend endpoint with the same data format as the web
+      // Send only the ID token to backend; backend will verify and issue app tokens
       const apiResponse = await axios.post(`${API_URL}/api/auth/google/`, {
-        email: userInfo.email,
-        name: userInfo.name,
-        picture: userInfo.picture,
-        id_token: authentication.idToken, // This matches what your web app is sending
+        id_token: idToken,
       });
 
       if (apiResponse.data.access && apiResponse.data.refresh) {

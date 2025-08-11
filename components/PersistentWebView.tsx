@@ -6,9 +6,14 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 import OfflineScreen from './OfflineScreen';
 import NetInfo from '@react-native-community/netinfo';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import { Try } from 'expo-router/build/views/Try';
 
-const BASE_URL = 'https://listtra.com';
-//const BASE_URL = 'http://192.168.31.224:3000';
+//const BASE_URL = 'https://listtra.com';
+const BASE_URL = 'http://192.168.31.224:3000';
+//const BASE_URL = 'https://listtra-git-cache-working-listtra.vercel.app';
+//const BASE_URL = 'https://401200c40a34.ngrok-free.app';
 
 type PersistentWebViewProps = {
   route: string;
@@ -27,7 +32,7 @@ export interface PersistentWebViewRef {
 }
 
 // Extracted message handlers for better organization
-const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>, currentUrl: string, route: string, hasNavigated: React.MutableRefObject<boolean>, disableAutoNavigation: boolean, clearWebViewAuth: () => void, logout: () => Promise<void>) => ({
+const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>, currentUrl: string, route: string, hasNavigated: React.MutableRefObject<boolean>, disableAutoNavigation: boolean, clearWebViewAuth: () => void, logout: () => Promise<void>, loginWithGoogle: () => Promise<void>) => ({
   GO_BACK: () => {
     const isFromAddPage = currentUrl?.includes('/add') || route === 'add';
     const isFromAddSuccessPage = currentUrl?.includes('/add-success') || route === 'add-success';
@@ -73,6 +78,14 @@ const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>
         window.location.href = "${BASE_URL}/chats";
       }
     `);
+  },
+
+  NATIVE_GOOGLE_SIGNIN: async () => {
+    try {
+      await loginWithGoogle();
+    } catch (error) {
+      console.error('Error during login with Google:', error);
+    }
   },
 
   LISTING_CLICKED: (data: any) => {
@@ -164,7 +177,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   disableRefresh = false
 }, ref) => {
   const webViewRef = useRef<WebView>(null);
-  const { tokens, logout, isAuthenticated, user } = useAuth();
+  const { tokens, logout, isAuthenticated, user, loginWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
@@ -298,9 +311,10 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       hasNavigated,
       disableAutoNavigation,
       clearWebViewAuth,
-      logout
+      logout,
+      loginWithGoogle
     ),
-    [router, currentUrl, route, disableAutoNavigation, logout]
+    [router, currentUrl, route, disableAutoNavigation, logout, loginWithGoogle]
   );
 
   // Network error detection
@@ -363,7 +377,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         handler(data);
         return;
       }
-
       // Handle special cases
       if (data.type === 'AUTH_REQUIRED') {
         router.replace('/auth/signin');
@@ -501,8 +514,25 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     allowsInlineMediaPlayback: true,
     allowFileAccess: true,
     allowUniversalAccessFromFileURLs: true,
-    injectedJavaScript
-  }), [currentUrl, handleLoad, handleError, handleHttpError, handleMessage, injectedJavaScript]);
+    injectedJavaScript,
+    onShouldStartLoadWithRequest: (req: any) => {
+      try {
+        const url = req?.url || '';
+        const u = new URL(url);
+        const host = u.host;
+        const path = u.pathname || '';
+
+        const isOauthHost = ['accounts.google.com', 'oauth2.googleapis.com'].includes(host);
+        const isNextAuthAuth = path.startsWith('/api/auth/signin') || path.startsWith('/api/auth/callback');
+
+        if (isOauthHost || isNextAuthAuth) {
+          loginWithGoogle();
+          return false;
+        }
+      } catch { }
+      return true;
+    }
+  }), [currentUrl, handleLoad, handleError, handleHttpError, handleMessage, injectedJavaScript, loginWithGoogle]);
 
   return (
     <View style={styles.container}>
