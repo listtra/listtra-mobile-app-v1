@@ -8,12 +8,12 @@ import OfflineScreen from './OfflineScreen';
 import NetInfo from '@react-native-community/netinfo';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { Try } from 'expo-router/build/views/Try';
+import * as AuthSession from 'expo-auth-session';
 
 //const BASE_URL = 'https://listtra.com';
-const BASE_URL = 'http://192.168.31.224:3000';
-//const BASE_URL = 'https://listtra-git-cache-working-listtra.vercel.app';
-//const BASE_URL = 'https://401200c40a34.ngrok-free.app';
+//const BASE_URL = 'http://192.168.31.224:3000';
+//const BASE_URL = 'https://listtra-git-google-login-listtra.vercel.app';
+const BASE_URL = 'https://2b13735b333a.ngrok-free.app';
 
 type PersistentWebViewProps = {
   route: string;
@@ -32,139 +32,209 @@ export interface PersistentWebViewRef {
 }
 
 // Extracted message handlers for better organization
-const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>, currentUrl: string, route: string, hasNavigated: React.MutableRefObject<boolean>, disableAutoNavigation: boolean, clearWebViewAuth: () => void, logout: () => Promise<void>, loginWithGoogle: () => Promise<void>) => ({
-  GO_BACK: () => {
-    const isFromAddPage = currentUrl?.includes('/add') || route === 'add';
-    const isFromAddSuccessPage = currentUrl?.includes('/add-success') || route === 'add-success';
-    const isFromListingDetail = currentUrl?.includes('/listings/');
-    const isFromChatPage = currentUrl?.includes('/chat?listing=');
-    const isFromChatIndexPage = currentUrl?.includes('/chat/');
-    const isFromChatsPage = currentUrl?.includes('/chats') || route === 'chats';
-    const isFromSigninPage = currentUrl?.includes('/auth/signin') || route === 'auth/signin';
+const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>, currentUrl: string, route: string, hasNavigated: React.MutableRefObject<boolean>, disableAutoNavigation: boolean, clearWebViewAuth: () => void, logout: () => Promise<void>, loginWithGoogle: () => Promise<void>,
+  setTokensDirectly: (accessToken: string, refreshToken: string, userData?: any) => Promise<void>) => ({
+    GO_BACK: () => {
+      const isFromAddPage = currentUrl?.includes('/add') || route === 'add';
+      const isFromAddSuccessPage = currentUrl?.includes('/add-success') || route === 'add-success';
+      const isFromListingDetail = currentUrl?.includes('/listings/');
+      const isFromChatPage = currentUrl?.includes('/chat?listing=');
+      const isFromChatIndexPage = currentUrl?.includes('/chat/');
+      const isFromChatsPage = currentUrl?.includes('/chats') || route === 'chats';
+      const isFromSigninPage = currentUrl?.includes('/auth/signin') || route === 'auth/signin';
 
-    if (isFromSigninPage) {
-      router.replace('/(tabs)');
-      return;
-    }
+      if (isFromSigninPage) {
+        router.replace('/(tabs)');
+        return;
+      }
 
-    if (isFromAddPage || isFromAddSuccessPage) {
-      hasNavigated.current = true;
-      router.replace('/(tabs)');
-      return;
-    }
+      if (isFromAddPage || isFromAddSuccessPage) {
+        hasNavigated.current = true;
+        router.replace('/(tabs)');
+        return;
+      }
 
-    if (isFromChatsPage) {
-      hasNavigated.current = true;
-      router.replace('/(tabs)');
-      return;
-    }
+      if (isFromChatsPage) {
+        hasNavigated.current = true;
+        router.replace('/(tabs)');
+        return;
+      }
 
-    if (isFromListingDetail) {
-      hasNavigated.current = true;
-      router.back();
-      return;
-    }
+      if (isFromListingDetail) {
+        hasNavigated.current = true;
+        router.back();
+        return;
+      }
 
-    if (isFromChatPage || isFromChatIndexPage) {
-      hasNavigated.current = true;
-      router.back();
-      return;
-    }
+      if (isFromChatPage || isFromChatIndexPage) {
+        hasNavigated.current = true;
+        router.back();
+        return;
+      }
 
-    webViewRef.current?.injectJavaScript(`
+      webViewRef.current?.injectJavaScript(`
       if (window.history.length > 1) {
         window.history.back();
       } else {
         window.location.href = "${BASE_URL}/chats";
       }
     `);
-  },
+    },
 
-  NATIVE_GOOGLE_SIGNIN: async () => {
-    try {
-      await loginWithGoogle();
-    } catch (error) {
-      console.error('Error during login with Google:', error);
-    }
-  },
+    OPEN_WEB_OAUTH: async (data: any) => {
+      try {
+        const provider = data?.provider || 'google';
 
-  LISTING_CLICKED: (data: any) => {
-    if (!disableAutoNavigation && data.listing.slug && data.listing.product_id) {
+        // Check if running in Expo Go
+        const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+        let returnUrl: string;
+        if (isExpoGo) {
+          // Expo Go: use proxy URL
+          returnUrl = AuthSession.makeRedirectUri({ useProxy: true } as any);
+        } else {
+          // Dev/Production: use custom scheme with explicit double slashes
+          returnUrl = 'com.listtra.app://oauth-callback';
+        }
+
+        console.log('Original return URL before encoding:', returnUrl);
+
+        // We'll have the web page bounce to this page and then to returnUrl with tokens
+        const callbackUrl = `${BASE_URL}/auth/mobile-return?returnUrl=${encodeURIComponent(returnUrl)}`;
+
+        console.log('Callback URL with encoded return URL:', callbackUrl);
+
+        // Use dedicated mobile OAuth page that auto-triggers
+        const authUrl = `${BASE_URL}/auth/mobile-oauth?provider=${provider}&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+
+        console.log('Opening OAuth URL:', authUrl);
+        console.log('Return URL (should have double slashes):', returnUrl);
+        console.log('Is Expo Go:', isExpoGo);
+
+        const result = await WebBrowser.openAuthSessionAsync(authUrl, returnUrl);
+        console.log('Auth session result type:', result.type);
+        console.log('Auth session result:', JSON.stringify(result, null, 2));
+
+        if (result.type === 'success' && result.url) {
+          console.log('Success URL received:', result.url);
+          const url = new URL(result.url);
+          const access = url.searchParams.get('access');
+          const refresh = url.searchParams.get('refresh');
+          const userParam = url.searchParams.get('user');
+
+          console.log('Extracted tokens:', { access: access ? 'present' : 'missing', refresh: refresh ? 'present' : 'missing' });
+
+          if (access && refresh) {
+            const userData = userParam ? JSON.parse(decodeURIComponent(userParam)) : undefined;
+            console.log('Setting tokens directly from WebBrowser result');
+            await setTokensDirectly(access, refresh, userData);
+            router.replace('/(tabs)');
+          } else {
+            console.error('No tokens in success URL');
+            router.replace('/auth/signin');
+          }
+        } else if (result.type === 'cancel') {
+          console.log('Auth session was cancelled by user');
+        } else {
+          console.log('Auth session failed:', result);
+          router.replace('/auth/signin');
+        }
+      } catch (e) {
+        console.error('Failed to open web OAuth:', e);
+        router.replace('/auth/signin');
+      }
+    },
+
+    // AUTH_LOGIN_SUCCESS: async (data: any) => {
+    //   try {
+    //     if (data?.tokens?.accessToken && data?.tokens?.refreshToken) {
+    //       await setTokensDirectly(data.tokens.accessToken, data.tokens.refreshToken, data.user);
+    //       setTimeout(() => router.replace('/(tabs)'), 300)
+    //     } else {
+    //       console.error('AUTH_LOGIN_SUCCESS missing tokens');
+    //     }
+    //   } catch (error) {
+    //     console.error('Error during AUTH_LOGIN_SUCCESS:', error);
+    //   }
+    // },
+
+    LISTING_CLICKED: (data: any) => {
+      if (!disableAutoNavigation && data.listing.slug && data.listing.product_id) {
+        hasNavigated.current = true;
+        router.push({
+          pathname: "/listings/[slug]/[product_id]/page",
+          params: { slug: data.listing.slug, product_id: data.listing.product_id }
+        });
+      }
+    },
+
+    PROFILE_CLICKED: (data: any) => {
+      if (data.nickname) {
+        hasNavigated.current = true;
+        router.push({
+          pathname: "/profiles/[nickname]",
+          params: { nickname: data.nickname }
+        });
+      }
+    },
+
+    NAVIGATE_TO_LISTINGS: () => {
       hasNavigated.current = true;
-      router.push({
-        pathname: "/listings/[slug]/[product_id]/page",
-        params: { slug: data.listing.slug, product_id: data.listing.product_id }
+      router.push('/(tabs)');
+    },
+
+    NAVIGATE_TO_LISTING: (data: any) => {
+      if (data.slug && data.productId) {
+        hasNavigated.current = true;
+        router.push({
+          pathname: "/listings/[slug]/[product_id]/page",
+          params: { slug: data.slug, product_id: data.productId }
+        });
+      }
+    },
+
+    NAVIGATE_TO_ADD: () => {
+      hasNavigated.current = true;
+      router.push('/(tabs)/add');
+    },
+
+    NAVIGATE_CHAT: (data: any) => {
+      if (data.chatId) {
+        hasNavigated.current = true;
+        router.push({
+          pathname: "/chat/[id]",
+          params: { id: data.chatId }
+        });
+      }
+    },
+
+    VIEW_ALL_CHATS: (data: any) => {
+      hasNavigated.current = true;
+      if (data.listingId) {
+        router.push({
+          pathname: "/chat",
+          params: { listingId: data.listingId }
+        });
+      } else {
+        router.push("/chat");
+      }
+    },
+
+    NAVIGATE: (data: any) => {
+      if (data.path) {
+        hasNavigated.current = true;
+        router.push(data.path);
+      }
+    },
+
+    WEB_LOGOUT_SUCCESS: () => {
+      clearWebViewAuth();
+      webViewRef.current?.reload();
+      logout().then(() => {
+        setTimeout(() => router.replace('/auth/signin'), 100);
       });
     }
-  },
-
-  PROFILE_CLICKED: (data: any) => {
-    if (data.nickname) {
-      hasNavigated.current = true;
-      router.push({
-        pathname: "/profiles/[nickname]",
-        params: { nickname: data.nickname }
-      });
-    }
-  },
-
-  NAVIGATE_TO_LISTINGS: () => {
-    hasNavigated.current = true;
-    router.push('/(tabs)');
-  },
-
-  NAVIGATE_TO_LISTING: (data: any) => {
-    if (data.slug && data.productId) {
-      hasNavigated.current = true;
-      router.push({
-        pathname: "/listings/[slug]/[product_id]/page",
-        params: { slug: data.slug, product_id: data.productId }
-      });
-    }
-  },
-
-  NAVIGATE_TO_ADD: () => {
-    hasNavigated.current = true;
-    router.push('/(tabs)/add');
-  },
-
-  NAVIGATE_CHAT: (data: any) => {
-    if (data.chatId) {
-      hasNavigated.current = true;
-      router.push({
-        pathname: "/chat/[id]",
-        params: { id: data.chatId }
-      });
-    }
-  },
-
-  VIEW_ALL_CHATS: (data: any) => {
-    hasNavigated.current = true;
-    if (data.listingId) {
-      router.push({
-        pathname: "/chat",
-        params: { listingId: data.listingId }
-      });
-    } else {
-      router.push("/chat");
-    }
-  },
-
-  NAVIGATE: (data: any) => {
-    if (data.path) {
-      hasNavigated.current = true;
-      router.push(data.path);
-    }
-  },
-
-  WEB_LOGOUT_SUCCESS: () => {
-    clearWebViewAuth();
-    webViewRef.current?.reload();
-    logout().then(() => {
-      setTimeout(() => router.replace('/auth/signin'), 100);
-    });
-  }
-});
+  });
 
 
 
@@ -177,7 +247,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   disableRefresh = false
 }, ref) => {
   const webViewRef = useRef<WebView>(null);
-  const { tokens, logout, isAuthenticated, user, loginWithGoogle } = useAuth();
+  const { tokens, logout, isAuthenticated, user, loginWithGoogle, setTokensDirectly } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
@@ -218,7 +288,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           }
         }
       }, 5000);
-      
+
+      // Keep logout bridge
       const originalLogout = window.logout;
       window.logout = function() {
         localStorage.removeItem('token');
@@ -312,9 +383,10 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       disableAutoNavigation,
       clearWebViewAuth,
       logout,
-      loginWithGoogle
+      loginWithGoogle,
+      setTokensDirectly
     ),
-    [router, currentUrl, route, disableAutoNavigation, logout, loginWithGoogle]
+    [router, currentUrl, route, disableAutoNavigation, logout, loginWithGoogle, setTokensDirectly]
   );
 
   // Network error detection
@@ -518,21 +590,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     onShouldStartLoadWithRequest: (req: any) => {
       try {
         const url = req?.url || '';
-        const u = new URL(url);
-        const host = u.host;
-        const path = u.pathname || '';
-
-        const isOauthHost = ['accounts.google.com', 'oauth2.googleapis.com'].includes(host);
-        const isNextAuthAuth = path.startsWith('/api/auth/signin') || path.startsWith('/api/auth/callback');
-
-        if (isOauthHost || isNextAuthAuth) {
-          loginWithGoogle();
-          return false;
-        }
-      } catch { }
-      return true;
+        console.log('Webview navigation request:', url);
+        return true;
+      } catch (error) {
+        console.log('Error in onShouldStartLoadWithRequest:', error);
+        return true;
+      }
     }
-  }), [currentUrl, handleLoad, handleError, handleHttpError, handleMessage, injectedJavaScript, loginWithGoogle]);
+  }), [currentUrl, handleLoad, handleError, handleHttpError, handleMessage, injectedJavaScript]);
 
   return (
     <View style={styles.container}>

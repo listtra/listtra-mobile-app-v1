@@ -5,11 +5,7 @@ const strip = (id) => id?.replace(".apps.googleusercontent.com", "");
 export default {
   name: "listtra-mobile-app",
   slug: "listtra-mobile-app",
-  scheme: [
-    "listtra",
-    "com.listtra.app",
-    `com.googleusercontent.apps.${strip(process.env.GOOGLE_ANDROID_CLIENT_ID)}`,
-    `com.googleusercontent.apps.${strip(process.env.GOOGLE_IOS_CLIENT_ID)}`],
+  scheme: "com.listtra.app", // Single scheme for dev client compatibility
   icon: "./assets/images/icon.png",
   version: "1.0.0",
   orientation: "portrait",
@@ -28,7 +24,7 @@ export default {
     bundleIdentifier: "com.listtra.app",
     supportsTablet: true,
     statusBarStyle: "dark-content",
-    googleServicesFile: "./ios/GoogleService-Info.plist",
+    googleServicesFile: "./GoogleService-Info.plist",
     infoPlist: {
       UIStatusBarStyle: "UIStatusBarStyleDarkContent",
       UIViewControllerBasedStatusBarAppearance: false,
@@ -71,11 +67,23 @@ export default {
     softInputMode: "adjustResize",
     statusBarBackgroundColor: "#ffffff",
     statusBarTranslucent: true,
-    googleServicesFile: "./android/app/google-services.json",
+    googleServicesFile: "./google-services.json",
     permissions: [
       "ACCESS_COARSE_LOCATION",
       "ACCESS_FINE_LOCATION",
       "ACCESS_BACKGROUND_LOCATION",
+    ],
+    intentFilters: [
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: [
+          {
+            scheme: "com.listtra.app",
+          },
+        ],
+        category: ["BROWSABLE", "DEFAULT"],
+      },
     ],
   },
   web: {

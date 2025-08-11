@@ -27,8 +27,14 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>listtra</string>
           <string>com.listtra.app</string>
+          <string>com.listtra.app</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>exp+listtra-mobile-app</string>
         </array>
       </dict>
     </array>
@@ -42,21 +48,62 @@
     <dict>
       <key>NSAllowsArbitraryLoads</key>
       <false/>
-      <key>NSAllowsLocalNetworking</key>
-      <true/>
+      <key>NSExceptionDomains</key>
+      <dict>
+        <key>res.cloudinary.com</key>
+        <dict>
+          <key>NSExceptionAllowsInsecureHTTPLoads</key>
+          <false/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+          <key>NSExceptionMinimumTLSVersion</key>
+          <string>TLSv1.2</string>
+          <key>NSExceptionRequiresForwardSecrecy</key>
+          <true/>
+        </dict>
+        <key>cloudinary.com</key>
+        <dict>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+          <key>NSExceptionMinimumTLSVersion</key>
+          <string>TLSv1.2</string>
+          <key>NSExceptionRequiresForwardSecrecy</key>
+          <true/>
+        </dict>
+        <key>listtra.com</key>
+        <dict>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+          <key>NSExceptionMinimumTLSVersion</key>
+          <string>TLSv1.2</string>
+          <key>NSExceptionRequiresForwardSecrecy</key>
+          <true/>
+        </dict>
+        <key>backend.listtra.com</key>
+        <dict>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+          <key>NSExceptionMinimumTLSVersion</key>
+          <string>TLSv1.2</string>
+          <key>NSExceptionRequiresForwardSecrecy</key>
+          <true/>
+        </dict>
+      </dict>
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your photos</string>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to use your location to help you find nearby items and automatically set your pickup location.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to use your location to help you find nearby items and automatically set your pickup location.</string>
     <key>NSLocationAlwaysUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to use your location to help you find nearby items and automatically set your pickup location.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to use your location to help you find nearby items and automatically set your pickup location.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to save photos</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your photos</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
@@ -70,13 +117,11 @@
     <key>UIRequiresFullScreen</key>
     <false/>
     <key>UIStatusBarStyle</key>
-    <string>UIStatusBarStyleDefault</string>
+    <string>UIStatusBarStyleDarkContent</string>
     <key>UISupportedInterfaceOrientations</key>
     <array>
       <string>UIInterfaceOrientationPortrait</string>
       <string>UIInterfaceOrientationPortraitUpsideDown</string>
-      <string>UIInterfaceOrientationLandscapeLeft</string>
-      <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>UISupportedInterfaceOrientations~ipad</key>
     <array>
@@ -86,7 +131,7 @@
       <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>UIUserInterfaceStyle</key>
-    <string>Light</string>
+    <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
   </dict>
