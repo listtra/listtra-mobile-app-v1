@@ -1,14 +1,22 @@
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { ActivityIndicator, StyleSheet, View, RefreshControl, ScrollView } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 import OfflineScreen from './OfflineScreen';
 import NetInfo from '@react-native-community/netinfo';
 
-const BASE_URL = 'https://listtra.com';
-//const BASE_URL = 'http://192.168.31.224:3000';
+// const BASE_URL = 'https://listtra.com';
+const BASE_URL = 'http://192.168.31.224:3000';
 
 type PersistentWebViewProps = {
   route: string;
@@ -26,8 +34,17 @@ export interface PersistentWebViewRef {
   clearWebViewAuth: () => void;
 }
 
-// Extracted message handlers for better organization
-const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>, currentUrl: string, route: string, hasNavigated: React.MutableRefObject<boolean>, disableAutoNavigation: boolean, clearWebViewAuth: () => void, logout: () => Promise<void>) => ({
+// Extracted message handlers
+const createMessageHandlers = (
+  router: any,
+  webViewRef: React.RefObject<WebView>,
+  currentUrl: string,
+  route: string,
+  hasNavigated: React.MutableRefObject<boolean>,
+  disableAutoNavigation: boolean,
+  clearWebViewAuth: () => void,
+  logout: () => Promise<void>
+) => ({
   GO_BACK: () => {
     const isFromAddPage = currentUrl?.includes('/add') || route === 'add';
     const isFromAddSuccessPage = currentUrl?.includes('/add-success') || route === 'add-success';
@@ -79,8 +96,8 @@ const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>
     if (!disableAutoNavigation && data.listing.slug && data.listing.product_id) {
       hasNavigated.current = true;
       router.push({
-        pathname: "/listings/[slug]/[product_id]/page",
-        params: { slug: data.listing.slug, product_id: data.listing.product_id }
+        pathname: '/listings/[slug]/[product_id]/page',
+        params: { slug: data.listing.slug, product_id: data.listing.product_id },
       });
     }
   },
@@ -89,8 +106,8 @@ const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>
     if (data.nickname) {
       hasNavigated.current = true;
       router.push({
-        pathname: "/profiles/[nickname]",
-        params: { nickname: data.nickname }
+        pathname: '/profiles/[nickname]',
+        params: { nickname: data.nickname },
       });
     }
   },
@@ -104,8 +121,8 @@ const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>
     if (data.slug && data.productId) {
       hasNavigated.current = true;
       router.push({
-        pathname: "/listings/[slug]/[product_id]/page",
-        params: { slug: data.slug, product_id: data.productId }
+        pathname: '/listings/[slug]/[product_id]/page',
+        params: { slug: data.slug, product_id: data.productId },
       });
     }
   },
@@ -119,8 +136,8 @@ const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>
     if (data.chatId) {
       hasNavigated.current = true;
       router.push({
-        pathname: "/chat/[id]",
-        params: { id: data.chatId }
+        pathname: '/chat/[id]',
+        params: { id: data.chatId },
       });
     }
   },
@@ -129,11 +146,11 @@ const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>
     hasNavigated.current = true;
     if (data.listingId) {
       router.push({
-        pathname: "/chat",
-        params: { listingId: data.listingId }
+        pathname: '/chat',
+        params: { listingId: data.listingId },
       });
     } else {
-      router.push("/chat");
+      router.push('/chat');
     }
   },
 
@@ -145,37 +162,37 @@ const createMessageHandlers = (router: any, webViewRef: React.RefObject<WebView>
   },
 
   WEB_LOGOUT_SUCCESS: () => {
+    // Immediately navigate to native sign-in without reloading the WebView
+    hasNavigated.current = true;
     clearWebViewAuth();
-    webViewRef.current?.reload();
-    logout().then(() => {
-      setTimeout(() => router.replace('/auth/signin'), 100);
-    });
-  }
+    logout()
+      .catch(() => {})
+      .finally(() => {
+        router.replace('/auth/signin');
+      });
+  },
 });
 
+const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(
+  ({ route, onMessage, disableAutoNavigation = false, onRefresh, refreshing = false, disableRefresh = false }, ref) => {
+    const webViewRef = useRef<WebView>(null);
+    const { tokens, logout, isAuthenticated, user } = useAuth();
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [isOffline, setIsOffline] = useState(false);
+    const [isDeviceOffline, setIsDeviceOffline] = useState(false);
+    const router = useRouter();
+    const hasNavigated = useRef(false);
+    const [currentUrl, setCurrentUrl] = useState('');
+    const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
 
+    // Flags to avoid re-injecting tokens and re-validating repeatedly
+    const authInjectedRef = useRef(false);
+    const authRestoredRef = useRef(false);
 
-const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(({
-  route,
-  onMessage,
-  disableAutoNavigation = false,
-  onRefresh,
-  refreshing = false,
-  disableRefresh = false
-}, ref) => {
-  const webViewRef = useRef<WebView>(null);
-  const { tokens, logout, isAuthenticated, user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isOffline, setIsOffline] = useState(false);
-  const [isDeviceOffline, setIsDeviceOffline] = useState(false);
-  const router = useRouter();
-  const hasNavigated = useRef(false);
-  const [currentUrl, setCurrentUrl] = useState('');
-  const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
-
-  // Memoized injected JavaScript
-  const injectedJavaScript = useMemo(() => `
+    // Injected script for WebView auth state management
+    const injectedJavaScript = useMemo(
+      () => `
 (function() {
   try {
     console.log('WebView authentication state manager initialized');
@@ -237,307 +254,337 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     console.error('Error setting up WebView auth state management:', error);
   }
 })();
-`, []);
+`,
+      []
+    );
 
-  // Clear WebView authentication state
-  const clearWebViewAuth = useCallback(() => {
-    webViewRef.current?.injectJavaScript(`
-      (function() {
-        try {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          sessionStorage.clear();
-          
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'WEBVIEW_AUTH_CLEARED'
-            }));
-          }
-          return true;
-        } catch (error) {
-          console.error('Error clearing WebView auth state:', error);
-          return false;
-        }
-      })();
-    `);
-  }, []);
-
-  // Restore WebView authentication state
-  const restoreWebViewAuth = useCallback(() => {
-    if (webViewRef.current && isAuthenticated && tokens.accessToken && tokens.refreshToken) {
-      webViewRef.current.injectJavaScript(`
+    // Clear WebView authentication state
+    const clearWebViewAuth = useCallback(() => {
+      webViewRef.current?.injectJavaScript(`
         (function() {
           try {
-            localStorage.setItem('token', '${tokens.accessToken}');
-            localStorage.setItem('refreshToken', '${tokens.refreshToken}');
-            ${user ? `localStorage.setItem('user', JSON.stringify(${JSON.stringify(user)}));` : ''}
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            sessionStorage.clear();
             
             if (window.ReactNativeWebView) {
               window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'AUTH_RESTORED',
-                user: ${user ? JSON.stringify(user) : 'null'}
+                type: 'WEBVIEW_AUTH_CLEARED'
               }));
             }
             return true;
           } catch (error) {
-            console.error('Error restoring WebView auth state:', error);
+            console.error('Error clearing WebView auth state:', error);
             return false;
           }
         })();
       `);
-    }
-  }, [isAuthenticated, tokens.accessToken, tokens.refreshToken, user]);
+    }, []);
 
-  // Memoized message handlers
-  const messageHandlers = useMemo(() =>
-    createMessageHandlers(
-      router,
-      webViewRef as React.RefObject<WebView<{}>>,
-      currentUrl,
-      route,
-      hasNavigated,
-      disableAutoNavigation,
-      clearWebViewAuth,
-      logout
-    ),
-    [router, currentUrl, route, disableAutoNavigation, logout]
-  );
-
-  // Network error detection
-  const isNetworkError = useCallback((errorMessage: string) => {
-    const networkErrors = [
-      'net::ERR_INTERNET_DISCONNECTED', 'net::ERR_NETWORK_CHANGED',
-      'net::ERR_CONNECTION_REFUSED', 'net::ERR_CONNECTION_TIMED_OUT',
-      'net::ERR_NAME_NOT_RESOLVED', 'ERR_INTERNET_DISCONNECTED',
-      'ERR_NETWORK_CHANGED', 'ERR_CONNECTION_REFUSED',
-      'ERR_CONNECTION_TIMED_OUT', 'ERR_NAME_NOT_RESOLVED'
-    ];
-    return networkErrors.some(error => errorMessage.includes(error));
-  }, []);
-
-
-
-
-
-  // Expose methods to parent component
-  useImperativeHandle(ref, () => ({
-    refresh: () => {
-      webViewRef.current?.injectJavaScript(`
-        (function() {
-          try {
-            if (typeof window.refreshData === 'function') {
-              window.refreshData();
+    // Restore WebView authentication state from native tokens
+    const restoreWebViewAuth = useCallback(() => {
+      if (webViewRef.current && isAuthenticated && tokens.accessToken && tokens.refreshToken) {
+        webViewRef.current.injectJavaScript(`
+          (function() {
+            try {
+              localStorage.setItem('token', '${tokens.accessToken}');
+              localStorage.setItem('refreshToken', '${tokens.refreshToken}');
+              ${user ? `localStorage.setItem('user', JSON.stringify(${JSON.stringify(user)}));` : ''}
+              
+              if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'AUTH_RESTORED',
+                  user: ${user ? JSON.stringify(user) : 'null'}
+                }));
+              }
               return true;
+            } catch (error) {
+              console.error('Error restoring WebView auth state:', error);
+              return false;
             }
-            if (typeof window.refreshListings === 'function') {
-              window.refreshListings();
-              return true;
-            }
-            location.reload();
-            return true;
-          } catch (error) {
-            console.error('Error during refresh:', error);
-            location.reload();
-            return false;
+          })();
+        `);
+      }
+    }, [isAuthenticated, tokens.accessToken, tokens.refreshToken, user]);
+
+    // Memoized message handlers
+    const messageHandlers = useMemo(
+      () =>
+        createMessageHandlers(
+          router,
+          webViewRef as React.RefObject<WebView<{}>>,
+          currentUrl,
+          route,
+          hasNavigated,
+          disableAutoNavigation,
+          clearWebViewAuth,
+          logout
+        ),
+      [router, currentUrl, route, disableAutoNavigation, logout, clearWebViewAuth]
+    );
+
+    // Handle message from WebView
+    const handleMessage = useCallback(
+      (event: WebViewMessageEvent) => {
+        try {
+          const data = JSON.parse(event.nativeEvent.data);
+          console.log('WebView message received:', data.type, data);
+
+          // One-time mark when auth is successfully restored from native → web
+          if (data.type === 'AUTH_RESTORED') {
+            console.log('WebView auth restored');
+            authRestoredRef.current = true;
+            authInjectedRef.current = true;
           }
-        })();
-      `);
-    },
-    reload: () => webViewRef.current?.reload(),
-    injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
-    clearWebViewAuth
-  }), [clearWebViewAuth]);
 
-  // Handle message from WebView
-  const handleMessage = useCallback((event: WebViewMessageEvent) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      console.log('WebView message received:', data.type, data);
+          if (onMessage) {
+            onMessage(event);
+          }
 
-      if (onMessage) {
-        onMessage(event);
+          const handler = messageHandlers[data.type as keyof typeof messageHandlers];
+          if (handler) {
+            handler(data);
+            return;
+          }
+
+          // Special cases
+          if (data.type === 'AUTH_REQUIRED') {
+            console.log('AUTH_REQUIRED');
+            router.replace('/auth/signin');
+            return;
+          }
+
+          if (data.type === 'AUTH_VALIDATION_FAILED' && Constants.executionEnvironment !== 'storeClient') {
+            console.error('Token validation failed:', data.message);
+            return;
+          }
+        } catch (err) {
+          console.error('Error handling WebView message:', err);
+          if (onMessage) {
+            onMessage(event);
+          }
+        }
+      },
+      [onMessage, messageHandlers, router]
+    );
+
+    // Network status
+    useEffect(() => {
+      const unsubscribe = NetInfo.addEventListener((state) => {
+        setIsDeviceOffline(!state.isConnected);
+        if (!state.isConnected) {
+          setIsOffline(true);
+          setError('No internet connection');
+        } else {
+          setIsOffline(false);
+          setError(null);
+        }
+      });
+
+      return () => unsubscribe();
+    }, []);
+
+    // Build URL with authentication once per session (or when tokens rotate)
+    const buildUrl = useCallback(
+      (baseRoute: string) => {
+        const url = new URL(`${BASE_URL}/${baseRoute}`);
+
+        if (!authInjectedRef.current && isAuthenticated && tokens.accessToken && tokens.refreshToken) {
+          url.searchParams.set('access_token', tokens.accessToken);
+          url.searchParams.set('refresh_token', tokens.refreshToken);
+          url.searchParams.set('isNativeAuth', 'true');
+          if (user?.id) url.searchParams.set('user_id', user.id);
+        }
+
+        return url.toString();
+      },
+      [isAuthenticated, tokens.accessToken, tokens.refreshToken, user?.id]
+    );
+
+    // Mark injection complete when tokens are present (covers initial mount)
+    useEffect(() => {
+      if (isAuthenticated && tokens.accessToken && tokens.refreshToken) {
+        authInjectedRef.current = true;
       }
+    }, [isAuthenticated, tokens.accessToken, tokens.refreshToken]);
 
-      const handler = messageHandlers[data.type as keyof typeof messageHandlers];
-      if (handler) {
-        handler(data);
-        return;
+    // Build/refresh URL on route change; attempt restore only if not already restored
+    useEffect(() => {
+      const newUrl = buildUrl(route);
+      console.log('Building URL:', newUrl);
+      setCurrentUrl(newUrl);
+
+      if (!authRestoredRef.current && isAuthenticated && tokens.accessToken && tokens.refreshToken) {
+        setTimeout(restoreWebViewAuth, 300);
       }
+    }, [route, buildUrl, isAuthenticated, tokens.accessToken, tokens.refreshToken, restoreWebViewAuth]);
 
-      // Handle special cases
-      if (data.type === 'AUTH_REQUIRED') {
-        router.replace('/auth/signin');
-        return;
+    // Clear WebView auth when native auth is gone
+    useEffect(() => {
+      if (!isAuthenticated && !tokens.accessToken) {
+        clearWebViewAuth();
       }
+    }, [isAuthenticated, tokens.accessToken, clearWebViewAuth]);
 
-      if (data.type === 'AUTH_VALIDATION_FAILED' && Constants.executionEnvironment !== 'storeClient') {
-        console.error('Token validation failed:', data.message);
-        return;
-      }
+    // Error handlers
+    const isNetworkError = useCallback((errorMessage: string) => {
+      const networkErrors = [
+        'net::ERR_INTERNET_DISCONNECTED',
+        'net::ERR_NETWORK_CHANGED',
+        'net::ERR_CONNECTION_REFUSED',
+        'net::ERR_CONNECTION_TIMED_OUT',
+        'net::ERR_NAME_NOT_RESOLVED',
+        'ERR_INTERNET_DISCONNECTED',
+        'ERR_NETWORK_CHANGED',
+        'ERR_CONNECTION_REFUSED',
+        'ERR_CONNECTION_TIMED_OUT',
+        'ERR_NAME_NOT_RESOLVED',
+      ];
+      return networkErrors.some((error) => errorMessage.includes(error));
+    }, []);
 
-    } catch (err) {
-      console.error('Error handling WebView message:', err);
-      if (onMessage) {
-        onMessage(event);
-      }
-    }
-  }, [onMessage, messageHandlers, router]);
+    const handleError = useCallback(
+      (e: any) => {
+        const errorMessage = e.nativeEvent.description || e.nativeEvent.message || '';
+        console.error('WebView error:', errorMessage);
 
-  // Build URL with authentication
-  const buildUrl = useCallback((baseRoute: string) => {
-    const url = new URL(`${BASE_URL}/${baseRoute}`);
+        if (isNetworkError(errorMessage)) {
+          setIsOffline(true);
+          setError('No internet connection');
+        } else {
+          setError(`WebView error: ${errorMessage}`);
+        }
+        setIsLoading(false);
+      },
+      [isNetworkError]
+    );
 
-    if (isAuthenticated && tokens.accessToken && tokens.refreshToken) {
-      url.searchParams.set('access_token', tokens.accessToken);
-      url.searchParams.set('refresh_token', tokens.refreshToken);
-      url.searchParams.set('isNativeAuth', 'true');
-      if (user?.id) {
-        url.searchParams.set('user_id', user.id);
-      }
-    } else {
-      ['access_token', 'refresh_token', 'isNativeAuth', 'user_id'].forEach(param =>
-        url.searchParams.delete(param)
-      );
-    }
+    const handleHttpError = useCallback((e: any) => {
+      const errorMessage = `HTTP error: ${e.nativeEvent.statusCode}`;
+      console.error(errorMessage);
 
-    return url.toString();
-  }, [isAuthenticated, tokens.accessToken, tokens.refreshToken, user?.id]);
-
-  // Combined effects for better performance
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsDeviceOffline(!state.isConnected);
-      if (!state.isConnected) {
+      if (e.nativeEvent.statusCode >= 500) {
         setIsOffline(true);
-        setError('No internet connection');
+        setError('Server error - please check your connection');
       } else {
-        setIsOffline(false);
-        setError(null);
+        setError(errorMessage);
       }
-    });
+      setIsLoading(false);
+    }, []);
 
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const newUrl = buildUrl(route);
-    setCurrentUrl(newUrl);
-
-    if (isAuthenticated && tokens.accessToken && tokens.refreshToken) {
-      setTimeout(restoreWebViewAuth, 500);
-    }
-  }, [route, buildUrl, isAuthenticated, tokens.accessToken, tokens.refreshToken, restoreWebViewAuth]);
-
-  useEffect(() => {
-    if (!isAuthenticated && !tokens.accessToken) {
-      clearWebViewAuth();
-    }
-  }, [isAuthenticated, tokens.accessToken, clearWebViewAuth]);
-
-  // Error handlers
-  const handleError = useCallback((e: any) => {
-    const errorMessage = e.nativeEvent.description || e.nativeEvent.message || '';
-    console.error('WebView error:', errorMessage);
-
-    if (isNetworkError(errorMessage)) {
-      setIsOffline(true);
-      setError('No internet connection');
-    } else {
-      setError(`WebView error: ${errorMessage}`);
-    }
-    setIsLoading(false);
-  }, [isNetworkError]);
-
-  const handleHttpError = useCallback((e: any) => {
-    const errorMessage = `HTTP error: ${e.nativeEvent.statusCode}`;
-    console.error(errorMessage);
-
-    if (e.nativeEvent.statusCode >= 500) {
-      setIsOffline(true);
-      setError('Server error - please check your connection');
-    } else {
-      setError(errorMessage);
-    }
-    setIsLoading(false);
-  }, []);
-
-  const handleRetry = useCallback(() => {
-    setIsOffline(false);
-    setError(null);
-    setIsLoading(true);
-    webViewRef.current?.reload();
-  }, []);
-
-  const handleRefresh = useCallback(() => {
-    if (onRefresh) {
-      onRefresh();
-    } else {
+    const handleRetry = useCallback(() => {
+      setIsOffline(false);
+      setError(null);
+      setIsLoading(true);
       webViewRef.current?.reload();
-    }
-  }, [onRefresh]);
+    }, []);
 
-  const handleLoad = useCallback(() => {
-    setIsLoading(false);
-    setIsOffline(false);
-    setError(null);
-  }, []);
+    const handleRefresh = useCallback(() => {
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        webViewRef.current?.reload();
+      }
+    }, [onRefresh]);
 
-  // Memoized WebView props
-  const webViewProps = useMemo(() => ({
-    ref: webViewRef,
-    source: { uri: currentUrl },
-    style: styles.webView,
-    onLoad: handleLoad,
-    onError: handleError,
-    onHttpError: handleHttpError,
-    onMessage: handleMessage,
-    javaScriptEnabled: true,
-    domStorageEnabled: true,
-    cacheEnabled: true,
-    thirdPartyCookiesEnabled: true,
-    sharedCookiesEnabled: true,
-    originWhitelist: ['*'],
-    mixedContentMode: "always" as const,
-    allowsInlineMediaPlayback: true,
-    allowFileAccess: true,
-    allowUniversalAccessFromFileURLs: true,
-    injectedJavaScript
-  }), [currentUrl, handleLoad, handleError, handleHttpError, handleMessage, injectedJavaScript]);
+    const handleLoad = useCallback(() => {
+      setIsLoading(false);
+      setIsOffline(false);
+      setError(null);
+    }, []);
 
-  return (
-    <View style={styles.container}>
-      {isOffline ? (
-        <OfflineScreen onRetry={handleRetry} message={error || 'No internet connection'} />
-      ) : disableRefresh ? (
-        <WebView {...webViewProps} />
-      ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollViewContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={['#2528be']}
-              tintColor="#2528be"
-            />
-          }
-          scrollEventThrottle={16}
-        >
+    // Expose methods to parent
+    useImperativeHandle(
+      ref,
+      () => ({
+        refresh: () => {
+          webViewRef.current?.injectJavaScript(`
+            (function() {
+              try {
+                if (typeof window.refreshData === 'function') {
+                  window.refreshData();
+                  return true;
+                }
+                if (typeof window.refreshListings === 'function') {
+                  window.refreshListings();
+                  return true;
+                }
+                location.reload();
+                return true;
+              } catch (error) {
+                console.error('Error during refresh:', error);
+                location.reload();
+                return false;
+              }
+            })();
+          `);
+        },
+        reload: () => webViewRef.current?.reload(),
+        injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
+        clearWebViewAuth,
+      }),
+      [clearWebViewAuth]
+    );
+
+    // WebView props
+    const webViewProps = useMemo(
+      () => ({
+        ref: webViewRef,
+        source: { uri: currentUrl },
+        style: styles.webView,
+        onLoad: handleLoad,
+        onError: handleError,
+        onHttpError: handleHttpError,
+        onMessage: handleMessage,
+        javaScriptEnabled: true,
+        domStorageEnabled: true,
+        cacheEnabled: true,
+        thirdPartyCookiesEnabled: true,
+        sharedCookiesEnabled: true,
+        originWhitelist: ['*'],
+        mixedContentMode: 'always' as const,
+        allowsInlineMediaPlayback: true,
+        allowFileAccess: true,
+        allowUniversalAccessFromFileURLs: true,
+        injectedJavaScript,
+      }),
+      [currentUrl, handleLoad, handleError, handleHttpError, handleMessage, injectedJavaScript]
+    );
+
+    return (
+      <View style={styles.container}>
+        {isOffline ? (
+          <OfflineScreen onRetry={handleRetry} message={error || 'No internet connection'} />
+        ) : disableRefresh ? (
           <WebView {...webViewProps} />
-        </ScrollView>
-      )}
-      {isLoading && (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#2528be" />
-        </View>
-      )}
-    </View>
-  );
-});
+        ) : (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={['#2528be']}
+                tintColor="#2528be"
+              />
+            }
+            scrollEventThrottle={16}
+          >
+            <WebView {...webViewProps} />
+          </ScrollView>
+        )}
+        {isLoading && (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#2528be" />
+          </View>
+        )}
+      </View>
+    );
+  }
+);
 
 PersistentWebView.displayName = 'PersistentWebView';
-
 export default PersistentWebView;
 
 const styles = StyleSheet.create({

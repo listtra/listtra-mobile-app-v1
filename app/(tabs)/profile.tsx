@@ -15,23 +15,23 @@ export default function ProfileScreen() {
       const data = JSON.parse(event.nativeEvent.data);
       console.log('Profile WebView message:', data);
       
-      if (data.type === 'AUTH_LOGOUT') {
-        // Handle logout from web app
-        console.log('AUTH_LOGOUT message received from web app');
+      // if (data.type === 'AUTH_LOGOUT') {
+      //   // Handle logout from web app
+      //   console.log('AUTH_LOGOUT message received from web app');
         
-        // Clear WebView auth state first
-        if (webViewRef.current) {
-          webViewRef.current.clearWebViewAuth();
-        }
+      //   // Clear WebView auth state first
+      //   if (webViewRef.current) {
+      //     webViewRef.current.clearWebViewAuth();
+      //   }
         
-        // Then clear mobile app tokens
-        authLogout();
+      //   // Then clear mobile app tokens
+      //   authLogout();
         
-        // Navigate to signin screen (outside of tabs)
-        setTimeout(() => {
-          router.replace('/auth/signin');
-        }, 100);
-      }
+      //   // Navigate to signin screen (outside of tabs)
+      //   setTimeout(() => {
+      //     router.replace('/auth/signin');
+      //   }, 100);
+      // }
       
       if (data.type === 'WEBVIEW_AUTH_CLEARED') {
         console.log('WebView auth cleared confirmation received');
