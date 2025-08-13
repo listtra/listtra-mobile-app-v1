@@ -14,6 +14,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 import OfflineScreen from './OfflineScreen';
 import NetInfo from '@react-native-community/netinfo';
+import * as ImagePicker from 'expo-image-picker';
 
 // const BASE_URL = 'https://listtra.com';
 const BASE_URL = 'http://192.168.31.224:3000';
@@ -166,7 +167,7 @@ const createMessageHandlers = (
     hasNavigated.current = true;
     clearWebViewAuth();
     logout()
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         router.replace('/auth/signin');
       });
@@ -330,6 +331,11 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           const data = JSON.parse(event.nativeEvent.data);
           console.log('WebView message received:', data.type, data);
 
+          if (data.type === 'OPEN_IMAGE_PICKER') {
+            console.log('OPEN_IMAGE_PICKER', data.options);
+            handleImagePicker(data.options);
+          }
+
           // One-time mark when auth is successfully restored from native → web
           if (data.type === 'AUTH_RESTORED') {
             console.log('WebView auth restored');
@@ -367,6 +373,40 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       },
       [onMessage, messageHandlers, router]
     );
+
+    const handleImagePicker = async (options: any) => {
+      try {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          alert('Sorry, we need camera roll permissions to upload images!');
+          return;
+        }
+        // Launch image picker
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsMultipleSelection: true,
+          quality: options?.quality || 0.8,
+          base64: true,
+          exif: false,
+        });
+        if (!result.canceled && result.assets) {
+          const images = result.assets.slice(0, options?.maxImages || 5).map((asset, index) => ({
+            uri: `data:image/jpeg;base64,${asset.base64}`,
+            type: 'image/jpeg',
+            name: `image_${Date.now()}_${index}.jpg`
+          }));
+
+          // Send images back to WebView
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'IMAGES_SELECTED',
+            images: images
+          }));
+        }
+      } catch (error) {
+        console.error('Error picking images:', error);
+        alert('Error selecting images. Please try again.');
+      }
+    }
 
     // Network status
     useEffect(() => {
