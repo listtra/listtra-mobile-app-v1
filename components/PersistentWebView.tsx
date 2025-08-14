@@ -16,7 +16,7 @@ import OfflineScreen from './OfflineScreen';
 import NetInfo from '@react-native-community/netinfo';
 import * as ImagePicker from 'expo-image-picker';
 
-// const BASE_URL = 'https://listtra.com';
+//const BASE_URL = 'https://listtra.com';
 const BASE_URL = 'http://192.168.31.224:3000';
 
 type PersistentWebViewProps = {
