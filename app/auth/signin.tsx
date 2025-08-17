@@ -1,8 +1,8 @@
 // app/auth/signin.tsx
+import { router } from 'expo-router';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import PersistentWebView from '../../components/PersistentWebView';
 import { useAuth } from '../../context/AuthContext';
 

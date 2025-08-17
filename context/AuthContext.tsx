@@ -1,11 +1,10 @@
 import axios from 'axios';
-import * as AuthSession from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import Constants from 'expo-constants';
 
 // Configure Google WebBrowser auth
 WebBrowser.maybeCompleteAuthSession();
@@ -31,6 +30,7 @@ type AuthContextType = {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginWithGoogleForWebView: () => Promise<{ success: boolean; user?: User; tokens?: { accessToken: string; refreshToken: string }; error?: string }>;
   register: (userData: any) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -50,6 +50,7 @@ const AuthContext = createContext<AuthContextType>({
   error: null,
   login: async () => { },
   loginWithGoogle: async () => { },
+  loginWithGoogleForWebView: async () => ({ success: false }),
   register: async () => { },
   logout: async () => { },
   clearError: () => { },
@@ -325,7 +326,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Process Google authentication
-  const handleGoogleAuth = async (authentication: any) => {
+  const handleGoogleAuth = async (authentication: any, skipNavigation: boolean = false) => {
     setIsLoading(true);
     setError(null);
 
@@ -337,7 +338,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Invalid authentication object');
         setError('Authentication failed: missing access token');
         setIsLoading(false);
-        return false;
+        return { success: false, error: 'Authentication failed: missing access token' };
       }
 
       // Get user info from Google
@@ -347,9 +348,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!userInfoResponse.ok) {
         console.error('Failed to fetch user info:', userInfoResponse.status);
-        setError(`Failed to fetch user info: ${userInfoResponse.statusText}`);
+        const errorMsg = `Failed to fetch user info: ${userInfoResponse.statusText}`;
+        setError(errorMsg);
         setIsLoading(false);
-        return false;
+        return { success: false, error: errorMsg };
       }
 
       const userInfo = await userInfoResponse.json();
@@ -368,21 +370,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await storeTokens(apiResponse.data.access, apiResponse.data.refresh);
 
         // Set user data
-        setUser({
+        const userData = {
           id: apiResponse.data.user_id,
           email: apiResponse.data.email,
           nickname: apiResponse.data.nickname,
-        });
+        };
+        setUser(userData);
 
-        // Navigate to home screen
-        router.replace('/(tabs)');
-        return true;
+        // Navigate to home screen only if not called from WebView
+        if (!skipNavigation) {
+          router.replace('/(tabs)');
+        }
+
+        return { 
+          success: true, 
+          user: userData,
+          tokens: { 
+            accessToken: apiResponse.data.access, 
+            refreshToken: apiResponse.data.refresh 
+          }
+        };
       }
 
-      return false;
+      return { success: false, error: 'Failed to get authentication tokens' };
     } catch (error: any) {
       console.error('Google auth error:', error);
       console.error('Error response:', error.response?.data);
+
+      let errorMessage = 'Sign in with Google failed';
 
       // Check if it's an account not found error - need to handle this the same way as web
       if (error.response?.status === 400) {
@@ -390,12 +405,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error.response?.data?.email) {
           await SecureStore.setItemAsync('pendingEmail', error.response.data.email);
         }
-        setError('No account found with this email. Please sign up first.');
+        errorMessage = 'No account found with this email. Please sign up first.';
+        setError(errorMessage);
       } else {
-        setError(`Sign in with Google failed: ${error.message || 'Unknown error'}`);
+        errorMessage = `Sign in with Google failed: ${error.message || 'Unknown error'}`;
+        setError(errorMessage);
       }
 
-      return false;
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }
@@ -586,6 +603,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Google login specifically for WebView integration
+  const loginWithGoogleForWebView = async () => {
+    setError(null);
+    console.log('Starting Google sign-in flow for WebView...');
+    try {
+      if (!request) {
+        console.log('No request object available');
+        const errorMsg = 'Failed to initialize Google sign in. Please try again.';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
+      console.log('Auth request config:', JSON.stringify(request, null, 2));
+      console.log('About to call promptAsync...');
+      const result = await promptAsyncOriginal({ showInRecents: true });
+      console.log('Prompt result type:', result?.type);
+      console.log('Prompt result:', JSON.stringify(result, null, 2));
+
+      if (result.type === 'success' && result.authentication) {
+        // Process the authentication without navigation
+        return await handleGoogleAuth(result.authentication, true);
+      } else if (result.type === 'error') {
+        console.error('Google auth error:', result.error);
+        let errorMsg = 'Authentication failed. Please try again.';
+        if (result.error?.message?.includes('state')) {
+          errorMsg = 'Authentication failed. Please try again (state mismatch).';
+        } else {
+          errorMsg = `Google sign-in failed: ${result.error?.message || 'Unknown error'}`;
+        }
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      } else if (result.type === 'cancel') {
+        console.log('User cancelled Google sign-in');
+        return { success: false, error: 'Google sign-in was cancelled by user' };
+      } else if (result.type === 'dismiss') {
+        console.log('Google sign-in was dismissed');
+        const errorMsg = 'Google sign-in was dismissed. Please check your OAuth configuration.';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
+      return { success: false, error: 'Unknown error occurred during Google sign-in' };
+    } catch (error) {
+      console.error('Google sign in prompt error:', error);
+      const errorMsg = 'Failed to start Google sign in. Please try again.';
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    }
+  };
+
   // Function to directly set tokens (useful for WebView integration)
   const setTokensDirectly = async (accessToken: string, refreshToken: string, userData?: any) => {
     try {
@@ -630,6 +697,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error,
         login,
         loginWithGoogle,
+        loginWithGoogleForWebView,
         register,
         logout,
         clearError,

@@ -1,4 +1,6 @@
+import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, {
   forwardRef,
@@ -9,15 +11,14 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { ActivityIndicator, StyleSheet, View, RefreshControl, ScrollView } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 import OfflineScreen from './OfflineScreen';
-import NetInfo from '@react-native-community/netinfo';
-import * as ImagePicker from 'expo-image-picker';
 
 //const BASE_URL = 'https://listtra.com';
 const BASE_URL = 'http://192.168.31.224:3000';
+//const BASE_URL = 'https://50015a6e9d8e.ngrok-free.app'
 
 type PersistentWebViewProps = {
   route: string;
@@ -46,16 +47,32 @@ const createMessageHandlers = (
   clearWebViewAuth: () => void,
   logout: () => Promise<void>
 ) => ({
-  GO_BACK: () => {
+  GO_BACK: (data: any) => {
     const isFromAddPage = currentUrl?.includes('/add') || route === 'add';
     const isFromAddSuccessPage = currentUrl?.includes('/add-success') || route === 'add-success';
     const isFromListingDetail = currentUrl?.includes('/listings/');
     const isFromChatPage = currentUrl?.includes('/chat?listing=');
     const isFromChatIndexPage = currentUrl?.includes('/chat/');
     const isFromChatsPage = currentUrl?.includes('/chats') || route === 'chats';
+    const isFromLikedPage = currentUrl?.includes('/liked') || route === 'liked';
     const isFromSigninPage = currentUrl?.includes('/auth/signin') || route === 'auth/signin';
 
     if (isFromSigninPage) {
+      router.replace('/(tabs)');
+      return;
+    }
+    if (data.from === 'edit-page') {
+      console.log('GO_BACK', data);
+      hasNavigated.current = true;
+      router.replace({
+        pathname: '/listings/[slug]/[product_id]/page',
+        params: { slug: data.slug, product_id: data.product_id },
+      });
+      return;
+    }
+
+    if (isFromLikedPage) {
+      hasNavigated.current = true;
       router.replace('/(tabs)');
       return;
     }
@@ -177,7 +194,7 @@ const createMessageHandlers = (
 const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(
   ({ route, onMessage, disableAutoNavigation = false, onRefresh, refreshing = false, disableRefresh = false }, ref) => {
     const webViewRef = useRef<WebView>(null);
-    const { tokens, logout, isAuthenticated, user } = useAuth();
+    const { tokens, logout, isAuthenticated, user, loginWithGoogleForWebView } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isOffline, setIsOffline] = useState(false);
@@ -324,6 +341,73 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       [router, currentUrl, route, disableAutoNavigation, logout, clearWebViewAuth]
     );
 
+    // Handle Google OAuth from WebView
+    const handleWebViewGoogleAuth = useCallback(async () => {
+      try {
+        console.log('Handling Google OAuth from WebView...');
+        
+        // Trigger native Google OAuth without navigation
+        const result = await loginWithGoogleForWebView();
+        
+        if (result.success && result.tokens && result.user) {
+          console.log('Google OAuth completed successfully, updating WebView...');
+          
+          // Inject the tokens into WebView localStorage
+          const script = `
+            (function() {
+              try {
+                localStorage.setItem('token', '${result.tokens.accessToken}');
+                localStorage.setItem('refreshToken', '${result.tokens.refreshToken}');
+                localStorage.setItem('user', JSON.stringify(${JSON.stringify(result.user)}));
+                
+                // Trigger auth ready event in WebView
+                if (window.dispatchEvent) {
+                  window.dispatchEvent(new Event('MOBILE_AUTH_READY'));
+                }
+                
+                // Send success message back to native
+                if (window.ReactNativeWebView) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'GOOGLE_AUTH_SUCCESS',
+                    user: ${JSON.stringify(result.user)},
+                    tokens: ${JSON.stringify(result.tokens)}
+                  }));
+                }
+                
+                // Reload the current page to apply auth state
+                window.location.reload();
+                
+                return true;
+              } catch (error) {
+                console.error('Error setting WebView auth state:', error);
+                return false;
+              }
+            })();
+          `;
+          
+          webViewRef.current?.injectJavaScript(script);
+          
+        } else {
+          console.error('Google OAuth failed:', result.error);
+          
+          // Send error back to WebView
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'GOOGLE_AUTH_ERROR',
+            error: result.error || 'Google authentication failed'
+          }));
+        }
+        
+      } catch (error) {
+        console.error('Google OAuth from WebView failed:', error);
+        
+        // Send error back to WebView
+        webViewRef.current?.postMessage(JSON.stringify({
+          type: 'GOOGLE_AUTH_ERROR',
+          error: 'Google authentication failed'
+        }));
+      }
+    }, [loginWithGoogleForWebView]);
+
     // Handle message from WebView
     const handleMessage = useCallback(
       (event: WebViewMessageEvent) => {
@@ -334,6 +418,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           if (data.type === 'OPEN_IMAGE_PICKER') {
             console.log('OPEN_IMAGE_PICKER', data.options);
             handleImagePicker(data.options);
+            return;
+          }
+
+          // Handle Google OAuth request from WebView
+          if (data.type === 'OPEN_WEB_OAUTH' && data.provider === 'google') {
+            console.log('OPEN_WEB_OAUTH received for Google');
+            handleWebViewGoogleAuth();
+            return;
           }
 
           // One-time mark when auth is successfully restored from native → web
@@ -371,7 +463,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           }
         }
       },
-      [onMessage, messageHandlers, router]
+      [onMessage, messageHandlers, router, handleWebViewGoogleAuth]
     );
 
     const handleImagePicker = async (options: any) => {
@@ -385,16 +477,30 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsMultipleSelection: true,
-          quality: options?.quality || 0.8,
+          quality: options?.quality || 0.85,
           base64: true,
           exif: false,
+          allowsEditing: false,
+          aspect: [4, 3],
         });
         if (!result.canceled && result.assets) {
-          const images = result.assets.slice(0, options?.maxImages || 5).map((asset, index) => ({
-            uri: `data:image/jpeg;base64,${asset.base64}`,
-            type: 'image/jpeg',
-            name: `image_${Date.now()}_${index}.jpg`
-          }));
+          // Process images with additional metadata
+          const images = result.assets.slice(0, options?.maxImages || 5).map((asset, index) => {
+            // Calculate file size estimate (for logging/debugging)
+            const base64Length = asset.base64?.length || 0;
+            const fileSizeKB = Math.round(base64Length * 0.75 / 1024);
+
+            console.log(`Image ${index + 1} size: ~${fileSizeKB}KB, dimensions: ${asset.width}x${asset.height}`);
+
+            return {
+              uri: `data:image/jpeg;base64,${asset.base64}`,
+              type: 'image/jpeg',
+              name: `image_${Date.now()}_${index}.jpg`,
+              width: asset.width,
+              height: asset.height,
+              size: fileSizeKB
+            };
+          });
 
           // Send images back to WebView
           webViewRef.current?.postMessage(JSON.stringify({
