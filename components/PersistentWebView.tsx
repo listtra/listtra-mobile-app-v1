@@ -178,6 +178,11 @@ const createMessageHandlers = (
     }
   },
 
+  NAVIGATE_TO_LOCATION: () => {
+    hasNavigated.current = true;
+    router.push('/location');
+  },
+
   WEB_LOGOUT_SUCCESS: () => {
     // Immediately navigate to native sign-in without reloading the WebView
     hasNavigated.current = true;
