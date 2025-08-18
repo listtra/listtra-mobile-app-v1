@@ -1,9 +1,8 @@
 // app/(tabs)/liked.tsx
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
-import { useFocusEffect } from '@react-navigation/native';
 
 export default function LikedScreen() {
   const webViewRef = useRef<PersistentWebViewRef>(null);
@@ -21,22 +20,6 @@ export default function LikedScreen() {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   }, []);
-
-  // Handle focus-based refresh with throttling
-  // useFocusEffect(
-  //   React.useCallback(() => {
-  //     const now = Date.now();
-  //     const REFRESH_THRESHOLD = 20 * 1000; // 20 seconds for liked items
-      
-  //     if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
-  //       console.log('Refreshing liked items data...');
-  //       webViewRef.current.refresh();
-  //       setLastRefreshTime(now);
-  //     } else {
-  //       console.log('Skipping liked refresh - too soon since last refresh');
-  //     }
-  //   }, [lastRefreshTime])
-  // );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

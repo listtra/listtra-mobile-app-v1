@@ -1,5 +1,4 @@
 import NetInfo from '@react-native-community/netinfo';
-import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, {
@@ -341,73 +340,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       [router, currentUrl, route, disableAutoNavigation, logout, clearWebViewAuth]
     );
 
-    // Handle Google OAuth from WebView
-    const handleWebViewGoogleAuth = useCallback(async () => {
-      try {
-        console.log('Handling Google OAuth from WebView...');
-        
-        // Trigger native Google OAuth without navigation
-        const result = await loginWithGoogleForWebView();
-        
-        if (result.success && result.tokens && result.user) {
-          console.log('Google OAuth completed successfully, updating WebView...');
-          
-          // Inject the tokens into WebView localStorage
-          const script = `
-            (function() {
-              try {
-                localStorage.setItem('token', '${result.tokens.accessToken}');
-                localStorage.setItem('refreshToken', '${result.tokens.refreshToken}');
-                localStorage.setItem('user', JSON.stringify(${JSON.stringify(result.user)}));
-                
-                // Trigger auth ready event in WebView
-                if (window.dispatchEvent) {
-                  window.dispatchEvent(new Event('MOBILE_AUTH_READY'));
-                }
-                
-                // Send success message back to native
-                if (window.ReactNativeWebView) {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'GOOGLE_AUTH_SUCCESS',
-                    user: ${JSON.stringify(result.user)},
-                    tokens: ${JSON.stringify(result.tokens)}
-                  }));
-                }
-                
-                // Reload the current page to apply auth state
-                window.location.reload();
-                
-                return true;
-              } catch (error) {
-                console.error('Error setting WebView auth state:', error);
-                return false;
-              }
-            })();
-          `;
-          
-          webViewRef.current?.injectJavaScript(script);
-          
-        } else {
-          console.error('Google OAuth failed:', result.error);
-          
-          // Send error back to WebView
-          webViewRef.current?.postMessage(JSON.stringify({
-            type: 'GOOGLE_AUTH_ERROR',
-            error: result.error || 'Google authentication failed'
-          }));
-        }
-        
-      } catch (error) {
-        console.error('Google OAuth from WebView failed:', error);
-        
-        // Send error back to WebView
-        webViewRef.current?.postMessage(JSON.stringify({
-          type: 'GOOGLE_AUTH_ERROR',
-          error: 'Google authentication failed'
-        }));
-      }
-    }, [loginWithGoogleForWebView]);
-
     // Handle message from WebView
     const handleMessage = useCallback(
       (event: WebViewMessageEvent) => {
@@ -424,7 +356,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           // Handle Google OAuth request from WebView
           if (data.type === 'OPEN_WEB_OAUTH' && data.provider === 'google') {
             console.log('OPEN_WEB_OAUTH received for Google');
-            handleWebViewGoogleAuth();
             return;
           }
 
@@ -452,8 +383,13 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             return;
           }
 
-          if (data.type === 'AUTH_VALIDATION_FAILED' && Constants.executionEnvironment !== 'storeClient') {
+          if (data.type === 'AUTH_VALIDATION_FAILED') {
             console.error('Token validation failed:', data.message);
+            // Clear invalid tokens and redirect to login
+            clearWebViewAuth();
+            logout().finally(() => {
+              router.replace('/auth/signin');
+            });
             return;
           }
         } catch (err) {
@@ -463,7 +399,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           }
         }
       },
-      [onMessage, messageHandlers, router, handleWebViewGoogleAuth]
+      [onMessage, messageHandlers, router]
     );
 
     const handleImagePicker = async (options: any) => {

@@ -1,7 +1,7 @@
 // components/AuthGuard.tsx
+import { useRouter, useSegments } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 
 /**

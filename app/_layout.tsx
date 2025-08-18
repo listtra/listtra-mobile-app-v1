@@ -3,11 +3,10 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import React from 'react';
+import { View } from 'react-native';
 import 'react-native-reanimated';
-import { View, Platform } from 'react-native';
-import { AuthGuard } from '../components/AuthGuard';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../context/AuthContext';
 import { NotificationProvider } from '../context/NotificationContext';
 import { PushNotificationProvider } from '../context/PushNotificationContext';
@@ -34,7 +33,7 @@ export default function RootLayout() {
                   backgroundColor="white"
                   translucent={true}
                 />
-                <AuthGuard>
+                {/* <AuthGuard> */}
                   <>
                     <Stack>
                       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -79,7 +78,7 @@ export default function RootLayout() {
                     </Stack>
 
                   </>
-                </AuthGuard>
+                {/* </AuthGuard> */}
               </View>
             </ThemeProvider>
           </NotificationProvider>
