@@ -17,6 +17,7 @@ import OfflineScreen from './OfflineScreen';
 
 //const BASE_URL = 'https://listtra.com';
 const BASE_URL = 'http://192.168.31.224:3000';
+//const BASE_URL = 'https://listtra-git-google-login-listtra.vercel.app';
 //const BASE_URL = 'https://50015a6e9d8e.ngrok-free.app'
 
 type PersistentWebViewProps = {
@@ -117,6 +118,11 @@ const createMessageHandlers = (
         params: { slug: data.listing.slug, product_id: data.listing.product_id },
       });
     }
+  },
+
+  ADD_LISTING_CLICKED: (data: any) => {
+    hasNavigated.current = true;
+    router.push('/add');
   },
 
   PROFILE_CLICKED: (data: any) => {
@@ -476,13 +482,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       (baseRoute: string) => {
         const url = new URL(`${BASE_URL}/${baseRoute}`);
 
+        if (user?.id) {
+          url.searchParams.set('user_id', user.id);
+        }
         if (!authInjectedRef.current && isAuthenticated && tokens.accessToken && tokens.refreshToken) {
           url.searchParams.set('access_token', tokens.accessToken);
           url.searchParams.set('refresh_token', tokens.refreshToken);
           url.searchParams.set('isNativeAuth', 'true');
-          if (user?.id) url.searchParams.set('user_id', user.id);
         }
-
         return url.toString();
       },
       [isAuthenticated, tokens.accessToken, tokens.refreshToken, user?.id]

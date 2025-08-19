@@ -1,10 +1,10 @@
 // app/(tabs)/add.tsx
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import PersistentWebView from '../../components/PersistentWebView';
+import PersistentWebView from '../components/PersistentWebView';
 
 export default function AddScreen() {
   const router = useRouter();

@@ -2,7 +2,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
+import PersistentWebView, { PersistentWebViewRef } from '../components/PersistentWebView';
 
 export default function LikedScreen() {
   const webViewRef = useRef<PersistentWebViewRef>(null);

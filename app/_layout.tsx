@@ -46,7 +46,8 @@ export default function RootLayout() {
                         }}
                       />
                       <Stack.Screen name="chat" options={{ headerShown: false }} />
-                      <Stack.Screen name="notifications" options={{ headerShown: false }} />
+                      <Stack.Screen name="add" options={{ headerShown: false }} />
+                      <Stack.Screen name="liked" options={{ headerShown: false }} />
                       <Stack.Screen name="search/page" options={{ headerShown: false }} />
                       <Stack.Screen name="profiles/[nickname]" options={{ headerShown: false }} />
                       <Stack.Screen name="listings" options={{ headerShown: false }} />

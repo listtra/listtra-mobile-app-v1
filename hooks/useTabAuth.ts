@@ -7,7 +7,7 @@ export const useTabAuth = () => {
   const router = useRouter();
 
   const checkTabAuth = (tabName: string) => {
-    const protectedTabs = ['liked', 'add', 'chats', 'profile'];
+    const protectedTabs = ['notifications', 'add', 'chats', 'profile'];
     
     if (protectedTabs.includes(tabName) && !isAuthenticated) {
       router.replace('/auth/signin');

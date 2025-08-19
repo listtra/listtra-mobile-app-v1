@@ -1,10 +1,9 @@
 // app/notifications.tsx
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import PersistentWebView from '../components/PersistentWebView';
+import PersistentWebView from '../../components/PersistentWebView';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -16,7 +15,7 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerContainer}>
+      {/* <View style={styles.headerContainer}>
         <TouchableOpacity 
           style={styles.headerButton} 
           onPress={handleBackPress}
@@ -29,7 +28,7 @@ export default function NotificationsScreen() {
             <Ionicons name="notifications-outline" size={24} color="black" />
           </View>
         </View>
-      </View>
+      </View> */}
 
       <View style={styles.webViewContainer}>
         <PersistentWebView route="notifications" />
