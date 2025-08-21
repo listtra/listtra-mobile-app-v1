@@ -1,22 +1,12 @@
 // app/(tabs)/add.tsx
-import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView from '../components/PersistentWebView';
 
 export default function AddScreen() {
   const router = useRouter();
-  const [key, setKey] = useState(0);
-
-  // Force WebView refresh every time the screen is focused
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log('AddScreen focused, forcing WebView refresh');
-      setKey(prev => prev + 1);
-    }, [])
-  );
 
   return (
     <KeyboardAvoidingView
@@ -27,7 +17,6 @@ export default function AddScreen() {
       <SafeAreaView style={styles.flex} edges={['top','left','right']}>
         <View style={styles.webViewContainer}>
           <PersistentWebView
-            key={key}
             route="add"
             disableRefresh={true}
           />
@@ -38,6 +27,6 @@ export default function AddScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1,backgroundColor: 'white'},
   webViewContainer: { flex: 1, backgroundColor: 'white' },
 });

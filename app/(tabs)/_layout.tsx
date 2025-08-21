@@ -114,12 +114,6 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           name: 'notifications',
           size: isFocused ? 22 : 24,
         };
-      case 'add':
-        return {
-          iconType: 'fa6' as const,
-          name: 'plus',
-          size: isFocused ? 24 : 26,
-        };
       case 'chats':
         return {
           iconType: 'fa5' as const,
@@ -285,7 +279,6 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="notifications" />
-      <Tabs.Screen name="add" />
       <Tabs.Screen name="chats" />
       <Tabs.Screen name="profile" />
     </Tabs>

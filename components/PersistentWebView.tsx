@@ -15,11 +15,11 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 import OfflineScreen from './OfflineScreen';
 
-//const BASE_URL = 'https://listtra.com';
-const BASE_URL = 'http://192.168.31.224:3000';
-//const BASE_URL = 'https://listtra-git-google-login-listtra.vercel.app';
-//const BASE_URL = 'https://50015a6e9d8e.ngrok-free.app'
+const BASE_URL = 'http://192.168.31.224:3000'; // adjust for prod/dev
 
+/** -------------------------
+ * 🔹 Types
+ * ------------------------- */
 type PersistentWebViewProps = {
   route: string;
   onMessage?: (event: WebViewMessageEvent) => void;
@@ -36,391 +36,194 @@ export interface PersistentWebViewRef {
   clearWebViewAuth: () => void;
 }
 
-// Extracted message handlers
-const createMessageHandlers = (
-  router: any,
-  webViewRef: React.RefObject<WebView>,
-  currentUrl: string,
-  route: string,
-  hasNavigated: React.MutableRefObject<boolean>,
-  disableAutoNavigation: boolean,
-  clearWebViewAuth: () => void,
-  logout: () => Promise<void>
-) => ({
-  GO_BACK: (data: any) => {
-    const isFromAddPage = currentUrl?.includes('/add') || route === 'add';
-    const isFromAddSuccessPage = currentUrl?.includes('/add-success') || route === 'add-success';
-    const isFromListingDetail = currentUrl?.includes('/listings/');
-    const isFromChatPage = currentUrl?.includes('/chat?listing=');
-    const isFromChatIndexPage = currentUrl?.includes('/chat/');
-    const isFromChatsPage = currentUrl?.includes('/chats') || route === 'chats';
-    const isFromLikedPage = currentUrl?.includes('/liked') || route === 'liked';
-    const isFromSigninPage = currentUrl?.includes('/auth/signin') || route === 'auth/signin';
+type WebViewMessage =
+  | { type: 'GO_BACK'; from?: string; slug?: string; product_id?: string }
+  | { type: 'LISTING_CLICKED'; listing: { slug: string; product_id: string } }
+  | { type: 'ADD_LISTING_CLICKED' }
+  | { type: 'PROFILE_CLICKED'; nickname: string }
+  | { type: 'NAVIGATE_TO_LISTINGS' }
+  | { type: 'NAVIGATE_TO_LISTING'; slug: string; productId: string }
+  | { type: 'NAVIGATE_TO_ADD' }
+  | { type: 'NAVIGATE_CHAT'; chatId: string }
+  | { type: 'VIEW_ALL_CHATS'; listingId?: string }
+  | { type: 'NAVIGATE'; path: string }
+  | { type: 'NAVIGATE_TO_LOCATION' }
+  | { type: 'WEB_LOGOUT_SUCCESS' }
+  | { type: 'AUTH_REQUIRED'; path: string }
+  | { type: 'AUTH_VALIDATION_FAILED'; message: string }
+  | { type: 'AUTH_RESTORED'; user?: any }
+  | { type: 'OPEN_IMAGE_PICKER'; options?: any }
+  | { type: 'OPEN_WEB_OAUTH'; provider: 'google' }
+  | { type: string; [key: string]: any }; // fallback
 
-    if (isFromSigninPage) {
-      router.replace('/(tabs)');
-      return;
-    }
-    if (data.from === 'edit-page') {
-      console.log('GO_BACK', data);
-      hasNavigated.current = true;
-      router.replace({
-        pathname: '/listings/[slug]/[product_id]/page',
-        params: { slug: data.slug, product_id: data.product_id },
-      });
-      return;
-    }
+/** -------------------------
+ * 🔹 Logger (dev only)
+ * ------------------------- */
+const log = (...args: any[]) => {
+  if (__DEV__) console.log('[PersistentWebView]', ...args);
+};
 
-    if (isFromLikedPage) {
-      hasNavigated.current = true;
-      router.replace('/(tabs)');
-      return;
-    }
-
-    if (isFromAddPage || isFromAddSuccessPage) {
-      hasNavigated.current = true;
-      router.replace('/(tabs)');
-      return;
-    }
-
-    if (isFromChatsPage) {
-      hasNavigated.current = true;
-      router.replace('/(tabs)');
-      return;
-    }
-
-    if (isFromListingDetail) {
-      hasNavigated.current = true;
-      router.back();
-      return;
-    }
-
-    if (isFromChatPage || isFromChatIndexPage) {
-      hasNavigated.current = true;
-      router.back();
-      return;
-    }
-
-    webViewRef.current?.injectJavaScript(`
-      if (window.history.length > 1) {
-        window.history.back();
-      } else {
-        window.location.href = "${BASE_URL}/chats";
-      }
-    `);
-  },
-
-  LISTING_CLICKED: (data: any) => {
-    if (!disableAutoNavigation && data.listing.slug && data.listing.product_id) {
-      hasNavigated.current = true;
-      router.push({
-        pathname: '/listings/[slug]/[product_id]/page',
-        params: { slug: data.listing.slug, product_id: data.listing.product_id },
-      });
-    }
-  },
-
-  ADD_LISTING_CLICKED: (data: any) => {
-    hasNavigated.current = true;
-    router.push('/add');
-  },
-
-  PROFILE_CLICKED: (data: any) => {
-    if (data.nickname) {
-      hasNavigated.current = true;
-      router.push({
-        pathname: '/profiles/[nickname]',
-        params: { nickname: data.nickname },
-      });
-    }
-  },
-
-  NAVIGATE_TO_LISTINGS: () => {
-    hasNavigated.current = true;
-    router.push('/(tabs)');
-  },
-
-  NAVIGATE_TO_LISTING: (data: any) => {
-    if (data.slug && data.productId) {
-      hasNavigated.current = true;
-      router.push({
-        pathname: '/listings/[slug]/[product_id]/page',
-        params: { slug: data.slug, product_id: data.productId },
-      });
-    }
-  },
-
-  NAVIGATE_TO_ADD: () => {
-    hasNavigated.current = true;
-    router.push('/(tabs)/add');
-  },
-
-  NAVIGATE_CHAT: (data: any) => {
-    if (data.chatId) {
-      hasNavigated.current = true;
-      router.push({
-        pathname: '/chat/[id]',
-        params: { id: data.chatId },
-      });
-    }
-  },
-
-  VIEW_ALL_CHATS: (data: any) => {
-    hasNavigated.current = true;
-    if (data.listingId) {
-      router.push({
-        pathname: '/chat',
-        params: { listingId: data.listingId },
-      });
-    } else {
-      router.push('/chat');
-    }
-  },
-
-  NAVIGATE: (data: any) => {
-    if (data.path) {
-      hasNavigated.current = true;
-      router.push(data.path);
-    }
-  },
-
-  NAVIGATE_TO_LOCATION: () => {
-    hasNavigated.current = true;
-    router.push('/location');
-  },
-
-  WEB_LOGOUT_SUCCESS: () => {
-    // Immediately navigate to native sign-in without reloading the WebView
-    hasNavigated.current = true;
-    clearWebViewAuth();
-    logout()
-      .catch(() => { })
-      .finally(() => {
-        router.replace('/auth/signin');
-      });
-  },
+/** -------------------------
+ * 🔹 Helpers
+ * ------------------------- */
+const getPageType = (url: string, route: string) => ({
+  isAddPage: url.includes('/add') || route === 'add',
+  isAddSuccessPage: url.includes('/add-success') || route === 'add-success',
+  isListingDetail: url.includes('/listings/'),
+  isChatPage: url.includes('/chat?listing='),
+  isChatIndexPage: url.includes('/chat/'),
+  isChatsPage: url.includes('/chats') || route === 'chats',
+  isLikedPage: url.includes('/liked') || route === 'liked',
+  isSigninPage: url.includes('/auth/signin') || route === 'auth/signin',
 });
 
+/** -------------------------
+ * 🔹 PersistentWebView
+ * ------------------------- */
 const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(
   ({ route, onMessage, disableAutoNavigation = false, onRefresh, refreshing = false, disableRefresh = false }, ref) => {
     const webViewRef = useRef<WebView>(null);
-    const { tokens, logout, isAuthenticated, user, loginWithGoogleForWebView } = useAuth();
+    const { tokens, logout, isAuthenticated, user } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isOffline, setIsOffline] = useState(false);
-    const [isDeviceOffline, setIsDeviceOffline] = useState(false);
     const router = useRouter();
     const hasNavigated = useRef(false);
     const [currentUrl, setCurrentUrl] = useState('');
-    const isDetailPage = useRef(route.includes('/listings/') && route !== 'listings');
 
-    // Flags to avoid re-injecting tokens and re-validating repeatedly
+    // Flags to avoid re-injecting repeatedly
     const authInjectedRef = useRef(false);
     const authRestoredRef = useRef(false);
 
-    // Injected script for WebView auth state management
-    const injectedJavaScript = useMemo(
-      () => `
-(function() {
-  try {
-    console.log('WebView authentication state manager initialized');
-    
-    const isInWebView = !!(window.ReactNativeWebView || 
-      window.webkit?.messageHandlers || 
-      navigator.userAgent.includes('wv'));
-    
-    if (isInWebView) {
-      console.log('Running in mobile WebView - setting up auth state management');
-      
-      setInterval(() => {
-        const token = localStorage.getItem('token');
-        const refreshToken = localStorage.getItem('refreshToken');
-        
-        if (!token && !refreshToken) {
-          const protectedRoutes = ['/profile', '/add', '/chats', '/liked'];
-          const currentPath = window.location.pathname;
-          
-          if (protectedRoutes.some(route => currentPath.startsWith(route))) {
-            if (window.ReactNativeWebView) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'AUTH_REQUIRED',
-                path: currentPath
-              }));
-            }
-          }
-        }
-      }, 5000);
-      
-      const originalLogout = window.logout;
-      window.logout = function() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        localStorage.removeItem('next-auth.session-token');
-        localStorage.removeItem('next-auth.refresh-token');
-        sessionStorage.clear();
-        
-        document.cookie.split(";").forEach(function(c) { 
-          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-        });
-        
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'AUTH_LOGOUT',
-            message: 'Logout initiated from WebView'
-          }));
-        }
-        
-        if (typeof originalLogout === 'function') {
-          originalLogout();
-        }
-      };
-      
-      console.log('WebView auth state management setup complete');
-    }
-  } catch (error) {
-    console.error('Error setting up WebView auth state management:', error);
-  }
-})();
-`,
-      []
-    );
-
-    // Clear WebView authentication state
+    /** -------------------------
+     * 🔹 Clear WebView auth
+     * ------------------------- */
     const clearWebViewAuth = useCallback(() => {
       webViewRef.current?.injectJavaScript(`
-        (function() {
-          try {
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            sessionStorage.clear();
-            
-            if (window.ReactNativeWebView) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'WEBVIEW_AUTH_CLEARED'
-              }));
-            }
-            return true;
-          } catch (error) {
-            console.error('Error clearing WebView auth state:', error);
-            return false;
-          }
-        })();
+        try {
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          sessionStorage.clear();
+          window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'WEBVIEW_AUTH_CLEARED' }));
+        } catch (e) { console.error(e); }
       `);
     }, []);
 
-    // Restore WebView authentication state from native tokens
+    /** -------------------------
+     * 🔹 Restore WebView auth
+     * ------------------------- */
     const restoreWebViewAuth = useCallback(() => {
       if (webViewRef.current && isAuthenticated && tokens.accessToken && tokens.refreshToken) {
+        const safeAccess = JSON.stringify(tokens.accessToken);
+        const safeRefresh = JSON.stringify(tokens.refreshToken);
+        const safeUser = user ? JSON.stringify(user) : 'null';
+
         webViewRef.current.injectJavaScript(`
-          (function() {
-            try {
-              localStorage.setItem('token', '${tokens.accessToken}');
-              localStorage.setItem('refreshToken', '${tokens.refreshToken}');
-              ${user ? `localStorage.setItem('user', JSON.stringify(${JSON.stringify(user)}));` : ''}
-              
-              if (window.ReactNativeWebView) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'AUTH_RESTORED',
-                  user: ${user ? JSON.stringify(user) : 'null'}
-                }));
-              }
-              return true;
-            } catch (error) {
-              console.error('Error restoring WebView auth state:', error);
-              return false;
-            }
-          })();
+          try {
+            localStorage.setItem('token', ${safeAccess});
+            localStorage.setItem('refreshToken', ${safeRefresh});
+            ${user ? `localStorage.setItem('user', ${safeUser});` : ''}
+            window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'AUTH_RESTORED', user: ${safeUser} }));
+          } catch (e) { console.error(e); }
         `);
       }
     }, [isAuthenticated, tokens.accessToken, tokens.refreshToken, user]);
 
-    // Memoized message handlers
-    const messageHandlers = useMemo(
-      () =>
-        createMessageHandlers(
-          router,
-          webViewRef as React.RefObject<WebView<{}>>,
-          currentUrl,
-          route,
-          hasNavigated,
-          disableAutoNavigation,
-          clearWebViewAuth,
-          logout
-        ),
-      [router, currentUrl, route, disableAutoNavigation, logout, clearWebViewAuth]
-    );
-
-    // Handle message from WebView
+    /** -------------------------
+     * 🔹 Handle WebView messages
+     * ------------------------- */
     const handleMessage = useCallback(
       (event: WebViewMessageEvent) => {
         try {
-          const data = JSON.parse(event.nativeEvent.data);
-          console.log('WebView message received:', data.type, data);
+          const data: WebViewMessage = JSON.parse(event.nativeEvent.data);
+          log('Message received:', data.type, data);
 
-          if (data.type === 'OPEN_IMAGE_PICKER') {
-            console.log('OPEN_IMAGE_PICKER', data.options);
-            handleImagePicker(data.options);
-            return;
-          }
+          switch (data.type) {
+            case 'OPEN_IMAGE_PICKER':
+              handleImagePicker(data.options);
+              return;
 
-          // Handle Google OAuth request from WebView
-          if (data.type === 'OPEN_WEB_OAUTH' && data.provider === 'google') {
-            console.log('OPEN_WEB_OAUTH received for Google');
-            return;
-          }
+            case 'OPEN_WEB_OAUTH':
+              if (data.provider === 'google') log('Google OAuth requested');
+              return;
 
-          // One-time mark when auth is successfully restored from native → web
-          if (data.type === 'AUTH_RESTORED') {
-            console.log('WebView auth restored');
-            authRestoredRef.current = true;
-            authInjectedRef.current = true;
-          }
+            case 'AUTH_RESTORED':
+              authRestoredRef.current = true;
+              authInjectedRef.current = true;
+              return;
 
-          if (onMessage) {
-            onMessage(event);
-          }
-
-          const handler = messageHandlers[data.type as keyof typeof messageHandlers];
-          if (handler) {
-            handler(data);
-            return;
-          }
-
-          // Special cases
-          if (data.type === 'AUTH_REQUIRED') {
-            console.log('AUTH_REQUIRED');
-            router.replace('/auth/signin');
-            return;
-          }
-
-          if (data.type === 'AUTH_VALIDATION_FAILED') {
-            console.error('Token validation failed:', data.message);
-            // Clear invalid tokens and redirect to login
-            clearWebViewAuth();
-            logout().finally(() => {
+            case 'AUTH_REQUIRED':
               router.replace('/auth/signin');
-            });
-            return;
+              return;
+
+            case 'AUTH_VALIDATION_FAILED':
+              clearWebViewAuth();
+              logout().finally(() => router.replace('/auth/signin'));
+              return;
+
+            case 'WEB_LOGOUT_SUCCESS':
+              hasNavigated.current = true;
+              clearWebViewAuth();
+              logout().finally(() => router.replace('/auth/signin'));
+              return;
+
+            case 'GO_BACK': {
+              const { isAddPage, isAddSuccessPage, isListingDetail, isChatPage, isChatIndexPage, isChatsPage, isLikedPage, isSigninPage } =
+                getPageType(currentUrl, route);
+
+              if (isSigninPage) return router.replace('/(tabs)');
+              if (data.from === 'edit-page' && data.slug && data.product_id) {
+                return router.replace({ pathname: '/listings/[slug]/[product_id]/page', params: { slug: data.slug, product_id: data.product_id } });
+              }
+              if (isLikedPage || isAddPage || isAddSuccessPage || isChatsPage) return router.replace('/(tabs)');
+              if (isListingDetail || isChatPage || isChatIndexPage) return router.back();
+
+              webViewRef.current?.injectJavaScript(`
+                if (window.history.length > 1) window.history.back();
+                else window.location.href = "${BASE_URL}/chats";
+              `);
+              return;
+            }
+
+            case 'LISTING_CLICKED':
+              if (!disableAutoNavigation && data.listing?.slug && data.listing?.product_id) {
+                router.push({ pathname: '/listings/[slug]/[product_id]/page', params: data.listing });
+              }
+              return;
+
+            case 'PROFILE_CLICKED':
+              if (data.nickname) router.push({ pathname: '/profiles/[nickname]', params: { nickname: data.nickname } });
+              return;
+
+            case 'NAVIGATE_TO_LISTINGS': router.push('/(tabs)'); return;
+            case 'NAVIGATE_TO_LISTING': router.push({ pathname: '/listings/[slug]/[product_id]/page', params: { slug: data.slug, product_id: data.productId } }); return;
+            case 'ADD_LISTING_CLICKED': router.push('/add'); return;
+            case 'NAVIGATE_CHAT': router.push({ pathname: '/chat/[id]', params: { id: data.chatId } }); return;
+            case 'VIEW_ALL_CHATS': router.push(data.listingId ? { pathname: '/chat', params: { listingId: data.listingId } } : '/chat'); return;
+            case 'NAVIGATE': if (data.path) router.push(data.path); return;
+            case 'NAVIGATE_TO_LOCATION': router.push('/location'); return;
+
+            default:
+              break;
           }
+
+          onMessage?.(event);
         } catch (err) {
-          console.error('Error handling WebView message:', err);
-          if (onMessage) {
-            onMessage(event);
-          }
+          log('Error parsing WebView message:', err);
+          onMessage?.(event);
         }
       },
-      [onMessage, messageHandlers, router]
+      [onMessage, router, currentUrl, route, disableAutoNavigation, clearWebViewAuth, logout]
     );
 
+    /** -------------------------
+     * 🔹 Image Picker
+     * ------------------------- */
     const handleImagePicker = async (options: any) => {
       try {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          alert('Sorry, we need camera roll permissions to upload images!');
-          return;
-        }
-        // Launch image picker
+        if (status !== 'granted') return alert('Permission needed to access photos.');
+
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsMultipleSelection: true,
@@ -430,61 +233,43 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           allowsEditing: false,
           aspect: [4, 3],
         });
+
         if (!result.canceled && result.assets) {
-          // Process images with additional metadata
-          const images = result.assets.slice(0, options?.maxImages || 5).map((asset, index) => {
-            // Calculate file size estimate (for logging/debugging)
-            const base64Length = asset.base64?.length || 0;
-            const fileSizeKB = Math.round(base64Length * 0.75 / 1024);
-
-            console.log(`Image ${index + 1} size: ~${fileSizeKB}KB, dimensions: ${asset.width}x${asset.height}`);
-
-            return {
-              uri: `data:image/jpeg;base64,${asset.base64}`,
-              type: 'image/jpeg',
-              name: `image_${Date.now()}_${index}.jpg`,
-              width: asset.width,
-              height: asset.height,
-              size: fileSizeKB
-            };
-          });
-
-          // Send images back to WebView
-          webViewRef.current?.postMessage(JSON.stringify({
-            type: 'IMAGES_SELECTED',
-            images: images
+          const images = result.assets.slice(0, options?.maxImages || 5).map((asset, index) => ({
+            uri: `data:image/jpeg;base64,${asset.base64}`,
+            type: 'image/jpeg',
+            name: `image_${Date.now()}_${index}.jpg`,
+            width: asset.width,
+            height: asset.height,
+            size: Math.round((asset.base64?.length || 0) * 0.75 / 1024),
           }));
+
+          webViewRef.current?.postMessage(JSON.stringify({ type: 'IMAGES_SELECTED', images }));
         }
       } catch (error) {
-        console.error('Error picking images:', error);
+        log('Error picking images:', error);
         alert('Error selecting images. Please try again.');
       }
-    }
+    };
 
-    // Network status
+    /** -------------------------
+     * 🔹 Network status
+     * ------------------------- */
     useEffect(() => {
       const unsubscribe = NetInfo.addEventListener((state) => {
-        setIsDeviceOffline(!state.isConnected);
-        if (!state.isConnected) {
-          setIsOffline(true);
-          setError('No internet connection');
-        } else {
-          setIsOffline(false);
-          setError(null);
-        }
+        setIsOffline(!state.isConnected);
+        setError(!state.isConnected ? 'No internet connection' : null);
       });
-
-      return () => unsubscribe();
+      return unsubscribe;
     }, []);
 
-    // Build URL with authentication once per session (or when tokens rotate)
+    /** -------------------------
+     * 🔹 Build initial URL
+     * ------------------------- */
     const buildUrl = useCallback(
       (baseRoute: string) => {
         const url = new URL(`${BASE_URL}/${baseRoute}`);
-
-        if (user?.id) {
-          url.searchParams.set('user_id', user.id);
-        }
+        if (user?.id) url.searchParams.set('user_id', user.id);
         if (!authInjectedRef.current && isAuthenticated && tokens.accessToken && tokens.refreshToken) {
           url.searchParams.set('access_token', tokens.accessToken);
           url.searchParams.set('refresh_token', tokens.refreshToken);
@@ -495,138 +280,56 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       [isAuthenticated, tokens.accessToken, tokens.refreshToken, user?.id]
     );
 
-    // Mark injection complete when tokens are present (covers initial mount)
-    useEffect(() => {
-      if (isAuthenticated && tokens.accessToken && tokens.refreshToken) {
-        authInjectedRef.current = true;
-      }
-    }, [isAuthenticated, tokens.accessToken, tokens.refreshToken]);
-
-    // Build/refresh URL on route change; attempt restore only if not already restored
     useEffect(() => {
       const newUrl = buildUrl(route);
-      console.log('Building URL:', newUrl);
       setCurrentUrl(newUrl);
-
       if (!authRestoredRef.current && isAuthenticated && tokens.accessToken && tokens.refreshToken) {
         setTimeout(restoreWebViewAuth, 300);
       }
     }, [route, buildUrl, isAuthenticated, tokens.accessToken, tokens.refreshToken, restoreWebViewAuth]);
 
-    // Clear WebView auth when native auth is gone
     useEffect(() => {
-      if (!isAuthenticated && !tokens.accessToken) {
-        clearWebViewAuth();
-      }
+      if (!isAuthenticated && !tokens.accessToken) clearWebViewAuth();
     }, [isAuthenticated, tokens.accessToken, clearWebViewAuth]);
 
-    // Error handlers
-    const isNetworkError = useCallback((errorMessage: string) => {
-      const networkErrors = [
-        'net::ERR_INTERNET_DISCONNECTED',
-        'net::ERR_NETWORK_CHANGED',
-        'net::ERR_CONNECTION_REFUSED',
-        'net::ERR_CONNECTION_TIMED_OUT',
-        'net::ERR_NAME_NOT_RESOLVED',
-        'ERR_INTERNET_DISCONNECTED',
-        'ERR_NETWORK_CHANGED',
-        'ERR_CONNECTION_REFUSED',
-        'ERR_CONNECTION_TIMED_OUT',
-        'ERR_NAME_NOT_RESOLVED',
-      ];
-      return networkErrors.some((error) => errorMessage.includes(error));
+    /** -------------------------
+     * 🔹 Error handlers
+     * ------------------------- */
+    const handleError = useCallback((e: any) => {
+      const msg = e.nativeEvent.description || e.nativeEvent.message || '';
+      log('WebView error:', msg);
+      setError(msg);
+      setIsOffline(true);
+      setIsLoading(false);
     }, []);
-
-    const handleError = useCallback(
-      (e: any) => {
-        const errorMessage = e.nativeEvent.description || e.nativeEvent.message || '';
-        console.error('WebView error:', errorMessage);
-
-        if (isNetworkError(errorMessage)) {
-          setIsOffline(true);
-          setError('No internet connection');
-        } else {
-          setError(`WebView error: ${errorMessage}`);
-        }
-        setIsLoading(false);
-      },
-      [isNetworkError]
-    );
 
     const handleHttpError = useCallback((e: any) => {
-      const errorMessage = `HTTP error: ${e.nativeEvent.statusCode}`;
-      console.error(errorMessage);
-
-      if (e.nativeEvent.statusCode >= 500) {
-        setIsOffline(true);
-        setError('Server error - please check your connection');
-      } else {
-        setError(errorMessage);
-      }
+      const msg = `HTTP error: ${e.nativeEvent.statusCode}`;
+      log(msg);
+      setError(msg);
+      setIsOffline(e.nativeEvent.statusCode >= 500);
       setIsLoading(false);
     }, []);
 
-    const handleRetry = useCallback(() => {
-      setIsOffline(false);
-      setError(null);
-      setIsLoading(true);
-      webViewRef.current?.reload();
-    }, []);
+    /** -------------------------
+     * 🔹 Expose methods
+     * ------------------------- */
+    useImperativeHandle(ref, () => ({
+      refresh: () => webViewRef.current?.injectJavaScript(`(window.refreshData?.() || window.refreshListings?.() || location.reload())`),
+      reload: () => webViewRef.current?.reload(),
+      injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
+      clearWebViewAuth,
+    }));
 
-    const handleRefresh = useCallback(() => {
-      if (onRefresh) {
-        onRefresh();
-      } else {
-        webViewRef.current?.reload();
-      }
-    }, [onRefresh]);
-
-    const handleLoad = useCallback(() => {
-      setIsLoading(false);
-      setIsOffline(false);
-      setError(null);
-    }, []);
-
-    // Expose methods to parent
-    useImperativeHandle(
-      ref,
-      () => ({
-        refresh: () => {
-          webViewRef.current?.injectJavaScript(`
-            (function() {
-              try {
-                if (typeof window.refreshData === 'function') {
-                  window.refreshData();
-                  return true;
-                }
-                if (typeof window.refreshListings === 'function') {
-                  window.refreshListings();
-                  return true;
-                }
-                location.reload();
-                return true;
-              } catch (error) {
-                console.error('Error during refresh:', error);
-                location.reload();
-                return false;
-              }
-            })();
-          `);
-        },
-        reload: () => webViewRef.current?.reload(),
-        injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
-        clearWebViewAuth,
-      }),
-      [clearWebViewAuth]
-    );
-
-    // WebView props
+    /** -------------------------
+     * 🔹 Render
+     * ------------------------- */
     const webViewProps = useMemo(
       () => ({
         ref: webViewRef,
         source: { uri: currentUrl },
         style: styles.webView,
-        onLoad: handleLoad,
+        onLoad: () => setIsLoading(false),
         onError: handleError,
         onHttpError: handleHttpError,
         onMessage: handleMessage,
@@ -640,15 +343,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         allowsInlineMediaPlayback: true,
         allowFileAccess: true,
         allowUniversalAccessFromFileURLs: true,
-        injectedJavaScript,
       }),
-      [currentUrl, handleLoad, handleError, handleHttpError, handleMessage, injectedJavaScript]
+      [currentUrl, handleError, handleHttpError, handleMessage]
     );
 
     return (
       <View style={styles.container}>
         {isOffline ? (
-          <OfflineScreen onRetry={handleRetry} message={error || 'No internet connection'} />
+          <OfflineScreen onRetry={() => webViewRef.current?.reload()} message={error || 'No internet connection'} />
         ) : disableRefresh ? (
           <WebView {...webViewProps} />
         ) : (
@@ -656,15 +358,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             style={styles.scrollView}
             contentContainerStyle={styles.scrollViewContent}
             refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                colors={['#2528be']}
-                tintColor="#2528be"
-              />
-            }
-            scrollEventThrottle={16}
-          >
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh || (() => webViewRef.current?.reload())} colors={['#2528be']} tintColor="#2528be" />
+            }>
             <WebView {...webViewProps} />
           </ScrollView>
         )}
@@ -681,6 +376,9 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 PersistentWebView.displayName = 'PersistentWebView';
 export default PersistentWebView;
 
+/** -------------------------
+ * 🔹 Styles
+ * ------------------------- */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
   scrollView: { flex: 1 },
