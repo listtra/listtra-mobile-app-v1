@@ -1,3 +1,4 @@
+import { AuthGuard } from '@/components/AuthGuard';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -33,7 +34,7 @@ export default function RootLayout() {
                   backgroundColor="white"
                   translucent={true}
                 />
-                {/* <AuthGuard> */}
+                <AuthGuard>
                   <>
                     <Stack>
                       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -80,7 +81,7 @@ export default function RootLayout() {
                     </Stack>
 
                   </>
-                {/* </AuthGuard> */}
+                </AuthGuard>
               </View>
             </ThemeProvider>
           </NotificationProvider>

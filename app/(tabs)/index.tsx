@@ -1,9 +1,8 @@
 // app/(tabs)/index.tsx
-import React, { useRef, useState, useCallback } from 'react';
-import { StyleSheet, View, RefreshControl, ScrollView } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
-import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ListingsScreen() {

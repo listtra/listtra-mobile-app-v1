@@ -10,12 +10,14 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 import OfflineScreen from './OfflineScreen';
 
-const BASE_URL = 'http://192.168.31.224:3000'; // adjust for prod/dev
+const BASE_URL = 'http://10.147.95.190:3000'; // adjust for prod/dev
+//const BASE_URL = 'https://merger-parking-shadows-sphere.trycloudflare.com';
+//const BASE_URL = 'https://listtra-git-redesign2-listtra.vercel.app';
 
 /** -------------------------
  * 🔹 Types
@@ -54,7 +56,8 @@ type WebViewMessage =
   | { type: 'AUTH_RESTORED'; user?: any }
   | { type: 'OPEN_IMAGE_PICKER'; options?: any }
   | { type: 'OPEN_WEB_OAUTH'; provider: 'google' }
-  | { type: string; [key: string]: any }; // fallback
+  | { type: 'SHARE_LISTING'; data: any }
+  | { type: string;[key: string]: any }; // fallback
 
 /** -------------------------
  * 🔹 Logger (dev only)
@@ -83,7 +86,7 @@ const getPageType = (url: string, route: string) => ({
 const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(
   ({ route, onMessage, disableAutoNavigation = false, onRefresh, refreshing = false, disableRefresh = false }, ref) => {
     const webViewRef = useRef<WebView>(null);
-    const { tokens, logout, isAuthenticated, user } = useAuth();
+    const { tokens, logout, isAuthenticated, user, handleGoogleSignIn, setTokensDirectly } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isOffline, setIsOffline] = useState(false);
@@ -118,16 +121,69 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         const safeRefresh = JSON.stringify(tokens.refreshToken);
         const safeUser = user ? JSON.stringify(user) : 'null';
 
+        // Inject tokens and trigger auth validation
         webViewRef.current.injectJavaScript(`
           try {
+            console.log('Native app injecting auth tokens');
             localStorage.setItem('token', ${safeAccess});
             localStorage.setItem('refreshToken', ${safeRefresh});
             ${user ? `localStorage.setItem('user', ${safeUser});` : ''}
-            window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'AUTH_RESTORED', user: ${safeUser} }));
-          } catch (e) { console.error(e); }
+            
+            // Dispatch a custom event to notify the web app that auth has been restored
+            window.dispatchEvent(new CustomEvent('mobileAuthRestored', {
+              detail: {
+                tokens: {
+                  accessToken: ${safeAccess},
+                  refreshToken: ${safeRefresh}
+                },
+                user: ${safeUser}
+              }
+            }));
+            
+            // Also send the standard message
+            window.ReactNativeWebView?.postMessage(JSON.stringify({ 
+              type: 'AUTH_RESTORED', 
+              user: ${safeUser},
+              tokens: {
+                accessToken: ${safeAccess},
+                refreshToken: ${safeRefresh}
+              }
+            }));
+            
+            console.log('Auth tokens injected and events dispatched');
+          } catch (e) { 
+            console.error('Error injecting auth:', e); 
+          }
         `);
       }
     }, [isAuthenticated, tokens.accessToken, tokens.refreshToken, user]);
+
+    const handleShare = async (shareData: any) => {
+      try {
+        const shareOptions = {
+          title: shareData.title,
+          message: `${shareData.title}\n\n${shareData.description}\n\nCheck it out: ${shareData.url}`,
+          url: shareData.url,
+        };
+        const result = await Share.share(shareOptions);
+        if (result.action === Share.sharedAction) {
+          if (result.activityType) {
+            log('Shared via:', result.activityType);
+          } else {
+            log('Content shared successfully');
+          }
+        } else if (result.action === Share.dismissedAction) {
+          log('Share dismissed');
+        }
+      } catch (error) {
+        log('Error sharing:', error);
+        // Send error back to WebView
+        webViewRef.current?.postMessage(JSON.stringify({
+          type: 'SHARE_ERROR',
+          error: 'Failed to share content'
+        }));
+      }
+    }
 
     /** -------------------------
      * 🔹 Handle WebView messages
@@ -143,8 +199,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               handleImagePicker(data.options);
               return;
 
+            case 'SHARE_LISTING':
+              handleShare(data.data);
+              return;
+
             case 'OPEN_WEB_OAUTH':
-              if (data.provider === 'google') log('Google OAuth requested');
+              if (data.provider === 'google') {
+                handleGoogleOAuth();
+              }
               return;
 
             case 'AUTH_RESTORED':
@@ -159,6 +221,24 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             case 'AUTH_VALIDATION_FAILED':
               clearWebViewAuth();
               logout().finally(() => router.replace('/auth/signin'));
+              return;
+
+            case 'AUTH_VALIDATION_SUCCESS':
+              console.log('AUTH_VALIDATION_SUCCESS 🔥', data);
+              setTokensDirectly(data.tokens.accessToken, data.tokens.refreshToken, data.user);
+              restoreWebViewAuth();
+              return;
+
+            case 'AUTH_LOGIN_SUCCESS':
+              console.log('AUTH_LOGIN_SUCCESS received:', data);
+              setTokensDirectly(data.tokens.accessToken, data.tokens.refreshToken, data.user);
+
+              // Wait a bit for tokens to be stored
+              setTimeout(() => {
+                restoreWebViewAuth();
+                // Navigate after auth is restored
+                setTimeout(() => router.push('/(tabs)'), 500);
+              }, 200);
               return;
 
             case 'WEB_LOGOUT_SUCCESS':
@@ -216,26 +296,142 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       [onMessage, router, currentUrl, route, disableAutoNavigation, clearWebViewAuth, logout]
     );
 
+    const handleGoogleOAuth = async () => {
+      try {
+        log('Handling Google OAuth request - opening in system browser');
+        const result = await handleGoogleSignIn();
+
+        if (result.success) {
+          console.log('Google OAuth successful, tokens and user available');
+          console.log('Result tokens:', result.tokens);
+          console.log('Result user:', result.user);
+
+          // Give a moment for state to update, then restore WebView auth
+          setTimeout(() => {
+            console.log('Restoring WebView auth after Google OAuth success');
+            restoreWebViewAuth();
+
+            // Send success message to WebView
+            webViewRef.current?.postMessage(JSON.stringify({
+              type: 'AUTH_LOGIN_SUCCESS',
+              tokens: result.tokens,
+              user: result.user
+            }));
+          }, 300);
+
+        } else {
+          log('Google OAuth failed:', result.error);
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'AUTH_LOGIN_FAILED',
+            error: result.error
+          }));
+        }
+      } catch (error) {
+        log('Error in Google OAuth flow:', error);
+        webViewRef.current?.postMessage(JSON.stringify({
+          type: 'AUTH_LOGIN_FAILED',
+          error: 'Authentication failed'
+        }));
+      }
+    };
+
     /** -------------------------
      * 🔹 Image Picker
      * ------------------------- */
     const handleImagePicker = async (options: any) => {
       try {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') return alert('Permission needed to access photos.');
+        // Request both camera and media library permissions
+        const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
 
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsMultipleSelection: true,
-          quality: options?.quality || 0.85,
-          base64: true,
-          exif: false,
-          allowsEditing: false,
-          aspect: [4, 3],
+        if (mediaStatus !== 'granted' && cameraStatus !== 'granted') {
+          return alert('Permission needed to access photos and camera.');
+        }
+
+        // Show action sheet to choose between camera and gallery
+        const result = await new Promise<any>((resolve) => {
+          const showActionSheet = () => {
+            if (Platform.OS === 'ios') {
+              // For iOS, use ActionSheetIOS
+              const ActionSheetIOS = require('react-native').ActionSheetIOS;
+              ActionSheetIOS.showActionSheetWithOptions(
+                {
+                  options: ['Cancel', 'Take Photo', 'Choose from Gallery'],
+                  cancelButtonIndex: 0,
+                },
+                (buttonIndex: number) => {
+                  if (buttonIndex === 1) {
+                    // Take Photo
+                    ImagePicker.launchCameraAsync({
+                      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                      allowsEditing: options?.allowsEditing || false,
+                      quality: options?.quality || 0.85,
+                      base64: true,
+                      exif: false,
+                      aspect: [4, 3],
+                    }).then(resolve);
+                  } else if (buttonIndex === 2) {
+                    // Choose from Gallery
+                    ImagePicker.launchImageLibraryAsync({
+                      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                      allowsMultipleSelection: true,
+                      quality: options?.quality || 0.85,
+                      base64: true,
+                      exif: false,
+                      allowsEditing: false,
+                      aspect: [4, 3],
+                    }).then(resolve);
+                  } else {
+                    resolve({ canceled: true });
+                  }
+                }
+              );
+            } else {
+              // For Android, use Alert
+              const Alert = require('react-native').Alert;
+              Alert.alert(
+                'Select Image',
+                'Choose an option',
+                [
+                  { text: 'Cancel', style: 'cancel', onPress: () => resolve({ canceled: true }) },
+                  {
+                    text: 'Camera',
+                    onPress: () => {
+                      ImagePicker.launchCameraAsync({
+                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                        allowsEditing: options?.allowsEditing || false,
+                        quality: options?.quality || 0.85,
+                        base64: true,
+                        exif: false,
+                        aspect: [4, 3],
+                      }).then(resolve);
+                    }
+                  },
+                  {
+                    text: 'Gallery',
+                    onPress: () => {
+                      ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                        allowsMultipleSelection: true,
+                        quality: options?.quality || 0.85,
+                        base64: true,
+                        exif: false,
+                        allowsEditing: false,
+                        aspect: [4, 3],
+                      }).then(resolve);
+                    }
+                  }
+                ],
+                { cancelable: true }
+              );
+            }
+          };
+
+          showActionSheet();
         });
 
         if (!result.canceled && result.assets) {
-          const images = result.assets.slice(0, options?.maxImages || 5).map((asset, index) => ({
+          const images = result.assets.slice(0, options?.maxImages || 5).map((asset: any, index: number) => ({
             uri: `data:image/jpeg;base64,${asset.base64}`,
             type: 'image/jpeg',
             name: `image_${Date.now()}_${index}.jpg`,

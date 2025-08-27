@@ -16,14 +16,7 @@ export default function SignInScreen() {
       const data = JSON.parse(event.nativeEvent.data);
       console.log('SignIn WebView message:', data);
 
-      if (data.type === 'AUTH_LOGIN_SUCCESS' && data.tokens) {
-        // Handle successful login
-        setTokensDirectly(data.tokens.accessToken, data.tokens.refreshToken, data.user);
-
-        setTimeout(() => {
-          router.replace('/(tabs)');
-        }, 300);
-      } else if (data.type === 'EMAIL_NOT_VERIFIED' && data.email) {
+      if (data.type === 'EMAIL_NOT_VERIFIED' && data.email) {
         // Navigate to verify email for unverified users
         router.push({
           pathname: '/auth/verify-email',
