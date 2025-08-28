@@ -485,7 +485,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const redirectUrl = Linking.createURL('');
       console.log('Redirect URL:', redirectUrl);
 
-      const baseUrl = 'https://merger-parking-shadows-sphere.trycloudflare.com';
+      const baseUrl = 'https://listtra-git-redesign2-listtra.vercel.app';
       const authUrl = `${baseUrl}/api/auth/mobile/google?redirect_uri=${encodeURIComponent(redirectUrl)}`;
 
       console.log('Opening browser with URL:', authUrl);
