@@ -15,9 +15,9 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 import OfflineScreen from './OfflineScreen';
 
-//const BASE_URL = 'http://10.147.95.190:3000'; // adjust for prod/dev
+const BASE_URL = 'http://192.168.1.15:3000'; // adjust for prod/dev
 //const BASE_URL = 'https://merger-parking-shadows-sphere.trycloudflare.com';
-const BASE_URL = 'https://listtra-git-redesign2-listtra.vercel.app';
+//const BASE_URL = 'https://listtra-git-redesign2-listtra.vercel.app';
 
 /** -------------------------
  * 🔹 Types
