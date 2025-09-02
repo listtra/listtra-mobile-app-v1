@@ -1,4 +1,4 @@
-package com.listtramobileapp
+package com.listtra.app
 
 import android.app.Application
 import android.content.res.Configuration
