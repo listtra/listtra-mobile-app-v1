@@ -1,16 +1,15 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { googleSignInService } from '../services/googleSignInService';
 
-// Configure Google WebBrowser auth
-WebBrowser.maybeCompleteAuthSession();
+// Configure Google WebBrowser auth (keeping for web fallback)
+//WebBrowser.maybeCompleteAuthSession();
 
 // API endpoint configuration
-const API_URL = 'https://backend.listtra.com'; // Local development server
+const API_URL = 'https://backend.listtra.com';
 
 // Define app scheme for deep linking
 const APP_SCHEME = 'listtra';
@@ -77,7 +76,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
   // Function to store tokens securely
-  // In AuthContext.tsx, update the storeTokens function
   const storeTokens = async (accessToken: string, refreshToken: string, userData?: any) => {
     try {
       console.log('Storing tokens, token lengths:', accessToken.length, refreshToken.length);
@@ -214,7 +212,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const seconds = Math.floor((expiresIn % 60000) / 1000);
         console.log(`Token expires in: ${minutes} minutes and ${seconds} seconds`);
 
-
         // If token expires in less than 5 minutes, refresh it
         if (expiresIn < 5 * 60 * 1000) {
           console.log('Token expiring soon, refreshing...');
@@ -234,7 +231,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(interval);
   }, []);
 
-  // Function to handle refresh token
   // Function to handle refresh token
   const refreshAccessToken = async (refreshToken: string | null) => {
     console.log('=== TOKEN REFRESH STARTED ===');
@@ -426,6 +422,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     console.log('Logging out user from mobile app');
 
+    // Sign out from Google as well
+    try {
+      await googleSignInService.signOut();
+    } catch (error) {
+      console.error('Error signing out from Google:', error);
+    }
+
     // Clear user state first
     setUser(null);
 
@@ -444,11 +447,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Function to directly set tokens (useful for WebView integration)
+  // In setTokensDirectly function, make sure you're setting the user:
   const setTokensDirectly = async (accessToken: string, refreshToken: string, userData?: any) => {
     try {
       await storeTokens(accessToken, refreshToken, userData);
 
       if (userData) {
+        console.log('🔧 Setting user in setTokensDirectly:', userData);
         setUser(userData);
       } else {
         // If no userData provided, fetch it using the access token
@@ -458,11 +463,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               Authorization: `Bearer ${accessToken}`
             }
           });
-
+          console.log('🔧 Fetched user profile:', response.data);
           setUser(response.data);
         } catch (error) {
           console.error('Error fetching user profile with provided token:', error);
-          // If profile fetch fails, don't set user
         }
       }
       return true;
@@ -472,116 +476,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // In AuthContext.tsx, update handleGoogleSignIn to handle tokens directly
-  // Add some additional debugging to understand what's happening
+  // Updated handleGoogleSignIn to use native Google Sign-In
   const handleGoogleSignIn = async (): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log('Starting Google Sign-In flow...');
+      console.log('🚀 AuthContext: Starting native Google Sign-In...');
 
-      // Create a simpler redirect URL that doesn't require a specific screen
-      const redirectUrl = Linking.createURL('');
-      console.log('Redirect URL:', redirectUrl);
+      const result = await googleSignInService.signIn();
+      console.log('🚀 AuthContext: GoogleSignInService result:', result);
 
-      const baseUrl = 'https://listtra-git-redesign2-listtra.vercel.app';
-      const authUrl = `${baseUrl}/api/auth/mobile/google?redirect_uri=${encodeURIComponent(redirectUrl)}`;
+      if (result.success && result.tokens && result.user) {
+        console.log('🚀 AuthContext: Native Google Sign-In successful');
+        console.log('🚀 AuthContext: Tokens:', result.tokens);
+        console.log('🚀 AuthContext: User:', result.user);
 
-      console.log('Opening browser with URL:', authUrl);
-
-      const result = await WebBrowser.openAuthSessionAsync(
-        authUrl,
-        redirectUrl,
-        {
-          showInRecents: true,
-          preferEphemeralSession: true,
-        }
-      );
-
-      console.log('WebBrowser result type:', result.type);
-      console.log('WebBrowser result:', JSON.stringify(result, null, 2));
-
-      if (result.type === 'success') {
-        console.log('Success result URL:', result.url);
-
-        // Parse the URL to get tokens and user data
-        const url = new URL(result.url);
-        console.log('Parsed URL pathname:', url.pathname);
-        console.log('Parsed URL search params:', url.search);
-
-        const accessToken = url.searchParams.get('access_token');
-        const refreshToken = url.searchParams.get('refresh_token');
-        const userDataString = url.searchParams.get('user');
-        const errorParam = url.searchParams.get('error');
-
-        console.log('Google callback URL params:', {
-          hasAccessToken: !!accessToken,
-          hasRefreshToken: !!refreshToken,
-          hasUserData: !!userDataString,
-          error: errorParam,
-          fullUrl: result.url,
-          accessTokenLength: accessToken?.length,
-          refreshTokenLength: refreshToken?.length
-        });
-
-        if (errorParam) {
-          console.error('Google auth error from URL:', errorParam);
-          setError('Google sign-in failed. Please try again.');
-          setIsLoading(false);
-          return { success: false, error: errorParam };
-        }
-
-        if (accessToken && refreshToken && userDataString) {
-          try {
-            const userData = JSON.parse(decodeURIComponent(userDataString));
-            console.log('Parsed user data from Google OAuth:', userData);
-
-            // Store tokens and set user
-            await setTokensDirectly(accessToken, refreshToken, userData);
-
-            console.log('Google sign-in successful - tokens stored and user set');
-            setIsLoading(false);
-
-            // Navigate to home screen
-            router.replace('/(tabs)');
-
-            return {
-              success: true,
-              tokens: { accessToken, refreshToken },
-              user: userData
-            };
-          } catch (parseError) {
-            console.error('Error parsing user data:', parseError);
-            setError('Failed to process user data');
-            setIsLoading(false);
-            return { success: false, error: 'Failed to process user data' };
-          }
-        } else {
-          console.error('Missing tokens or user data in callback');
-          console.log('Available search params:', Array.from(url.searchParams.entries()));
-          setError('Authentication failed - missing data');
-          setIsLoading(false);
-          return { success: false, error: 'Authentication failed - missing data' };
-        }
-      } else if (result.type === 'cancel') {
-        console.log('User cancelled Google sign-in');
+        console.log('🚀 AuthContext: Google sign-in successful - returning tokens and user');
         setIsLoading(false);
-        return { success: false, error: 'Sign-in cancelled' };
+
+        return {
+          success: true,
+          tokens: result.tokens,
+          user: result.user
+        };
       } else {
-        console.error('Google sign-in failed with result:', result);
-        setError('Google sign-in failed');
+        console.error('🚀 AuthContext: Native Google Sign-In failed:', result.error);
+        setError(result.error || 'Google Sign-In failed');
         setIsLoading(false);
-        return { success: false, error: 'Google sign-in failed' };
+        return { success: false, error: result.error || 'Google Sign-In failed' };
       }
-    } catch (error) {
-      console.error('Google sign in error:', error);
+    } catch (error: any) {
+      console.error('🚀 AuthContext: Google sign in error:', error);
       setError('Authentication failed. Please try again.');
       setIsLoading(false);
       return { success: false, error: 'Authentication failed' };
     }
   };
-
 
   return (
     <AuthContext.Provider

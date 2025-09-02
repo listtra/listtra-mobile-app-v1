@@ -96,6 +96,13 @@ export default {
             "Allow $(PRODUCT_NAME) to use your location to help you find nearby items and automatically set your pickup location.",
         },
       ],
+      // Add Google Sign-In plugin
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          iosUrlScheme: "com.googleusercontent.apps.827930578004-9t2a9k7cmjevruiee4s0iq5k9h5p3eqg"
+        }
+      ],
     ],
 
     experiments: {
