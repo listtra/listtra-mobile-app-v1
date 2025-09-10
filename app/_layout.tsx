@@ -31,7 +31,7 @@ export default function RootLayout() {
               <View style={{ flex: 1, backgroundColor: 'white' }}>
                 <StatusBar
                   style="dark"
-                  backgroundColor="white"
+                  backgroundColor="#f8f8f8"
                   translucent={true}
                 />
                 <AuthGuard>
