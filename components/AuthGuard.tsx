@@ -25,7 +25,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
                             segments[0] === 'chat' || 
                             segments[0] === 'notifications' || 
                             segments[0] === 'profiles' || 
-                            segments[0] === 'listings' ||
                             segments[0] === 'search';
     
     // If user is authenticated and tries to access auth routes, redirect to home
