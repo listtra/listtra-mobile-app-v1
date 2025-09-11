@@ -381,7 +381,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               params: { slug: data.slug, product_id: data.productId }
             });
             return;
-          case 'ADD_LISTING_CLICKED': router.push('/add'); return;
+          case 'ADD_LISTING_CLICKED': router.push('/navbar-add'); return;
           case 'NAVIGATE_CHAT':
             router.push({ pathname: '/chat/[id]', params: { id: data.chatId } });
             return;

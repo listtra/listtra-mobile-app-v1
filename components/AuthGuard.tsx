@@ -23,6 +23,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     const inAuthGroup = segments[0] === 'auth';
     const inProtectedRoute = 
                             segments[0] === 'chat' || 
+                            segments[0] === 'add' ||
                             segments[0] === 'notifications' || 
                             segments[0] === 'profiles' || 
                             segments[0] === 'search';
