@@ -47,7 +47,14 @@ function TabBarIcon(props: {
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const { checkTabAuth } = useTabAuth();
-  
+
+  // Hide tab bar on add screen
+  const currentRoute = state.routes[state.index];
+  if (currentRoute.name === 'add') {
+    return null;
+  }
+
+
   // Animation values
   const tabWidth = SCREEN_WIDTH / state.routes.length;
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -289,7 +296,6 @@ export default function TabLayout() {
       <Tabs.Screen name="add" />
       <Tabs.Screen name="chats" />
       <Tabs.Screen name="profile" />
-      
     </Tabs>
   );
 }

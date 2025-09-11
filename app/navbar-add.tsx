@@ -5,7 +5,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView from '../components/PersistentWebView';
 
-export default function NavbarAddScreen() {
+export default function AddScreen() {
   const router = useRouter();
 
   return (
@@ -19,6 +19,7 @@ export default function NavbarAddScreen() {
           <PersistentWebView
             route="add"
             disableRefresh={true}
+            isFromNavbar={true}
           />
         </View>
       </SafeAreaView>

@@ -1,20 +1,23 @@
 // app/(tabs)/add.tsx
-import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import PersistentWebView from '../../components/PersistentWebView';
 
 export default function AddScreen() {
   const router = useRouter();
+  const [key, setKey] = useState(0);
 
-  // Automatically navigate to standalone add screen when this tab is accessed
-  useEffect(() => {
-    router.push('/navbar-add');
-  }, []);
+  // Force WebView refresh every time the screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('AddScreen focused, forcing WebView refresh');
+      setKey(prev => prev + 1);
+    }, [])
+  );
 
-  // This content won't be visible since we navigate away immediately,
-  // but keeping it as fallback
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -24,6 +27,7 @@ export default function AddScreen() {
       <SafeAreaView style={styles.flex} edges={['top','left','right']}>
         <View style={styles.webViewContainer}>
           <PersistentWebView
+            key={key}
             route="add"
             disableRefresh={true}
           />
@@ -34,6 +38,6 @@ export default function AddScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1,backgroundColor: 'white'},
+  flex: { flex: 1 },
   webViewContainer: { flex: 1, backgroundColor: 'white' },
 });

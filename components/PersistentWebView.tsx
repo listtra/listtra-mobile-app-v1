@@ -5,10 +5,9 @@ import React, {
   forwardRef,
   useCallback,
   useEffect,
-  useImperativeHandle,
   useMemo,
   useRef,
-  useState,
+  useState
 } from 'react';
 import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
@@ -39,6 +38,7 @@ type PersistentWebViewProps = {
   onRefresh?: () => void;
   refreshing?: boolean;
   disableRefresh?: boolean;
+  isFromNavbar?: boolean;
 };
 
 export interface PersistentWebViewRef {
@@ -98,7 +98,7 @@ const getPageType = (url: string, route: string) => ({
  * 🔹 PersistentWebView Component
  * ------------------------- */
 const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(
-  ({ route, onMessage, disableAutoNavigation = false, onRefresh, refreshing = false, disableRefresh = false }, ref) => {
+  ({ route, onMessage, disableAutoNavigation = false, onRefresh, refreshing = false, disableRefresh = false, isFromNavbar = false }, ref) => {
     // Refs and state
     const webViewRef = useRef<WebView>(null);
 
@@ -171,14 +171,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
         } else {
           logError('Google Sign-In failed:', result.error);
-          
+
           // Show error message to user
           Alert.alert(
             'Sign-In Error',
             result.error || 'Google Sign-In failed. Please try again.',
             [{ text: 'OK' }]
           );
-          
+
           // Also send error back to WebView
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'GOOGLE_AUTH_ERROR',
@@ -187,14 +187,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         }
       } catch (error) {
         logError('Google OAuth error:', error);
-        
+
         // Show generic error message
         Alert.alert(
           'Sign-In Error',
           'An unexpected error occurred during sign-in. Please try again.',
           [{ text: 'OK' }]
         );
-        
+
         // Send error back to WebView
         webViewRef.current?.postMessage(JSON.stringify({
           type: 'GOOGLE_AUTH_ERROR',
@@ -381,7 +381,13 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               params: { slug: data.slug, product_id: data.productId }
             });
             return;
-          case 'ADD_LISTING_CLICKED': router.push('/navbar-add'); return;
+          case 'ADD_LISTING_CLICKED':
+            if (isFromNavbar) {
+              router.push('/navbar-add');
+            } else {
+              router.push('/(tabs)/add');
+            }
+            return;
           case 'NAVIGATE_CHAT':
             router.push({ pathname: '/chat/[id]', params: { id: data.chatId } });
             return;
@@ -499,19 +505,26 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       domStorageEnabled: true,
       cacheEnabled: true,
 
-      // Security settings
-      thirdPartyCookiesEnabled: false,
+      // Security settings - Updated for better image loading
+      thirdPartyCookiesEnabled: true, // Enable for image loading
       sharedCookiesEnabled: true,
-      originWhitelist: [BASE_URL, 'https://*'],
-      mixedContentMode: 'never' as const,
+      originWhitelist: ['*'], // Allow all origins for images
+      mixedContentMode: 'compatibility' as const, // Allow mixed content
+
+      // Add these for better image support
+      allowsBackForwardNavigationGestures: false,
+      bounces: false,
+      scrollEnabled: true,
+      showsHorizontalScrollIndicator: false,
+      showsVerticalScrollIndicator: false,
 
       // Media settings
       allowsInlineMediaPlayback: true,
       mediaPlaybackRequiresUserAction: false,
 
-      // File access (disabled for security)
-      allowFileAccess: false,
-      allowUniversalAccessFromFileURLs: false,
+      // File access (enable for images)
+      allowFileAccess: true,
+      allowUniversalAccessFromFileURLs: true,
 
       // User agent
       userAgent: `Listtra-Mobile/${Platform.OS}`,
