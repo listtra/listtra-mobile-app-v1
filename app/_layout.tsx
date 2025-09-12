@@ -76,6 +76,7 @@ export default function RootLayout() {
                           presentation: 'card'
                         }}
                       />
+                      <Stack.Screen name="categories" options={{ headerShown: false }} />
                       <Stack.Screen name="+not-found" />
                       <Stack.Screen name="location" options={{ headerShown: false }} />
                     </Stack>

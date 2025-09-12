@@ -21,7 +21,7 @@ export default function ListingDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
-        <PersistentWebView route={`listings/${slug}/${product_id}`} disableAutoNavigation={true} disableRefresh={true} />
+        <PersistentWebView route={`listings/${slug}/${product_id}`} disableRefresh={true} />
       </View>
     </SafeAreaView>
   );

@@ -58,6 +58,7 @@ type WebViewMessage =
   | { type: 'NAVIGATE_CHAT'; chatId: string }
   | { type: 'VIEW_ALL_CHATS'; listingId?: string }
   | { type: 'NAVIGATE'; path: string }
+  | { type: 'CATEGORIES_CLICKED'; category: string }
   | { type: 'NAVIGATE_TO_LOCATION' }
   | { type: 'WEB_LOGOUT_SUCCESS' }
   | { type: 'AUTH_REQUIRED'; path: string }
@@ -92,6 +93,7 @@ const getPageType = (url: string, route: string) => ({
   isChatsPage: url.includes('/chats') || route === 'chats',
   isLikedPage: url.includes('/liked') || route === 'liked',
   isSigninPage: url.includes('/auth/signin') || route === 'auth/signin',
+  isCategoryPage: url.includes('/categories/') || route === 'categories',
 });
 
 /** -------------------------
@@ -343,7 +345,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
           case 'GO_BACK': {
             const pageType = getPageType(currentUrl, route);
-
+            
             if (pageType.isSigninPage) return router.replace('/(tabs)');
             if (data.from === 'edit-page' && data.slug && data.product_id) {
               return router.replace({
@@ -354,7 +356,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             if (pageType.isLikedPage || pageType.isAddPage || pageType.isAddSuccessPage || pageType.isChatsPage) {
               return router.replace('/(tabs)');
             }
-            if (pageType.isListingDetail || pageType.isChatPage || pageType.isChatIndexPage) {
+            if (pageType.isListingDetail || pageType.isChatPage || pageType.isChatIndexPage || pageType.isCategoryPage) {
               return router.back();
             }
             return;
@@ -362,7 +364,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
           // Navigation handlers
           case 'LISTING_CLICKED':
-            if (!disableAutoNavigation && data.listing?.slug && data.listing?.product_id) {
+            if (data.listing?.slug && data.listing?.product_id) {
               router.push({ pathname: '/listings/[slug]/[product_id]/page', params: data.listing });
             }
             return;
@@ -399,6 +401,21 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             return;
           case 'NAVIGATE':
             if (data.path) router.push(data.path);
+            return;
+          case 'CATEGORIES_CLICKED':
+            // Handle dedicated category clicks with delay in production
+            if (data.category) {
+              const categoryPath = `/categories/${encodeURIComponent(data.category)}`;
+              log('CATEGORIES_CLICKED message received:', data.category);
+              if (!__DEV__) {
+                log('Adding navigation delay for production category click');
+                setTimeout(() => {
+                  router.push(categoryPath as any);
+                }, NAVIGATION_DELAY);
+              } else {
+                router.push(categoryPath as any);
+              }
+            }
             return;
           case 'NAVIGATE_TO_LOCATION': router.push('/location'); return;
 
