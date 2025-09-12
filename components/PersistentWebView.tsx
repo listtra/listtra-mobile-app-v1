@@ -126,7 +126,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
         const shareOptions = {
           title: shareData.title,
-          message: `${shareData.title}\n\n${shareData.description || ''}\n\nCheck it out: ${shareData.url}`,
+          message: `${shareData.title}\n\nCheck it out: ${shareData.url}`,
           url: shareData.url,
         };
 

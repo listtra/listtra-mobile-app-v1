@@ -15,6 +15,7 @@ export default {
       bundleIdentifier: "com.listtra.app",
       supportsTablet: true,
       statusBarStyle: "dark-content",
+      statusBarBackgroundColor: "#f8f8f8",
       googleServicesFile: "./ios/GoogleService-Info.plist",
       infoPlist: {
         UIStatusBarStyle: "UIStatusBarStyleDarkContent",
