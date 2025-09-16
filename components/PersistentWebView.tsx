@@ -600,7 +600,7 @@ export default PersistentWebView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white'
+    backgroundColor: '#f8f8f8'
   },
   scrollView: {
     flex: 1
