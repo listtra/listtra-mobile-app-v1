@@ -1,5 +1,5 @@
 import { useTabAuth } from '@/hooks/useTabAuth';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 function TabBarIcon(props: {
-  iconType?: 'ionicons' | 'material' | 'fa5' | 'fa6';
+  iconType?: 'ionicons' | 'material' | 'fa5' | 'fa6' | 'fi';
   name: any;
   color: string;
   size?: number;
@@ -28,7 +28,11 @@ function TabBarIcon(props: {
       return <FontAwesome5 size={props.size || 24} {...rest} />;
     } else if (iconType === 'fa6') {
       return <FontAwesome6 size={props.size || 24} {...rest} />;
-    } else {
+    }
+    else if (iconType === 'fi') {
+      return <Feather size={props.size || 24} {...rest} />;
+    }
+    else {
       return <Ionicons size={props.size || 24} {...rest} />;
     }
   };
@@ -130,8 +134,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         };
       case 'add':
         return {
-          iconType: 'fa5' as const,
-          name: 'plus',
+          iconType: 'fi' as const,
+          name: 'plus-circle',
           size: isFocused ? 22 : 24,
           solid: isFocused,
         };
@@ -172,9 +176,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const safeBottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 10 : 0);
 
   return (
-    <View style={[styles.tabBarContainer, { paddingBottom: safeBottomPadding }]}>
-      <View />
-
+    <View style={[styles.tabBarContainer]}>
       {/* Animated Floating Bubble */}
       <Animated.View style={[styles.floatingBubble, bubbleTransformStyle]}>
         <TabBarIcon
@@ -239,11 +241,12 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 const styles = StyleSheet.create({
   tabBarContainer: {
     flexDirection: 'row',
-    height:60,
-    backgroundColor: '#FFFFFF',
+    height: 60,
+    backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.06)',
     paddingHorizontal: 10,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 0,
     paddingTop: 0,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -2 },
@@ -255,6 +258,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    height: '100%',
+    paddingBottom: 10
   },
   floatingBubble: {
     position: 'absolute',
@@ -270,6 +275,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 10,
+    top: 5, // Add fixed top positioning
   },
   activeIcon: {
     // Additional styles for active icon if needed

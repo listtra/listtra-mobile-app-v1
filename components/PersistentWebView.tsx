@@ -13,6 +13,7 @@ import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, Share, 
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
 import OfflineScreen from './OfflineScreen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Environment-based configuration
 const getBaseUrl = () => {
@@ -103,6 +104,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
   ({ route, onMessage, disableAutoNavigation = false, onRefresh, refreshing = false, disableRefresh = false, isFromNavbar = false }, ref) => {
     // Refs and state
     const webViewRef = useRef<WebView>(null);
+
+    const insets = useSafeAreaInsets();
 
     // Auth context
     const { tokens, logout, isAuthenticated, user, handleGoogleSignIn, setTokensDirectly } = useAuth();
@@ -345,7 +348,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
           case 'GO_BACK': {
             const pageType = getPageType(currentUrl, route);
-            
+
             if (pageType.isSigninPage) return router.replace('/(tabs)');
             if (data.from === 'edit-page' && data.slug && data.product_id) {
               return router.replace({
@@ -478,6 +481,17 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       setError(null);
     }, []);
 
+    const bottomInset = Math.min(insets.bottom, 12);
+
+    const injectedJS = `
+    window.SAFE_AREA_INSETS = ${JSON.stringify({
+      ...insets,
+      bottom: bottomInset,
+    })};
+    document.documentElement.style.setProperty('--safe-area-bottom', '${bottomInset}px');
+    true;
+  `;
+
     /** -------------------------
      * 🔹 Effects
      * ------------------------- */
@@ -510,6 +524,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     const webViewProps = useMemo(() => ({
       ref: webViewRef,
       source: { uri: currentUrl },
+      injectedJavaScript: injectedJS,
       style: styles.webView,
       onLoad: handleLoadEnd,
       onLoadEnd: handleLoadEnd,
