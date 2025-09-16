@@ -14,7 +14,7 @@ import { PushNotificationProvider } from '../context/PushNotificationContext';
 
 function RootLayoutContent() {
   const insets = useSafeAreaInsets();
-  
+
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f8f8' }}>
       <StatusBar
@@ -22,24 +22,24 @@ function RootLayoutContent() {
         backgroundColor="#f8f8f8"
         translucent={true}
       />
-      
+
       {/* Status bar background for iOS - positioned absolutely */}
       {Platform.OS === 'ios' && (
-        <View 
-          style={{ 
+        <View
+          style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
-            height: insets.top, 
+            height: insets.top,
             backgroundColor: '#f8f8f8',
             zIndex: 1000
-          }} 
+          }}
         />
       )}
-      
-      <View style={{ 
-        flex: 1, 
+
+      <View style={{
+        flex: 1,
         backgroundColor: 'white',
       }}>
         <AuthGuard>
@@ -58,6 +58,14 @@ function RootLayoutContent() {
               <Stack.Screen name="navbar-add" options={{ headerShown: false }} />
               <Stack.Screen name="liked" options={{ headerShown: false }} />
               <Stack.Screen name="search/page" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="settings"
+                options={{
+                  headerShown: false,
+                  presentation: 'card',
+                  animation: 'slide_from_right'
+                }}
+              />
               <Stack.Screen name="profiles/[nickname]" options={{ headerShown: false }} />
               <Stack.Screen name="listings" options={{ headerShown: false }} />
               <Stack.Screen
