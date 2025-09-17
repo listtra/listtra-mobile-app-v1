@@ -71,6 +71,8 @@ type WebViewMessage =
   | { type: 'NAVIGATE'; path: string }
   | { type: 'CATEGORIES_CLICKED'; category: string }
   | { type: 'NAVIGATE_TO_LOCATION' }
+  | { type: 'NAVIGATE_TO_PROFILE_TAB' }
+  | { type: 'NAVIGATE_TO_PROFILE'; nickname: string }
   | { type: 'WEB_LOGOUT_SUCCESS' }
   | { type: 'AUTH_REQUIRED'; path: string }
   | { type: 'AUTH_VALIDATION_FAILED'; message: string }
@@ -111,6 +113,7 @@ const getPageType = (url: string, route: string) => ({
   isLikedPage: url.includes('/liked') || route === 'liked',
   isSigninPage: url.includes('/auth/signin') || route === 'auth/signin',
   isCategoryPage: url.includes('/categories/') || route === 'categories',
+  isProfilePage: url.includes('/profiles/') || route === 'profiles',
 });
 
 /** -------------------------
@@ -671,6 +674,16 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             handleImagePicker(data.options);
             return;
 
+          case 'NAVIGATE_TO_PROFILE':
+            if (data.nickname) {
+              router.push({ pathname: '/profiles/[nickname]', params: { nickname: data.nickname } });
+            }
+            return;
+
+          case 'NAVIGATE_TO_PROFILE_TAB':
+            router.push('/(tabs)/profile');
+            return;
+
           case 'SHARE_LISTING':
             handleShare(data.data);
             return;
@@ -712,7 +725,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             if (pageType.isLikedPage || pageType.isAddPage || pageType.isAddSuccessPage || pageType.isChatsPage) {
               return router.replace('/(tabs)');
             }
-            if (pageType.isListingDetail || pageType.isChatPage || pageType.isChatIndexPage || pageType.isCategoryPage) {
+            if (pageType.isListingDetail || pageType.isChatPage || pageType.isChatIndexPage || pageType.isCategoryPage || pageType.isProfilePage) {
               return router.back();
             }
             return;
