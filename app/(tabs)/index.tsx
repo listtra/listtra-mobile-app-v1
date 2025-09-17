@@ -1,14 +1,50 @@
 // app/(tabs)/index.tsx
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
-import { useAuth } from '../../context/AuthContext';
+
+// Global variable to store the refresh function
+let globalIndexRefresh: (() => void) | null = null;
+
+export const triggerIndexRefresh = () => {
+  if (globalIndexRefresh) {
+    globalIndexRefresh();
+  } else {
+    console.log('No index refresh function available');
+  }
+};
 
 export default function ListingsScreen() {
   const webViewRef = useRef<PersistentWebViewRef>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
+  // Handle refresh functionality
+  const handleRefresh = useCallback(async () => {
+    if (webViewRef.current) {
+      setIsRefreshing(true);
+      webViewRef.current.refresh();
+      // Add a small delay to show the refresh indicator
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
+  }, []);
+
+  // Set the global refresh function when component mounts
+  useEffect(() => {
+    globalIndexRefresh = handleRefresh;
+    
+    return () => {
+      globalIndexRefresh = null;
+    };
+  }, [handleRefresh]);
+
+  // Refresh whenever the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      handleRefresh();
+    }, [handleRefresh])
+  );
 
   // Handle WebView messages
   const handleMessage = (event: any) => {
@@ -37,6 +73,7 @@ export default function ListingsScreen() {
           ref={webViewRef}
           onMessage={handleMessage}
           refreshing={isRefreshing}
+          onRefresh={handleRefresh}
         />
       </View>
     </SafeAreaView>

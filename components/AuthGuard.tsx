@@ -13,9 +13,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, isInitializing, isAuthenticated } = useAuth();
 
-  console.log("user", user);
-  console.log("isInitializing", isInitializing);
-  console.log("isAuthenticated", isAuthenticated);
+  // console.log("user", user);
+  // console.log("isInitializing", isInitializing);
+  // console.log("isAuthenticated", isAuthenticated);
 
   useEffect(() => {
     if (isInitializing) return;

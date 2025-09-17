@@ -7,6 +7,7 @@ import { Tabs } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Platform, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { triggerIndexRefresh } from './index';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -57,7 +58,6 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   if (currentRoute.name === 'add') {
     return null;
   }
-
 
   // Animation values
   const tabWidth = SCREEN_WIDTH / state.routes.length;
@@ -178,7 +178,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   return (
     <View style={[styles.tabBarContainer]}>
       {/* Animated Floating Bubble */}
-      <Animated.View style={[styles.floatingBubble, bubbleTransformStyle]}>
+      <Animated.View style={[styles.floatingBubble, bubbleTransformStyle]} pointerEvents="none">
         <TabBarIcon
           iconType={getTabIcon(state.routes[state.index].name, true).iconType}
           name={getTabIcon(state.routes[state.index].name, true).name}
@@ -194,15 +194,27 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         const isFocused = state.index === index;
 
         const onPress = () => {
+          console.log('Tab pressed:', route.name, 'isFocused:', isFocused);
+
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,
             canPreventDefault: true,
           });
 
-          if (!isFocused && !event.defaultPrevented) {
-            if (checkTabAuth(route.name)) {
-              navigation.navigate(route.name);
+          if (!event.defaultPrevented) {
+            if (!isFocused) {
+              // Normal navigation to any tab (including index)
+              if (checkTabAuth(route.name)) {
+                console.log('Navigating to:', route.name);
+                navigation.navigate(route.name);
+              }
+            } else {
+              // If already focused and it's the index tab, still trigger refresh
+              if (route.name === 'index') {
+                console.log('Index tab tapped while focused - triggering refresh');
+                triggerIndexRefresh();
+              }
             }
           }
         };
@@ -218,10 +230,15 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           <Pressable
             key={route.key}
             onPress={onPress}
-            style={styles.tabItem}
+            style={[
+              styles.tabItem,
+              // Ensure the pressable area extends properly for the focused tab
+              isFocused && styles.focusedTabItem
+            ]}
             accessibilityRole="button"
             accessibilityState={isFocused ? { selected: true } : {}}
             accessibilityLabel={options.tabBarAccessibilityLabel}
+            hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
           >
             <TabBarIcon
               iconType={tabIcon.iconType}
@@ -241,13 +258,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 const styles = StyleSheet.create({
   tabBarContainer: {
     flexDirection: 'row',
-    height: 60,
+    height: 70,
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.06)',
     paddingHorizontal: 10,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 0,
-    paddingTop: 0,
+    paddingBottom: Platform.OS === 'ios' ? 15 : 0,
+    paddingTop: 5,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
@@ -259,7 +276,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     height: '100%',
-    paddingBottom: 10
+    paddingBottom: 10,
+    // Ensure the tab item can receive touch events
+    zIndex: 1,
+  },
+  focusedTabItem: {
+    // Ensure focused tab item is above the bubble but can still receive touches
+    zIndex: 15,
   },
   floatingBubble: {
     position: 'absolute',
@@ -275,7 +298,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 10,
-    top: 5, // Add fixed top positioning
+    top: 5,
+    // This ensures the bubble doesn't interfere with touch events
+    pointerEvents: 'none',
   },
   activeIcon: {
     // Additional styles for active icon if needed

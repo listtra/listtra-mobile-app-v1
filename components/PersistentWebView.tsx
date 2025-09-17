@@ -7,7 +7,8 @@ import React, {
   useEffect,
   useMemo,
   useRef,
-  useState
+  useState,
+  useImperativeHandle
 } from 'react';
 import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
@@ -117,6 +118,30 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     const [currentUrl, setCurrentUrl] = useState('');
 
     const router = useRouter();
+
+    /** -------------------------
+     * 🔹 Imperative Handle
+     * ------------------------- */
+    useImperativeHandle(ref, () => ({
+      refresh: () => {
+        console.log('PersistentWebView refresh method called');
+        if (webViewRef.current) {
+          webViewRef.current.reload();
+        }
+      },
+      reload: () => {
+        console.log('PersistentWebView reload method called');
+        if (webViewRef.current) {
+          webViewRef.current.reload();
+        }
+      },
+      injectJavaScript: (script: string) => {
+        console.log('PersistentWebView injectJavaScript method called');
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(script);
+        }
+      },
+    }), []);
 
     /** -------------------------
      * 🔹 Share Functionality
