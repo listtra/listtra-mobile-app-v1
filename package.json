@@ -17,7 +17,7 @@
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/netinfo": "^11.4.1",
-    "@react-native-google-signin/google-signin": "^14.0.1",
+    "@react-native-google-signin/google-signin": "^14.0.2",
     "@react-navigation/bottom-tabs": "^7.3.10",
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
@@ -35,6 +35,7 @@
     "expo-font": "~13.3.1",
     "expo-haptics": "~14.1.4",
     "expo-image": "~2.3.0",
+    "expo-image-manipulator": "~13.1.7",
     "expo-image-picker": "~16.1.4",
     "expo-linking": "~7.1.5",
     "expo-location": "~18.1.6",
@@ -62,13 +63,13 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@react-native-community/cli": "latest",
     "@types/lodash": "^4.17.17",
     "@types/react": "~19.0.10",
     "eas-cli": "^16.7.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
-    "typescript": "~5.8.3",
-    "@react-native-community/cli": "latest"
+    "typescript": "~5.8.3"
   },
   "private": true
 }
