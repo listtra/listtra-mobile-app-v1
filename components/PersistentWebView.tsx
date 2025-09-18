@@ -28,7 +28,7 @@ const getBaseUrl = () => {
 const BASE_URL = getBaseUrl();
 
 const NAVIGATION_DELAY = 300;
-const MAX_IMAGES = 5;
+const MAX_IMAGES = 3;
 
 // Enhanced image configuration
 const IMAGE_CONFIG = {
