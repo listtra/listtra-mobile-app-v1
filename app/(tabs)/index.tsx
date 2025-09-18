@@ -19,7 +19,7 @@ export const triggerIndexRefresh = () => {
 export default function ListingsScreen() {
   const webViewRef = useRef<PersistentWebViewRef>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   // Handle refresh functionality
   const handleRefresh = useCallback(async () => {
     if (webViewRef.current) {
@@ -33,30 +33,37 @@ export default function ListingsScreen() {
   // Set the global refresh function when component mounts
   useEffect(() => {
     globalIndexRefresh = handleRefresh;
-    
+
     return () => {
       globalIndexRefresh = null;
     };
   }, [handleRefresh]);
 
-  // Refresh whenever the screen comes into focus
+  // Add a silent refresh function
+  const handleSilentRefresh = useCallback(() => {
+    if (webViewRef.current) {
+      webViewRef.current.refresh();
+      // Don't set isRefreshing to true
+    }
+  }, []);
+
+  // Update the useFocusEffect to use silent refresh
   useFocusEffect(
     useCallback(() => {
-      handleRefresh();
-    }, [handleRefresh])
+      handleSilentRefresh(); // Use silent refresh instead
+    }, [handleSilentRefresh])
   );
-
   // Handle WebView messages
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       console.log('Listings WebView message:', data);
-      
+
       if (data.type === 'AUTH_REQUIRED') {
         console.log('AUTH_REQUIRED message received in listings');
         // This shouldn't happen on listings page, but handle it gracefully
       }
-      
+
       if (data.type === 'WEBVIEW_AUTH_CLEARED') {
         console.log('WebView auth cleared confirmation received in listings');
       }
@@ -68,8 +75,8 @@ export default function ListingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
-        <PersistentWebView 
-          route="listings" 
+        <PersistentWebView
+          route="listings"
           ref={webViewRef}
           onMessage={handleMessage}
           refreshing={isRefreshing}
@@ -83,10 +90,8 @@ export default function ListingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
   },
   webViewContainer: {
     flex: 1,
-    backgroundColor: 'white',
   },
 });

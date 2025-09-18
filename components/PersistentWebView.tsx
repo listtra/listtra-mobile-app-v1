@@ -954,7 +954,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
                 onRefresh={onRefresh || (() => webViewRef.current?.reload())}
                 colors={['#2528be']}
                 tintColor="#2528be"
-                title="Pull to refresh"
               />
             }
           >

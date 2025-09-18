@@ -11,16 +11,17 @@
 		093C82E42BB9A597A1B95BC9 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 911DA1A05BCA59A305C7D340 /* ExpoModulesProvider.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		B62ACC098C90417AAAE0220A /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 4386BDF3972D494FAB31435A /* GoogleService-Info.plist */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		D246163E83876E584DE17470 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = CACCE37C1FEF5BAFF41631C6 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		B62ACC098C90417AAAE0220A /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 4386BDF3972D494FAB31435A /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* listtramobileapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = listtramobileapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = listtramobileapp/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = listtramobileapp/Info.plist; sourceTree = "<group>"; };
+		4386BDF3972D494FAB31435A /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "listtramobileapp/GoogleService-Info.plist"; sourceTree = "<group>"; };
 		816C4F92B2EAF8EF6DD349EA /* libPods-listtramobileapp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-listtramobileapp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		911DA1A05BCA59A305C7D340 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-listtramobileapp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		A3A318BDF132CEE9A2C809BB /* Pods-listtramobileapp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-listtramobileapp.release.xcconfig"; path = "Target Support Files/Pods-listtramobileapp/Pods-listtramobileapp.release.xcconfig"; sourceTree = "<group>"; };
@@ -31,7 +32,6 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = listtramobileapp/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* listtramobileapp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "listtramobileapp-Bridging-Header.h"; path = "listtramobileapp/listtramobileapp-Bridging-Header.h"; sourceTree = "<group>"; };
-		4386BDF3972D494FAB31435A /* GoogleService-Info.plist */ = {isa = PBXFileReference; name = "GoogleService-Info.plist"; path = "listtramobileapp/GoogleService-Info.plist"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = text.plist.xml; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -360,6 +360,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = listtramobileapp/listtramobileapp.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -379,14 +380,13 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.listtra.app";
-				PRODUCT_NAME = "listtramobileapp";
+				PRODUCT_BUNDLE_IDENTIFIER = com.listtra.app;
+				PRODUCT_NAME = listtramobileapp;
 				SWIFT_OBJC_BRIDGING_HEADER = "listtramobileapp/listtramobileapp-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				VERSIONING_SYSTEM = "apple-generic";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				CODE_SIGN_ENTITLEMENTS = listtramobileapp/listtramobileapp.entitlements;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -396,6 +396,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = listtramobileapp/listtramobileapp.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = listtramobileapp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -410,13 +411,12 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.listtra.app";
-				PRODUCT_NAME = "listtramobileapp";
+				PRODUCT_BUNDLE_IDENTIFIER = com.listtra.app;
+				PRODUCT_NAME = listtramobileapp;
 				SWIFT_OBJC_BRIDGING_HEADER = "listtramobileapp/listtramobileapp-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
-				VERSIONING_SYSTEM = "apple-generic";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				CODE_SIGN_ENTITLEMENTS = listtramobileapp/listtramobileapp.entitlements;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
