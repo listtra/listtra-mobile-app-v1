@@ -1,8 +1,9 @@
 // app/(tabs)/chats.tsx
-import React, { useRef, useState, useCallback } from 'react';
+import { useFocusEffect} from '@react-navigation/native';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
 
 export default function ChatsScreen() {
@@ -10,6 +11,35 @@ export default function ChatsScreen() {
   const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [key, setKey] = useState(0);
+  const [route, setRoute] = useState('chats');
+  
+  // Get URL parameters
+  const params = useLocalSearchParams();
+  
+  // Update route when parameters change
+  useEffect(() => {
+    let newRoute = 'chats';
+    const urlParams = new URLSearchParams();
+    
+    // Add tab parameter if present
+    if (params.tab && typeof params.tab === 'string') {
+      urlParams.append('tab', params.tab);
+    }
+    
+    // Add listing parameter if present
+    if (params.listing && typeof params.listing === 'string') {
+      urlParams.append('listing', params.listing);
+    }
+    
+    // Construct the final route with parameters
+    if (urlParams.toString()) {
+      newRoute = `chats?${urlParams.toString()}`;
+    }
+    
+    console.log('ChatsScreen route updated:', newRoute);
+    setRoute(newRoute);
+  }, [params]);
+
   // Handle pull-to-refresh
   const handleRefresh = useCallback(async () => {
     if (webViewRef.current) {
@@ -22,8 +52,6 @@ export default function ChatsScreen() {
     }
   }, []);
 
-
-
   // Force WebView refresh every time the screen is focused
   useFocusEffect(
     React.useCallback(() => {
@@ -32,31 +60,15 @@ export default function ChatsScreen() {
     }, [])
   );
 
-  // Handle focus-based refresh with throttling
-  // useFocusEffect(
-  //   React.useCallback(() => {
-  //     const now = Date.now();
-  //     const REFRESH_THRESHOLD = 15 * 1000; // 15 seconds for chats
-      
-  //     if (now - lastRefreshTime > REFRESH_THRESHOLD && webViewRef.current) {
-  //       console.log('Refreshing chats data...');
-  //       webViewRef.current.refresh();
-  //       setLastRefreshTime(now);
-  //     } else {
-  //       console.log('Skipping chats refresh - too soon since last refresh');
-  //     }
-  //   }, [lastRefreshTime])
-  // );
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
         <PersistentWebView 
-          route="chats" 
+          route={route}
           ref={webViewRef}
           onRefresh={handleRefresh}
           refreshing={isRefreshing}
-          //key={key}
+          key={key} // Enable key to force refresh when route changes
         />
       </View>
     </SafeAreaView>

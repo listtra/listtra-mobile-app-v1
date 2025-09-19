@@ -746,12 +746,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
           // Simple navigation cases
           case 'NAVIGATE_TO_LISTINGS': router.push('/(tabs)'); return;
+
           case 'NAVIGATE_TO_LISTING':
             router.push({
               pathname: '/listings/[slug]/[product_id]/page',
               params: { slug: data.slug, product_id: data.productId }
             });
             return;
+
           case 'ADD_LISTING_CLICKED':
             if (isFromNavbar) {
               router.push('/navbar-add');
@@ -759,15 +761,18 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               router.push('/(tabs)/add');
             }
             return;
+
           case 'NAVIGATE_CHAT':
             router.push({ pathname: '/chat/[id]', params: { id: data.chatId } });
             return;
+
           case 'VIEW_ALL_CHATS':
             router.push(data.listingId ?
-              { pathname: '/chat', params: { listingId: data.listingId } } :
-              '/chat'
+              `/(tabs)/chats?tab=selling&listing=${data.listingId}` :
+              '/(tabs)/chats'
             );
             return;
+
           case 'NAVIGATE':
             if (data.path) router.push(data.path);
             return;
