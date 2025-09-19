@@ -30,6 +30,11 @@ export default function SettingsScreen() {
         router.back();
       }
 
+      if (data.type === 'NAVIGATE_TO_PROFILE_AND_REFRESH') {
+        router.push('/(tabs)/profile?refresh=true');
+        return;
+      }
+
       if (data.type === 'WEBVIEW_AUTH_CLEARED') {
         console.log('WebView auth cleared confirmation received');
       }

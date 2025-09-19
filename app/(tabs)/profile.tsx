@@ -1,14 +1,25 @@
 // app/(tabs)/profile.tsx
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ProfileScreen() {
   const { logout: authLogout } = useAuth();
   const webViewRef = useRef<PersistentWebViewRef>(null);
+  const { refresh } = useLocalSearchParams();
+
+  // Handle refresh parameter
+  useEffect(() => {
+    if (refresh === 'true') {
+      // Small delay to ensure WebView is loaded
+      setTimeout(() => {
+        webViewRef.current?.refresh();
+      }, 500);
+    }
+  }, [refresh]);
 
   const handleMessage = (event: any) => {
     try {
