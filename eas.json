@@ -39,12 +39,22 @@
     },
     "production": {
       "autoIncrement": true,
+      "distribution": "store",
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release",
+        "credentialsSource": "remote"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "tops.listtra@gmail.com"
+      }
+    }
   }
 }
