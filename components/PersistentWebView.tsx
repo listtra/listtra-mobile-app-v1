@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
-import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, {
   forwardRef,
@@ -70,6 +70,8 @@ type WebViewMessage =
   | { type: 'VIEW_ALL_CHATS'; listingId?: string }
   | { type: 'NAVIGATE'; path: string }
   | { type: 'CATEGORIES_CLICKED'; category: string }
+  | { type: 'NAVIGATE_TO_CATEGORY'; category: string }
+  | { type: 'NAVIGATE_TO_SUBCATEGORY'; subcategory: string }
   | { type: 'NAVIGATE_TO_LOCATION' }
   | { type: 'NAVIGATE_TO_PROFILE_TAB' }
   | { type: 'NAVIGATE_TO_PROFILE'; nickname: string }
@@ -725,8 +727,12 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             if (pageType.isLikedPage || pageType.isAddPage || pageType.isAddSuccessPage || pageType.isChatsPage) {
               return router.replace('/(tabs)');
             }
-            if (pageType.isListingDetail || pageType.isChatPage || pageType.isChatIndexPage || pageType.isCategoryPage || pageType.isProfilePage) {
+            if (pageType.isChatPage || pageType.isChatIndexPage || pageType.isCategoryPage || pageType.isProfilePage) {
               return router.back();
+            }
+            if (pageType.isListingDetail) {
+              router.back();
+              return;
             }
             return;
           }
@@ -776,6 +782,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           case 'NAVIGATE':
             if (data.path) router.push(data.path);
             return;
+
           case 'CATEGORIES_CLICKED':
             // Handle dedicated category clicks with delay in production
             if (data.category) {
@@ -791,6 +798,39 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               }
             }
             return;
+
+          case 'NAVIGATE_TO_CATEGORY':
+            // Handle category navigation from ListItem or other components
+            if (data.category) {
+              const categoryPath = `/categories/${encodeURIComponent(data.category)}`;
+              log('NAVIGATE_TO_CATEGORY message received:', data.category);
+              if (!__DEV__) {
+                log('Adding navigation delay for production category navigation');
+                setTimeout(() => {
+                  router.push(categoryPath as any);
+                }, NAVIGATION_DELAY);
+              } else {
+                router.push(categoryPath as any);
+              }
+            }
+            return;
+
+          case 'NAVIGATE_TO_SUBCATEGORY':
+            // Handle subcategory navigation - navigate directly to subcategory URL
+            if (data.subcategory) {
+              const subcategoryPath = `/categories/${encodeURIComponent(data.subcategory)}`;
+              log('NAVIGATE_TO_SUBCATEGORY/SUBCATEGORY_CLICKED message received:', data.subcategory);
+              if (!__DEV__) {
+                log('Adding navigation delay for production subcategory navigation');
+                setTimeout(() => {
+                  router.push(subcategoryPath as any);
+                }, NAVIGATION_DELAY);
+              } else {
+                router.push(subcategoryPath as any);
+              }
+            }
+            return;
+
           case 'NAVIGATE_TO_LOCATION': router.push('/location'); return;
 
           default:
@@ -860,8 +900,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       bottom: bottomInset,
     })};
     document.documentElement.style.setProperty('--safe-area-bottom', '${bottomInset}px');
-    true;
-  `;
+    true;`
 
     /** -------------------------
      * 🔹 Effects

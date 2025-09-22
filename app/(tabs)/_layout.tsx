@@ -1,52 +1,32 @@
 import { useTabAuth } from '@/hooks/useTabAuth';
-import { Feather, Ionicons } from '@expo/vector-icons';
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Platform, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
+import { Animated, Dimensions, Platform, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { triggerIndexRefresh } from './index';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-function TabBarIcon(props: {
-  iconType?: 'ionicons' | 'material' | 'fa5' | 'fa6' | 'fi';
-  name: any;
+function TabBarIcon({
+  name,
+  color,
+  size = 24,
+  animatedStyle,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
   color: string;
   size?: number;
-  style?: any;
-  solid?: boolean;
   animatedStyle?: any;
 }) {
-  const { iconType = 'ionicons', animatedStyle, ...rest } = props;
-
-  const IconComponent = () => {
-    if (iconType === 'material') {
-      return <MaterialIcons size={props.size || 24} {...rest} />;
-    } else if (iconType === 'fa5') {
-      return <FontAwesome5 size={props.size || 24} {...rest} />;
-    } else if (iconType === 'fa6') {
-      return <FontAwesome6 size={props.size || 24} {...rest} />;
-    }
-    else if (iconType === 'fi') {
-      return <Feather size={props.size || 24} {...rest} />;
-    }
-    else {
-      return <Ionicons size={props.size || 24} {...rest} />;
-    }
-  };
-
   if (animatedStyle) {
     return (
       <Animated.View style={animatedStyle}>
-        <IconComponent />
+        <Ionicons name={name} size={size} color={color} />
       </Animated.View>
     );
   }
-
-  return <IconComponent />;
+  return <Ionicons name={name} size={size} color={color} />;
 }
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
@@ -66,47 +46,46 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const iconAnimations = useRef(
     state.routes.map(() => ({
       scale: new Animated.Value(1),
-      opacity: new Animated.Value(state.index === 0 ? 0 : 1)
+      opacity: new Animated.Value(state.index === 0 ? 0 : 1),
     }))
   ).current;
 
-  // Update animations when tab changes
   useEffect(() => {
-    // Animate bubble position
+    // Bubble movement
     Animated.spring(animatedValue, {
       toValue: state.index * tabWidth,
       useNativeDriver: true,
       tension: 70,
-      friction: 7
+      friction: 7,
     }).start();
 
-    // Animate bubble scale
+    // Bubble pop animation
     Animated.sequence([
       Animated.timing(animatedScale, {
         toValue: 0.85,
         duration: 100,
-        useNativeDriver: true
+        useNativeDriver: true,
       }),
       Animated.spring(animatedScale, {
         toValue: 1,
         useNativeDriver: true,
-        friction: 4
-      })
+        friction: 4,
+      }),
     ]).start();
 
-    // Animate icons
+    // Icon animations
     state.routes.forEach((_: any, i: number) => {
       Animated.parallel([
         Animated.timing(iconAnimations[i].scale, {
           toValue: i === state.index ? 1.1 : 1,
           duration: 200,
-          useNativeDriver: true
+          useNativeDriver: true,
         }),
         Animated.timing(iconAnimations[i].opacity, {
           toValue: i === state.index ? 0 : 1,
           duration: 150,
-          useNativeDriver: true
-        })
+          useNativeDriver: true,
+        }),
       ]).start();
     });
   }, [state.index]);
@@ -114,78 +93,42 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const getTabIcon = (routeName: string, isFocused: boolean) => {
     switch (routeName) {
       case 'index':
-        return {
-          iconType: 'material' as const,
-          name: 'view-list',
-          size: isFocused ? 24 : 26,
-        };
+        return { name: 'list-outline' as const, size: 26 };
       case 'notifications':
-        return {
-          iconType: 'ionicons' as const,
-          name: 'notifications',
-          size: isFocused ? 22 : 24,
-        };
+        return { name: 'notifications-outline' as const, size: 24 };
       case 'chats':
-        return {
-          iconType: 'fa5' as const,
-          name: 'comment',
-          size: isFocused ? 22 : 24,
-          solid: isFocused,
-        };
+        return { name: 'chatbox-outline' as const, size: 24 };
       case 'add':
-        return {
-          iconType: 'fi' as const,
-          name: 'plus-circle',
-          size: isFocused ? 22 : 24,
-          solid: isFocused,
-        };
+        return { name: 'add-circle' as const, size: 36 };
       case 'profile':
-        return {
-          iconType: 'fa5' as const,
-          name: 'user',
-          size: isFocused ? 22 : 24,
-          solid: isFocused,
-        };
-
+        return { name: 'person-outline' as const, size: 24 };
       default:
-        return {
-          iconType: 'fa5' as const,
-          name: 'question-circle',
-          size: isFocused ? 22 : 24,
-          solid: isFocused,
-        };
+        return { name: 'help-circle-outline' as const, size: 24 };
     }
   };
 
-  // Animation styles
   const bubbleTranslateX = animatedValue.interpolate({
     inputRange: [0, SCREEN_WIDTH - tabWidth],
     outputRange: [(tabWidth - 34) / 2, SCREEN_WIDTH - tabWidth + (tabWidth - 34) / 2],
-    extrapolate: 'clamp'
+    extrapolate: 'clamp',
   });
 
   const bubbleTransformStyle = {
     transform: [
       { translateX: bubbleTranslateX },
       { translateY: -15 },
-      { scale: animatedScale }
-    ]
+      { scale: animatedScale },
+    ],
   };
 
-  // Calculate safe bottom padding
-  const safeBottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 10 : 0);
-
   return (
-    <View style={[styles.tabBarContainer]}>
-      {/* Animated Floating Bubble */}
+    <View style={styles.tabBarContainer}>
+      {/* Floating Bubble */}
       <Animated.View style={[styles.floatingBubble, bubbleTransformStyle]} pointerEvents="none">
         <TabBarIcon
-          iconType={getTabIcon(state.routes[state.index].name, true).iconType}
           name={getTabIcon(state.routes[state.index].name, true).name}
-          color="#FFFFFF"
+          color="#fff"
           size={getTabIcon(state.routes[state.index].name, true).size}
-          style={styles.activeIcon}
-          solid={getTabIcon(state.routes[state.index].name, true).solid}
         />
       </Animated.View>
 
@@ -194,8 +137,6 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         const isFocused = state.index === index;
 
         const onPress = () => {
-          console.log('Tab pressed:', route.name, 'isFocused:', isFocused);
-
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,
@@ -204,15 +145,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 
           if (!event.defaultPrevented) {
             if (!isFocused) {
-              // Normal navigation to any tab (including index)
               if (checkTabAuth(route.name)) {
-                console.log('Navigating to:', route.name);
                 navigation.navigate(route.name);
               }
             } else {
-              // If already focused and it's the index tab, still trigger refresh
               if (route.name === 'index') {
-                console.log('Index tab tapped while focused - triggering refresh');
                 triggerIndexRefresh();
               }
             }
@@ -220,34 +157,43 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         };
 
         const tabIcon = getTabIcon(route.name, isFocused);
-
         const iconAnimatedStyle = {
           transform: [{ scale: iconAnimations[index].scale }],
-          opacity: iconAnimations[index].opacity
+          opacity: iconAnimations[index].opacity,
+        };
+
+        // ✅ Map route name -> label
+        const tabLabels: Record<string, string> = {
+          index: "Listing",
+          notifications: "Notification",
+          add: "Post an Ad",
+          chats: "Message",
+          profile: "Profile",
         };
 
         return (
           <Pressable
             key={route.key}
             onPress={onPress}
-            style={[
-              styles.tabItem,
-              // Ensure the pressable area extends properly for the focused tab
-              isFocused && styles.focusedTabItem
-            ]}
+            style={[styles.tabItem, isFocused && styles.focusedTabItem]}
             accessibilityRole="button"
             accessibilityState={isFocused ? { selected: true } : {}}
             accessibilityLabel={options.tabBarAccessibilityLabel}
             hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
           >
-            <TabBarIcon
-              iconType={tabIcon.iconType}
-              name={tabIcon.name}
-              color={isFocused ? '#2528be' : '#666'}
-              size={tabIcon.size}
-              solid={tabIcon.solid}
-              animatedStyle={iconAnimatedStyle}
-            />
+            {route.name === 'add' ? (
+              <TabBarIcon name={tabIcon.name} color="#2528be" size={tabIcon.size} />
+            ) : (
+              <TabBarIcon
+                name={tabIcon.name}
+                color={isFocused ? '#2528be' : '#666'}
+                size={tabIcon.size}
+                animatedStyle={iconAnimatedStyle}
+              />
+            )}
+            <Text style={[styles.tabLabel, isFocused && styles.tabLabelFocused]}>
+              {tabLabels[route.name]}
+            </Text>
           </Pressable>
         );
       })}
@@ -258,7 +204,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 const styles = StyleSheet.create({
   tabBarContainer: {
     flexDirection: 'row',
-    height: 70,
+    height: 80,
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.06)',
@@ -277,11 +223,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: '100%',
     paddingBottom: 10,
-    // Ensure the tab item can receive touch events
     zIndex: 1,
   },
+  tabLabel: {
+    fontSize: 10,
+    color: "#666",
+    marginTop: 10,
+  },
+  tabLabelFocused: {
+    color: "#2528be",
+    fontWeight: "600",
+  },
   focusedTabItem: {
-    // Ensure focused tab item is above the bubble but can still receive touches
     zIndex: 15,
   },
   floatingBubble: {
@@ -299,11 +252,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     zIndex: 10,
     top: 5,
-    // This ensures the bubble doesn't interfere with touch events
     pointerEvents: 'none',
-  },
-  activeIcon: {
-    // Additional styles for active icon if needed
   },
 });
 
@@ -315,11 +264,9 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: {
-          display: 'none', // Hide the default tab bar
-        },
+        tabBarStyle: { display: 'none' },
       }}
-      tabBar={props => <CustomTabBar {...props} />}
+      tabBar={(props) => <CustomTabBar {...props} />}
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="notifications" />
