@@ -8,42 +8,27 @@ import PersistentWebView, { PersistentWebViewRef } from '../../../../components/
 
 export default function ListingDetailScreen() {
   const params = useLocalSearchParams();
-  console.log('params', params);
   const slug = typeof params.slug === 'string' ? params.slug : String(params.slug || '');
   const product_id = typeof params.product_id === 'string' ? params.product_id : String(params.product_id || '');
   const router = useRouter();
-  const webViewRef = useRef<PersistentWebViewRef>(null);
-  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+  const [key, setKey] = useState(0);
 
   // Handle back button press
   const handleBackPress = () => {
     router.back();
   };
 
-  // Refresh when screen comes back into focus (but not on initial load)
   useFocusEffect(
     React.useCallback(() => {
-      if (hasInitiallyLoaded) {
-        // Only refresh if this is not the initial load
-        const timer = setTimeout(() => {
-          if (webViewRef.current) {
-            webViewRef.current.refresh();
-          }
-        }, 100);
-
-        return () => clearTimeout(timer);
-      } else {
-        // Mark as initially loaded after first focus
-        setHasInitiallyLoaded(true);
-      }
-    }, [hasInitiallyLoaded])
+      setKey(prev => prev + 1);
+    }, [])
   );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
         <PersistentWebView
-          ref={webViewRef}
+          key={key}
           route={`listings/${slug}/${product_id}`}
           disableRefresh={true}
         />

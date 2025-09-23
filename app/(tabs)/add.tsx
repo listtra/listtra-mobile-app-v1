@@ -13,7 +13,6 @@ export default function AddScreen() {
   // Force WebView refresh every time the screen is focused
   useFocusEffect(
     React.useCallback(() => {
-      console.log('AddScreen focused, forcing WebView refresh');
       setKey(prev => prev + 1);
     }, [])
   );
