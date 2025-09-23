@@ -195,6 +195,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     const [error, setError] = useState<string | null>(null);
     const [isOffline, setIsOffline] = useState(false);
     const [currentUrl, setCurrentUrl] = useState('');
+    // Add state to track if WebView is at top
+    const [isAtTop, setIsAtTop] = useState(true);
 
     const router = useRouter();
 
@@ -929,6 +931,19 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     }, [route, buildUrl]);
 
     /** -------------------------
+     * 🔹 WebView Scroll Handler
+     * ------------------------- */
+    const handleScroll = useCallback((event: any) => {
+      const { contentOffset } = event.nativeEvent;
+      const isCurrentlyAtTop = contentOffset.y <= 0;
+      
+      // Only update state if it changed to avoid unnecessary re-renders
+      if (isCurrentlyAtTop !== isAtTop) {
+        setIsAtTop(isCurrentlyAtTop);
+      }
+    }, [isAtTop]);
+
+    /** -------------------------
      * 🔹 WebView Props
      * ------------------------- */
     const webViewProps = useMemo(() => ({
@@ -941,6 +956,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       onError: handleError,
       onHttpError: handleHttpError,
       onMessage: handleMessage,
+      onScroll: handleScroll, // Add scroll handler
 
       // Performance optimizations
       javaScriptEnabled: true,
@@ -971,7 +987,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       // User agent
       userAgent: `Listtra-Mobile/${Platform.OS}`,
 
-    }), [currentUrl, handleLoadEnd, handleError, handleHttpError, handleMessage]);
+    }), [currentUrl, handleLoadEnd, handleError, handleHttpError, handleMessage, handleScroll]);
 
     /** -------------------------
      * 🔹 Render
@@ -987,7 +1003,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             message={error || 'No internet connection'}
           />
         ) : disableRefresh ? (
-          <WebView {...webViewProps} />
+          <WebView {...webViewProps} pullToRefreshEnabled={true}/>
         ) : (
           <ScrollView
             style={styles.scrollView}
@@ -998,10 +1014,11 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
                 onRefresh={onRefresh || (() => webViewRef.current?.reload())}
                 colors={['#2528be']}
                 tintColor="#2528be"
+                enabled={isAtTop}
               />
             }
           >
-            <WebView {...webViewProps} />
+            <WebView {...webViewProps} pullToRefreshEnabled={false}/>
           </ScrollView>
         )}
 
