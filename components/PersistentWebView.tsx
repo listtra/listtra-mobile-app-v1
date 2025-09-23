@@ -935,7 +935,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       ref: webViewRef,
       source: { uri: currentUrl },
       injectedJavaScript: injectedJS,
-      style: styles.webView,
+      style: [styles.webView, { backgroundColor: '#f8f8f8' }],
       onLoad: handleLoadEnd,
       onLoadEnd: handleLoadEnd,
       onError: handleError,
@@ -1034,12 +1034,13 @@ const styles = StyleSheet.create({
   },
   webView: {
     flex: 1,
-    minHeight: '100%'
+    minHeight: '100%',
+    backgroundColor: '#f8f8f8'
   },
   loaderContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: '#f8f8f8',
   },
 });

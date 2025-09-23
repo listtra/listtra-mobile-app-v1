@@ -40,7 +40,7 @@ function RootLayoutContent() {
 
       <View style={{
         flex: 1,
-        backgroundColor: 'white',
+        backgroundColor: '#f8f8f8',
       }}>
         <AuthGuard>
           <>
