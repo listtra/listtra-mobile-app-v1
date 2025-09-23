@@ -19,12 +19,7 @@ export default function AddScreen() {
   );
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <SafeAreaView style={styles.flex} edges={['top','left','right']}>
+      <SafeAreaView style={styles.flex} edges={['top']}>
         <View style={styles.webViewContainer}>
           <PersistentWebView
             key={key}
@@ -33,7 +28,6 @@ export default function AddScreen() {
           />
         </View>
       </SafeAreaView>
-    </KeyboardAvoidingView>
   );
 }
 
