@@ -1,25 +1,24 @@
 // app/(tabs)/profile.tsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
 import { useAuth } from '../../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen() {
   const { logout: authLogout } = useAuth();
   const webViewRef = useRef<PersistentWebViewRef>(null);
-  const { refresh } = useLocalSearchParams();
+  const [key, setKey] = useState(0);
 
   // Handle refresh parameter
-  useEffect(() => {
-    if (refresh === 'true') {
-      // Small delay to ensure WebView is loaded
-      setTimeout(() => {
-        webViewRef.current?.refresh();
-      }, 500);
-    }
-  }, [refresh]);
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('ChatScreen focused, forcing WebView refresh');
+      setKey(prev => prev + 1);
+    }, [])
+  );
 
   const handleMessage = (event: any) => {
     try {
@@ -43,6 +42,7 @@ export default function ProfileScreen() {
           ref={webViewRef}
           route="profile"
           onMessage={handleMessage}
+          key={key}
         />
       </View>
     </SafeAreaView>

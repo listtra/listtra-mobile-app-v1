@@ -1,5 +1,5 @@
 // app/(tabs)/chats.tsx
-import { useFocusEffect} from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -68,7 +68,7 @@ export default function ChatsScreen() {
           ref={webViewRef}
           onRefresh={handleRefresh}
           refreshing={isRefreshing}
-          key={key} // Enable key to force refresh when route changes
+          key={key}
         />
       </View>
     </SafeAreaView>

@@ -936,7 +936,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     const handleScroll = useCallback((event: any) => {
       const { contentOffset } = event.nativeEvent;
       const isCurrentlyAtTop = contentOffset.y <= 0;
-      
+
       // Only update state if it changed to avoid unnecessary re-renders
       if (isCurrentlyAtTop !== isAtTop) {
         setIsAtTop(isCurrentlyAtTop);
@@ -1003,7 +1003,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             message={error || 'No internet connection'}
           />
         ) : disableRefresh ? (
-          <WebView {...webViewProps} pullToRefreshEnabled={true}/>
+          <WebView {...webViewProps} pullToRefreshEnabled={true} />
         ) : (
           <ScrollView
             style={styles.scrollView}
@@ -1018,7 +1018,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               />
             }
           >
-            <WebView {...webViewProps} pullToRefreshEnabled={false}/>
+            <WebView {...webViewProps} pullToRefreshEnabled={false} />
           </ScrollView>
         )}
 
