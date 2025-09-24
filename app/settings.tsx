@@ -44,21 +44,17 @@ export default function SettingsScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.webViewContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <SafeAreaView style={styles.webViewContainer}>
+
+      <SafeAreaView style={styles.webViewContainer} edges={['top']}>
         <View style={styles.webViewContainer}>
           <PersistentWebView
             ref={webViewRef}
             route="settings"
+            disableRefresh={true}
             onMessage={handleMessage}
           />
         </View>
       </SafeAreaView>
-    </KeyboardAvoidingView>
   );
 }
 
