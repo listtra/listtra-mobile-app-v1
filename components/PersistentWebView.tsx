@@ -69,6 +69,7 @@ type WebViewMessage =
   | { type: 'NAVIGATE_CHAT'; chatId: string }
   | { type: 'VIEW_ALL_CHATS'; listingId?: string }
   | { type: 'NAVIGATE'; path: string }
+  | { type: 'NAVIGATE_SEARCH' }
   | { type: 'CATEGORIES_CLICKED'; category: string }
   | { type: 'NAVIGATE_TO_CATEGORY'; category: string }
   | { type: 'NAVIGATE_TO_SUBCATEGORY'; subcategory: string }
@@ -116,6 +117,7 @@ const getPageType = (url: string, route: string) => ({
   isSigninPage: url.includes('/auth/signin') || route === 'auth/signin',
   isCategoryPage: url.includes('/categories/') || route === 'categories',
   isProfilePage: url.includes('/profiles/') || route === 'profiles',
+  isSearchPage: url.includes('/search') || route === 'search',
 });
 
 /** -------------------------
@@ -729,7 +731,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             if (pageType.isLikedPage || pageType.isAddPage || pageType.isAddSuccessPage || pageType.isChatsPage) {
               return router.replace('/(tabs)');
             }
-            if (pageType.isChatPage || pageType.isChatIndexPage || pageType.isCategoryPage || pageType.isProfilePage) {
+            if (pageType.isChatPage || pageType.isChatIndexPage || pageType.isCategoryPage || pageType.isProfilePage || pageType.isSearchPage) {
               return router.back();
             }
             if (pageType.isListingDetail) {
@@ -783,6 +785,10 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
           case 'NAVIGATE':
             if (data.path) router.push(data.path);
+            return;
+
+          case 'NAVIGATE_SEARCH':
+            router.push('/search/page');
             return;
 
           case 'CATEGORIES_CLICKED':
