@@ -1,6 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, {
   forwardRef,
@@ -15,6 +14,7 @@ import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, Share, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
+import CameraModal from './CameraModal';
 import OfflineScreen from './OfflineScreen';
 
 // Environment-based configuration
@@ -50,6 +50,7 @@ type PersistentWebViewProps = {
   refreshing?: boolean;
   disableRefresh?: boolean;
   isFromNavbar?: boolean;
+  maxPhotos?: number;
 };
 
 export interface PersistentWebViewRef {
@@ -183,7 +184,7 @@ const calculateOptimalDimensions = (width: number, height: number) => {
  * 🔹 PersistentWebView Component
  * ------------------------- */
 const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProps>(
-  ({ route, onMessage, disableAutoNavigation = false, onRefresh, refreshing = false, disableRefresh = false, isFromNavbar = false }, ref) => {
+  ({ route, onMessage, disableAutoNavigation = false, onRefresh, refreshing = false, disableRefresh = false, isFromNavbar = false, maxPhotos = 3 }, ref) => {
     // Refs and state
     const webViewRef = useRef<WebView>(null);
 
@@ -199,6 +200,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     const [currentUrl, setCurrentUrl] = useState('');
     // Add state to track if WebView is at top
     const [isAtTop, setIsAtTop] = useState(true);
+    // Camera modal state
+    const [cameraModalVisible, setCameraModalVisible] = useState(false);
 
     const router = useRouter();
 
@@ -375,295 +378,56 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     };
 
     /** -------------------------
-     * 🔹 Updated Image Picker Handler
+     * 🔹 Camera Modal Handler
      * ------------------------- */
-    const handleImagePicker = useCallback(async (options: any = {}) => {
-      const startTime = Date.now();
-      logImageDebug('Image picker started', { options });
+    const handleOpenCameraModal = useCallback(() => {
+      setCameraModalVisible(true);
+    }, []);
 
-      try {
-        // Request permissions
-        const [mediaResult, cameraResult] = await Promise.all([
-          ImagePicker.requestMediaLibraryPermissionsAsync(),
-          ImagePicker.requestCameraPermissionsAsync(),
-        ]);
+    /** -------------------------
+     * 🔹 Camera Modal Photo Handler
+     * ------------------------- */
+    const handlePhotosSelected = useCallback((photos: any[]) => {
+      logImageDebug('Photos selected from camera modal', {
+        count: photos.length,
+        photos: photos.map(p => ({
+          width: p.width,
+          height: p.height,
+          hasBase64: !!p.base64
+        }))
+      });
 
-        if (mediaResult.status !== 'granted' && cameraResult.status !== 'granted') {
-          logError('Image picker permissions denied');
-          Alert.alert(
-            'Permission Required',
-            'Please grant permission to access photos and camera.',
-            [{ text: 'OK' }]
-          );
-          return;
+      // Format photos for WebView - INCLUDE base64 data
+      const formattedImages = photos.map((photo, index) => ({
+        base64: photo.base64,  // ✅ ADD THIS - pure base64 string
+        type: 'image/jpeg',
+        name: `camera_${Date.now()}_${index}.jpg`,
+        width: photo.width,
+        height: photo.height,
+        size: Math.round(photo.base64 ? calculateImageSize(photo.base64) / 1024 : 0),
+        originalSize: Math.round(photo.base64 ? calculateImageSize(photo.base64) / 1024 : 0),
+        compressionRatio: 0,
+        processingTime: 0,
+      }));
+
+      const messagePayload = {
+        type: 'IMAGES_SELECTED',
+        images: formattedImages,
+        metadata: {
+          totalOriginalSize: formattedImages.reduce((sum, img) => sum + img.size, 0),
+          totalCompressedSize: formattedImages.reduce((sum, img) => sum + img.size, 0),
+          compressionRatio: 0,
+          processingTime: 0,
+          timestamp: Date.now()
         }
+      };
 
-        logImageDebug('Permissions granted', {
-          media: mediaResult.status,
-          camera: cameraResult.status
-        });
+      logImageDebug('Sending camera photos to WebView', {
+        imageCount: formattedImages.length,
+        payloadSize: `${Math.round(JSON.stringify(messagePayload).length / 1024)}KB`
+      });
 
-        // Get images with high quality for our processing
-        const result = await new Promise<any>((resolve) => {
-          const handleSelection = (pickerFunction: () => Promise<any>) => {
-            pickerFunction().then(resolve).catch((error) => {
-              logError('Image picker selection error:', error);
-              resolve({ canceled: true });
-            });
-          };
-
-          // Use high quality initially, we'll compress properly afterwards
-          const baseOptions = {
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: options.allowsEditing || false,
-            quality: 1.0, // Maximum quality for initial capture
-            base64: false, // We'll get base64 after compression
-            exif: false,
-            aspect: [4, 3] as [number, number],
-          };
-
-          const cameraOptions = {
-            ...baseOptions,
-          };
-
-          const galleryOptions = {
-            ...baseOptions,
-            allowsMultipleSelection: true,
-            allowsEditing: false,
-            selectionLimit: options.maxImages || MAX_IMAGES,
-          };
-
-          logImageDebug('Using high-quality initial capture for better compression control');
-
-          if (Platform.OS === 'ios') {
-            const ActionSheetIOS = require('react-native').ActionSheetIOS;
-            ActionSheetIOS.showActionSheetWithOptions(
-              {
-                options: ['Cancel', 'Take Photo', 'Choose from Gallery'],
-                cancelButtonIndex: 0,
-              },
-              (buttonIndex: number) => {
-                logImageDebug('iOS action sheet selection', { buttonIndex });
-                if (buttonIndex === 1) {
-                  handleSelection(() => ImagePicker.launchCameraAsync(cameraOptions));
-                } else if (buttonIndex === 2) {
-                  handleSelection(() => ImagePicker.launchImageLibraryAsync(galleryOptions));
-                } else {
-                  resolve({ canceled: true });
-                }
-              }
-            );
-          } else {
-            Alert.alert(
-              'Select Image',
-              'Choose an option',
-              [
-                { text: 'Cancel', style: 'cancel', onPress: () => resolve({ canceled: true }) },
-                { text: 'Camera', onPress: () => handleSelection(() => ImagePicker.launchCameraAsync(cameraOptions)) },
-                { text: 'Gallery', onPress: () => handleSelection(() => ImagePicker.launchImageLibraryAsync(galleryOptions)) },
-              ],
-              { cancelable: true }
-            );
-          }
-        });
-
-        if (result.canceled || !result.assets || result.assets.length === 0) {
-          logImageDebug('Image picker canceled or no images selected');
-          return;
-        }
-
-        logImageDebug('Raw images selected', {
-          count: result.assets.length,
-          firstImageSize: result.assets[0] ? {
-            width: result.assets[0].width,
-            height: result.assets[0].height,
-            type: result.assets[0].type,
-            uri: result.assets[0].uri?.substring(0, 50) + '...',
-            fileSize: result.assets[0].fileSize
-          } : null
-        });
-
-        // Process images with ACTUAL compression using ImageManipulator
-        const maxImages = options.maxImages || MAX_IMAGES;
-        const processedImages = [];
-        let totalOriginalSize = 0;
-        let totalCompressedSize = 0;
-
-        for (let i = 0; i < Math.min(result.assets.length, maxImages); i++) {
-          const asset = result.assets[i];
-          const processingStart = Date.now();
-
-          try {
-            logImageDebug(`Processing image ${i + 1}/${result.assets.length}`, {
-              width: asset.width,
-              height: asset.height,
-              type: asset.type,
-              fileSize: asset.fileSize,
-              uri: asset.uri?.substring(0, 50) + '...'
-            });
-
-            // Estimate original size from file size or dimensions
-            const originalSize = asset.fileSize || (asset.width * asset.height * 3); // Rough estimate
-            totalOriginalSize += originalSize;
-
-            // Determine if we need compression
-            const needsProcessing = asset.width > IMAGE_CONFIG.MAX_WIDTH ||
-              asset.height > IMAGE_CONFIG.MAX_HEIGHT ||
-              originalSize > IMAGE_CONFIG.MAX_FILE_SIZE;
-
-            let finalBase64: string;
-            let finalWidth = asset.width;
-            let finalHeight = asset.height;
-            let finalType = 'image/jpeg';
-            let actualFinalSize = originalSize;
-
-            if (needsProcessing) {
-              logImageDebug(`Image ${i + 1} needs compression - using ImageManipulator`);
-
-              // Get optimal settings
-              const optimalQuality = getOptimalQuality(originalSize);
-              const { width: optimalWidth, height: optimalHeight } = calculateOptimalDimensions(asset.width, asset.height);
-
-              logImageDebug(`Applying compression settings`, {
-                originalDimensions: `${asset.width}x${asset.height}`,
-                targetDimensions: `${optimalWidth}x${optimalHeight}`,
-                quality: optimalQuality,
-                originalSize: `${Math.round(originalSize / 1024)}KB`
-              });
-
-              try {
-                // ACTUALLY COMPRESS THE IMAGE using ImageManipulator
-                const compressionResult = await compressImageWithManipulator(
-                  asset.uri,
-                  optimalWidth,
-                  optimalHeight,
-                  optimalQuality
-                );
-
-                finalBase64 = compressionResult.base64;
-                finalWidth = compressionResult.width;
-                finalHeight = compressionResult.height;
-                actualFinalSize = calculateImageSize(finalBase64);
-
-                logImageDebug(`ImageManipulator compression completed`, {
-                  originalSize: `${Math.round(originalSize / 1024)}KB`,
-                  compressedSize: `${Math.round(actualFinalSize / 1024)}KB`,
-                  dimensions: `${finalWidth}x${finalHeight}`,
-                  compressionRatio: `${Math.round((1 - actualFinalSize / originalSize) * 100)}%`
-                });
-              } catch (compressionError) {
-                logError(`ImageManipulator compression failed for image ${i + 1}:`, compressionError);
-
-                // Fall back to getting base64 from original
-                try {
-                  const fallbackResult = await ImageManipulator.manipulateAsync(
-                    asset.uri,
-                    [],
-                    {
-                      compress: IMAGE_CONFIG.QUALITY,
-                      format: ImageManipulator.SaveFormat.JPEG,
-                      base64: true,
-                    }
-                  );
-                  finalBase64 = fallbackResult.base64 || '';
-                  actualFinalSize = calculateImageSize(finalBase64);
-                  logImageDebug(`Used fallback compression for image ${i + 1}`);
-                } catch (fallbackError) {
-                  logError(`Fallback compression also failed for image ${i + 1}:`, fallbackError);
-                  continue; // Skip this image
-                }
-              }
-            } else {
-              logImageDebug(`Image ${i + 1} doesn't need compression - getting base64`);
-
-              // Just get base64 without compression
-              try {
-                const base64Result = await ImageManipulator.manipulateAsync(
-                  asset.uri,
-                  [],
-                  {
-                    compress: IMAGE_CONFIG.QUALITY,
-                    format: ImageManipulator.SaveFormat.JPEG,
-                    base64: true,
-                  }
-                );
-                finalBase64 = base64Result.base64 || '';
-                actualFinalSize = calculateImageSize(finalBase64);
-              } catch (base64Error) {
-                logError(`Failed to get base64 for image ${i + 1}:`, base64Error);
-                continue; // Skip this image
-              }
-            }
-
-            totalCompressedSize += actualFinalSize;
-
-            const processedImage = {
-              uri: `data:${finalType};base64,${finalBase64}`,
-              type: finalType,
-              name: `image_${Date.now()}_${i}.jpg`,
-              width: finalWidth,
-              height: finalHeight,
-              size: Math.round(actualFinalSize / 1024), // Size in KB
-              originalSize: Math.round(originalSize / 1024), // Original size in KB
-              compressionRatio: originalSize > 0 ? Math.round((1 - actualFinalSize / originalSize) * 100) : 0,
-              processingTime: Date.now() - processingStart,
-            };
-
-            processedImages.push(processedImage);
-
-            logImageDebug(`Image ${i + 1} processed successfully`, {
-              originalSize: `${Math.round(originalSize / 1024)}KB`,
-              finalSize: `${Math.round(actualFinalSize / 1024)}KB`,
-              compressionRatio: `${processedImage.compressionRatio}%`,
-              processingTime: `${processedImage.processingTime}ms`,
-              dimensions: `${finalWidth}x${finalHeight}`
-            });
-
-          } catch (error) {
-            logError(`Failed to process image ${i + 1}:`, error);
-            continue;
-          }
-        }
-
-        const totalProcessingTime = Date.now() - startTime;
-
-        logImageDebug('Image processing completed', {
-          totalImages: processedImages.length,
-          totalOriginalSize: `${Math.round(totalOriginalSize / 1024)}KB`,
-          totalCompressedSize: `${Math.round(totalCompressedSize / 1024)}KB`,
-          overallCompressionRatio: totalOriginalSize > 0 ? `${Math.round((1 - totalCompressedSize / totalOriginalSize) * 100)}%` : '0%',
-          totalProcessingTime: `${totalProcessingTime}ms`,
-          averageProcessingTime: processedImages.length > 0 ? `${Math.round(totalProcessingTime / processedImages.length)}ms per image` : '0ms'
-        });
-
-        if (processedImages.length > 0) {
-          const messagePayload = {
-            type: 'IMAGES_SELECTED',
-            images: processedImages,
-            metadata: {
-              totalOriginalSize: Math.round(totalOriginalSize / 1024),
-              totalCompressedSize: Math.round(totalCompressedSize / 1024),
-              compressionRatio: totalOriginalSize > 0 ? Math.round((1 - totalCompressedSize / totalOriginalSize) * 100) : 0,
-              processingTime: totalProcessingTime,
-              timestamp: Date.now()
-            }
-          };
-
-          logImageDebug('Sending compressed images to WebView', {
-            imageCount: processedImages.length,
-            payloadSize: `${Math.round(JSON.stringify(messagePayload).length / 1024)}KB`
-          });
-
-          webViewRef.current?.postMessage(JSON.stringify(messagePayload));
-        } else {
-          logError('No images were successfully processed');
-          Alert.alert('Error', 'Failed to process selected images. Please try again.');
-        }
-
-      } catch (error) {
-        logError('Image picker error:', error);
-        Alert.alert('Error', 'Failed to select images. Please try again.');
-      }
+      webViewRef.current?.postMessage(JSON.stringify(messagePayload));
     }, []);
 
     /** -------------------------
@@ -676,8 +440,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
         switch (data.type) {
           case 'OPEN_IMAGE_PICKER':
-            logImageDebug('Image picker requested from WebView', data.options);
-            handleImagePicker(data.options);
+            logImageDebug('Camera modal requested from WebView', data.options);
+            handleOpenCameraModal();
             return;
 
           case 'NAVIGATE_TO_PROFILE':
@@ -859,7 +623,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       currentUrl,
       route,
       disableAutoNavigation,
-      handleImagePicker,
+      handleOpenCameraModal,
+      handlePhotosSelected,
       handleShare,
       handleGoogleOAuth,
       logout,
@@ -1033,6 +798,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             <ActivityIndicator size="large" color="#2528be" />
           </View>
         )}
+
+        {/* Camera Modal */}
+        <CameraModal
+          visible={cameraModalVisible}
+          onClose={() => setCameraModalVisible(false)}
+          onPhotosSelected={handlePhotosSelected}
+          maxPhotos={maxPhotos}
+        />
       </View>
     );
   }
