@@ -83,7 +83,7 @@ type WebViewMessage =
   | { type: 'AUTH_VALIDATION_SUCCESS'; tokens: any; user: any }
   | { type: 'AUTH_LOGIN_SUCCESS'; tokens: any; user: any }
   | { type: 'AUTH_RESTORED'; user?: any }
-  | { type: 'OPEN_IMAGE_PICKER'; options?: any }
+  | { type: 'OPEN_IMAGE_PICKER'; options?: { maxImages?: number; quality?: number; allowsEditing?: boolean; aspect?: number[]; includeCamera?: boolean } }
   | { type: 'OPEN_WEB_OAUTH'; provider: 'google' }
   | { type: 'SHARE_LISTING'; data: any }
   | { type: string;[key: string]: any }; // fallback
@@ -202,6 +202,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     const [isAtTop, setIsAtTop] = useState(true);
     // Camera modal state
     const [cameraModalVisible, setCameraModalVisible] = useState(false);
+    const [currentPhotoCount, setCurrentPhotoCount] = useState(0);
 
     const router = useRouter();
 
@@ -441,6 +442,10 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         switch (data.type) {
           case 'OPEN_IMAGE_PICKER':
             logImageDebug('Camera modal requested from WebView', data.options);
+            if (data.options?.maxImages !== undefined) {
+              const alreadySelected = maxPhotos - data.options.maxImages;
+              setCurrentPhotoCount(alreadySelected);
+            }
             handleOpenCameraModal();
             return;
 
@@ -802,9 +807,13 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         {/* Camera Modal */}
         <CameraModal
           visible={cameraModalVisible}
-          onClose={() => setCameraModalVisible(false)}
+          onClose={() => {
+            setCameraModalVisible(false);
+            setCurrentPhotoCount(0); // ✅ RESET COUNT WHEN CLOSING
+          }}
           onPhotosSelected={handlePhotosSelected}
           maxPhotos={maxPhotos}
+          currentPhotoCount={currentPhotoCount} // ✅ PASS CURRENT COUNT
         />
       </View>
     );

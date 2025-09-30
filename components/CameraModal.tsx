@@ -6,7 +6,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Image,
   Modal,
   ScrollView,
@@ -40,6 +39,7 @@ interface CameraModalProps {
   onClose: () => void;
   onPhotosSelected: (photos: PhotoForWebView[]) => void;
   maxPhotos?: number;
+  currentPhotoCount?: number;
 }
 
 // Internal photo format (for display only)
@@ -65,7 +65,7 @@ type CameraFacing = 'front' | 'back';
 // ============================================================================
 
 const logger = {
-  info: __DEV__ ? console.log : () => {},
+  info: __DEV__ ? console.log : () => { },
   error: console.error,
   warn: console.warn
 };
@@ -78,7 +78,8 @@ const CameraModal: React.FC<CameraModalProps> = ({
   visible,
   onClose,
   onPhotosSelected,
-  maxPhotos = 3
+  maxPhotos = 3,
+  currentPhotoCount = 0
 }) => {
   // State
   const [state, setState] = useState<ModalState>('camera');
@@ -93,6 +94,9 @@ const CameraModal: React.FC<CameraModalProps> = ({
   const cameraRef = useRef<CameraView>(null);
   const isTakingPicture = useRef(false);
   const isProcessing = useRef(false);
+
+  // ✅ CALCULATE REMAINING SLOTS
+  const remainingSlots = maxPhotos - currentPhotoCount;
 
   // ============================================================================
   // EFFECTS
@@ -136,16 +140,16 @@ const CameraModal: React.FC<CameraModalProps> = ({
         { compress: 1.0, base64: false }
       );
 
-      const needsResize = 
-        info.width > IMAGE_CONFIG.MAX_DIMENSION || 
+      const needsResize =
+        info.width > IMAGE_CONFIG.MAX_DIMENSION ||
         info.height > IMAGE_CONFIG.MAX_DIMENSION;
 
       const manipulations = needsResize
         ? [{ resize: { width: IMAGE_CONFIG.MAX_DIMENSION } }]
         : [];
 
-      const quality = needsResize 
-        ? IMAGE_CONFIG.QUALITY.MEDIUM 
+      const quality = needsResize
+        ? IMAGE_CONFIG.QUALITY.MEDIUM
         : IMAGE_CONFIG.QUALITY.HIGH;
 
       // Process image and save to file
@@ -197,7 +201,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
     try {
       setIsLoading(true);
       logger.info('[CameraModal] Converting photos to base64 for webview');
-      
+
       const photosBase64 = await Promise.all(
         photosList.map(async (photo) => {
           // Convert file URI to base64
@@ -224,7 +228,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
         })
       );
 
-      const totalSizeKB = photosBase64.reduce((sum, p) => 
+      const totalSizeKB = photosBase64.reduce((sum, p) =>
         sum + (p.base64.length * 0.75 / 1024), 0
       );
 
@@ -249,8 +253,10 @@ const CameraModal: React.FC<CameraModalProps> = ({
   const takePicture = useCallback(async () => {
     if (!cameraRef.current || !cameraPermission?.granted) return;
     if (isTakingPicture.current || isLoading) return;
-    if (photos.length >= maxPhotos) {
-      Alert.alert('Maximum Reached', `You can only add ${maxPhotos} photos.`);
+
+    // ✅ CHECK TOTAL COUNT INCLUDING EXISTING PHOTOS
+    if (currentPhotoCount + photos.length >= maxPhotos) {
+      Alert.alert('Maximum Reached', `You can only add ${maxPhotos} photos total.`);
       return;
     }
 
@@ -275,7 +281,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
     } finally {
       isTakingPicture.current = false;
     }
-  }, [cameraPermission?.granted, photos.length, maxPhotos, isLoading, processImage]);
+  }, [cameraPermission?.granted, photos.length, maxPhotos, currentPhotoCount, isLoading, processImage]);
 
   const toggleCameraFacing = useCallback(() => {
     setFacing(prev => prev === 'back' ? 'front' : 'back');
@@ -299,19 +305,27 @@ const CameraModal: React.FC<CameraModalProps> = ({
         return;
       }
 
-      const remainingSlots = maxPhotos - photos.length;
-      if (remainingSlots <= 0) {
-        Alert.alert('Maximum Reached', `You can only add ${maxPhotos} photos.`);
+      // ✅ USE REMAINING SLOTS INSTEAD OF CURRENT PHOTOS LENGTH
+      const availableSlots = remainingSlots - photos.length;
+      if (availableSlots <= 0) {
+        Alert.alert('Maximum Reached', `You can only add ${maxPhotos} photos total.`);
         return;
       }
 
-      const allowsMultiple = remainingSlots > 1;
+      const allowsMultiple = availableSlots > 1;
+
+      logger.info('[CameraModal] Gallery selection', {
+        currentPhotoCount,
+        modalPhotos: photos.length,
+        availableSlots,
+        allowsMultiple
+      });
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: !allowsMultiple,
         allowsMultipleSelection: allowsMultiple,
-        selectionLimit: remainingSlots,
+        selectionLimit: availableSlots,
         aspect: allowsMultiple ? undefined : [1, 1],
         quality: IMAGE_CONFIG.QUALITY.MEDIUM,
       });
@@ -323,16 +337,34 @@ const CameraModal: React.FC<CameraModalProps> = ({
           setCurrentSource('gallery');
           setState('preview');
         } else {
-          const processedPhotos = await Promise.all(
-            result.assets.map(asset => processImage(asset.uri))
-          );
-          const newPhotos = [...photos, ...processedPhotos].slice(0, maxPhotos);
-          setPhotos(newPhotos);
+          // ✅ IMPROVED ERROR HANDLING FOR MULTIPLE PHOTOS
+          try {
+            setIsLoading(true);
+            const processedPhotos = await Promise.all(
+              result.assets.map(async (asset, index) => {
+                try {
+                  return await processImage(asset.uri);
+                } catch (error) {
+                  logger.error(`[CameraModal] Failed to process image ${index}:`, error);
+                  throw error;
+                }
+              })
+            );
 
-          if (newPhotos.length >= maxPhotos) {
-            handleFinish(newPhotos);
-          } else {
-            setState('camera');
+            const newPhotos = [...photos, ...processedPhotos].slice(0, availableSlots);
+            setPhotos(newPhotos);
+
+            // ✅ CHECK TOTAL COUNT INCLUDING EXISTING PHOTOS
+            if (currentPhotoCount + newPhotos.length >= maxPhotos) {
+              handleFinish(newPhotos);
+            } else {
+              setState('camera');
+            }
+          } catch (error) {
+            logger.error('[CameraModal] Error processing multiple images:', error);
+            Alert.alert('Processing Error', 'Failed to process some images. Please try selecting fewer images or try again.');
+          } finally {
+            setIsLoading(false);
           }
         }
       }
@@ -340,7 +372,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
       logger.error('[CameraModal] Error selecting from gallery:', error);
       Alert.alert('Gallery Error', 'Failed to select photos. Please try again.');
     }
-  }, [photos, maxPhotos, isLoading, processImage]);
+  }, [photos, maxPhotos, currentPhotoCount, remainingSlots, isLoading, processImage]);
 
   // ============================================================================
   // PREVIEW ACTIONS
@@ -354,16 +386,17 @@ const CameraModal: React.FC<CameraModalProps> = ({
   const handleContinueWithCurrent = useCallback(() => {
     if (!currentPhoto) return;
 
-    const newPhotos = [...photos, currentPhoto].slice(0, maxPhotos);
+    const newPhotos = [...photos, currentPhoto];
     setPhotos(newPhotos);
     setCurrentPhoto(null);
 
-    if (newPhotos.length >= maxPhotos) {
+    // ✅ CHECK TOTAL COUNT INCLUDING EXISTING PHOTOS
+    if (currentPhotoCount + newPhotos.length >= maxPhotos) {
       handleFinish(newPhotos);
     } else {
       setState('camera');
     }
-  }, [currentPhoto, photos, maxPhotos]);
+  }, [currentPhoto, photos, maxPhotos, currentPhotoCount]);
 
   const removePhoto = useCallback((index: number) => {
     setPhotos(prev => prev.filter((_, i) => i !== index));
@@ -383,12 +416,12 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
   const handleFinish = useCallback(async (finalPhotos?: Photo[]) => {
     const photosToSend = finalPhotos || photos;
-    
+
     if (photosToSend.length > 0) {
       try {
         // Convert to base64 only when sending
         const photosBase64 = await convertPhotosToBase64(photosToSend);
-        
+
         // Send photos with pure base64 to parent
         onPhotosSelected(photosBase64);
       } catch (error) {
@@ -398,7 +431,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
         return;
       }
     }
-    
+
     onClose();
   }, [photos, onPhotosSelected, onClose, convertPhotosToBase64]);
 
@@ -423,22 +456,22 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity 
-        onPress={handleCloseModal} 
+      <TouchableOpacity
+        onPress={handleCloseModal}
         style={styles.closeButton}
         disabled={isLoading}
       >
         <Ionicons name="close" size={24} color="white" />
       </TouchableOpacity>
-      
+
       <Text style={styles.headerTitle}>
         {state === 'camera' && 'Take Photos'}
         {state === 'preview' && 'Preview'}
       </Text>
-      
+
       {photos.length > 0 ? (
-        <TouchableOpacity 
-          onPress={() => handleFinish()} 
+        <TouchableOpacity
+          onPress={() => handleFinish()}
           style={styles.doneButton}
           disabled={isLoading}
         >
@@ -452,6 +485,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
   const renderCameraScreen = () => {
     if (!cameraPermission?.granted) {
+      // ... existing permission UI ...
       return (
         <View style={styles.permissionContainer}>
           <Ionicons name="camera-outline" size={64} color="rgba(255, 255, 255, 0.5)" />
@@ -486,7 +520,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
         <View style={styles.photoCountContainer}>
           <Text style={styles.photoCountText}>
-            {photos.length}/{maxPhotos}
+            {currentPhotoCount + photos.length}/{maxPhotos}
           </Text>
         </View>
 
@@ -494,7 +528,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
           <TouchableOpacity
             style={styles.galleryButton}
             onPress={selectFromGallery}
-            disabled={isLoading}
+            disabled={isLoading || currentPhotoCount + photos.length >= maxPhotos}
           >
             <Ionicons name="images" size={28} color="white" />
           </TouchableOpacity>
@@ -502,10 +536,10 @@ const CameraModal: React.FC<CameraModalProps> = ({
           <TouchableOpacity
             style={[
               styles.captureButton,
-              (isLoading || photos.length >= maxPhotos) && styles.captureButtonDisabled
+              (isLoading || currentPhotoCount + photos.length >= maxPhotos) && styles.captureButtonDisabled
             ]}
             onPress={takePicture}
-            disabled={isLoading || photos.length >= maxPhotos}
+            disabled={isLoading || currentPhotoCount + photos.length >= maxPhotos}
           >
             {isLoading ? (
               <ActivityIndicator color="#2528be" size="small" />
@@ -523,6 +557,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
           </TouchableOpacity>
         </View>
 
+        {/* ... existing thumbnails and loading overlay ... */}
         {photos.length > 0 && (
           <View style={styles.thumbnailsContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -561,8 +596,8 @@ const CameraModal: React.FC<CameraModalProps> = ({
       )}
 
       <View style={styles.previewButtons}>
-        <TouchableOpacity 
-          style={styles.retakeButton} 
+        <TouchableOpacity
+          style={styles.retakeButton}
           onPress={handleRetake}
           disabled={isLoading}
         >
@@ -571,8 +606,8 @@ const CameraModal: React.FC<CameraModalProps> = ({
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.continueButton} 
+        <TouchableOpacity
+          style={styles.continueButton}
           onPress={handleContinueWithCurrent}
           disabled={isLoading}
         >
@@ -580,7 +615,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
             <ActivityIndicator color="white" size="small" />
           ) : (
             <Text style={styles.continueButtonText}>
-              {photos.length + 1 >= maxPhotos ? 'Finish' : 'Add Photo'}
+              {currentPhotoCount + photos.length + 1 >= maxPhotos ? 'Finish' : 'Add Photo'}
             </Text>
           )}
         </TouchableOpacity>
@@ -589,9 +624,9 @@ const CameraModal: React.FC<CameraModalProps> = ({
   );
 
   return (
-    <Modal 
-      visible={visible} 
-      animationType="slide" 
+    <Modal
+      visible={visible}
+      animationType="slide"
       onRequestClose={handleCloseModal}
       statusBarTranslucent
     >
