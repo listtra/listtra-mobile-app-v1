@@ -149,7 +149,7 @@ export class GoogleSignInService {
         // Handle specific error cases
         if (response.status === 409) {
           // Account already exists with this email - use the specific error message from backend
-          throw new Error(data.details || data.detail || 'An account with this email already exists. Please sign in with email and password.');
+          throw new Error(data.details || data.detail || 'Looks like you signed up with your email address. Please sign in with email to continue.');
         }
         throw new Error(data.details || data.detail || data.error || 'Backend authentication failed');
       }

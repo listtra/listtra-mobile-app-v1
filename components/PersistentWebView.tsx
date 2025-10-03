@@ -22,7 +22,7 @@ const getBaseUrl = () => {
   if (__DEV__) {
     return 'http://192.168.31.224:3000'; // Development
   }
-  return 'https://listtra.com'; // Production - replace with your actual production URL
+  return 'https://listtra-git-fine-tuning2-listtra.vercel.app'; // Production - replace with your actual production URL
 };
 
 const BASE_URL = getBaseUrl();
@@ -122,7 +122,7 @@ const getPageType = (url: string, route: string) => ({
 });
 
 /** -------------------------
- * 🔹 Image Compression Utilities
+ * 🔹 Calculate Image Size
  * ------------------------- */
 const calculateImageSize = (base64String: string): number => {
   // More accurate base64 size calculation
@@ -130,55 +130,6 @@ const calculateImageSize = (base64String: string): number => {
   return Math.round((base64String.length * 0.75) - padding);
 };
 
-const shouldCompressImage = (asset: any): boolean => {
-  const sizeInBytes = calculateImageSize(asset.base64 || '');
-  const shouldCompress = asset.width > IMAGE_CONFIG.MAX_WIDTH ||
-    asset.height > IMAGE_CONFIG.MAX_HEIGHT ||
-    sizeInBytes > IMAGE_CONFIG.MAX_FILE_SIZE;
-
-  logImageDebug('Compression check', {
-    width: asset.width,
-    height: asset.height,
-    sizeInBytes,
-    shouldCompress,
-    maxWidth: IMAGE_CONFIG.MAX_WIDTH,
-    maxHeight: IMAGE_CONFIG.MAX_HEIGHT,
-    maxSize: IMAGE_CONFIG.MAX_FILE_SIZE
-  });
-
-  return shouldCompress;
-};
-
-const getOptimalQuality = (originalSize: number): number => {
-  // Adaptive quality based on file size
-  if (originalSize > 5 * 1024 * 1024) return 0.7;  // 5MB+ -> 70%
-  if (originalSize > 2 * 1024 * 1024) return 0.75; // 2MB+ -> 75%
-  if (originalSize > 1 * 1024 * 1024) return 0.8;  // 1MB+ -> 80%
-  return IMAGE_CONFIG.QUALITY; // Default 85%
-};
-
-const calculateOptimalDimensions = (width: number, height: number) => {
-  const { MAX_WIDTH, MAX_HEIGHT } = IMAGE_CONFIG;
-
-  if (width <= MAX_WIDTH && height <= MAX_HEIGHT) {
-    return { width, height };
-  }
-
-  const widthRatio = MAX_WIDTH / width;
-  const heightRatio = MAX_HEIGHT / height;
-  const ratio = Math.min(widthRatio, heightRatio);
-
-  const newWidth = Math.round(width * ratio);
-  const newHeight = Math.round(height * ratio);
-
-  logImageDebug('Dimension optimization', {
-    original: { width, height },
-    optimized: { width: newWidth, height: newHeight },
-    ratio
-  });
-
-  return { width: newWidth, height: newHeight };
-};
 
 /** -------------------------
  * 🔹 PersistentWebView Component
@@ -242,7 +193,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         const shareOptions = {
           title: shareData.title,
           message: `${shareData.title}\n\nCheck it out: ${shareData.url}`,
-          url: shareData.url,
         };
 
         const result = await Share.share(shareOptions);
@@ -320,63 +270,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       }
     }, [handleGoogleSignIn]);
 
-
-
-    /** -------------------------
- * 🔹 React Native Image Compression Function
- * ------------------------- */
-    const compressImageWithManipulator = async (
-      uri: string,
-      targetWidth: number,
-      targetHeight: number,
-      quality: number
-    ): Promise<{ base64: string, width: number, height: number }> => {
-      try {
-        logImageDebug('Starting image manipulation', {
-          targetWidth,
-          targetHeight,
-          quality,
-          originalUri: uri.substring(0, 50) + '...'
-        });
-
-        const manipulateResult = await ImageManipulator.manipulateAsync(
-          uri,
-          [
-            {
-              resize: {
-                width: targetWidth,
-                height: targetHeight,
-              },
-            },
-          ],
-          {
-            compress: quality,
-            format: ImageManipulator.SaveFormat.JPEG,
-            base64: true,
-          }
-        );
-
-        logImageDebug('Image manipulation completed', {
-          newWidth: manipulateResult.width,
-          newHeight: manipulateResult.height,
-          newUri: manipulateResult.uri.substring(0, 50) + '...',
-          hasBase64: !!manipulateResult.base64
-        });
-
-        if (!manipulateResult.base64) {
-          throw new Error('Failed to generate base64 from manipulated image');
-        }
-
-        return {
-          base64: manipulateResult.base64,
-          width: manipulateResult.width || targetWidth,
-          height: manipulateResult.height || targetHeight
-        };
-      } catch (error) {
-        logError('Image manipulation failed:', error);
-        throw error;
-      }
-    };
 
     /** -------------------------
      * 🔹 Camera Modal Handler
