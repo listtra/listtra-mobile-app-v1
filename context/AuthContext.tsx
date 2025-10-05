@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
@@ -62,6 +63,16 @@ const AuthContext = createContext<AuthContextType>({
 
 // Hook to use the auth context
 export const useAuth = () => useContext(AuthContext);
+
+const APP_VERSION_KEY = '@app_version';
+const APP_BUILD_KEY = '@app_build';
+const INSTALLATION_ID_KEY = '@installation_id';
+// ✅ Track both version and build number
+const CURRENT_APP_VERSION = Constants.expoConfig?.version || '1.0.0';
+const CURRENT_BUILD_NUMBER = String(Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode || '1');
+
+// ✅ Create a unique identifier combining both
+const CURRENT_APP_IDENTIFIER = `${CURRENT_APP_VERSION}-${CURRENT_BUILD_NUMBER}`;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -143,11 +154,96 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Function to clear tokens from secure storage
   const clearTokens = async () => {
     try {
+      console.log('Clearing tokens from SecureStore...');
       await SecureStore.deleteItemAsync('accessToken');
       await SecureStore.deleteItemAsync('refreshToken');
       setTokens({ accessToken: null, refreshToken: null });
+      console.log('Tokens cleared successfully');
     } catch (error) {
       console.error('Error clearing tokens:', error);
+    }
+  };
+
+  // Function to check if this is a fresh install or app version changed
+  const checkInstallationState = async (): Promise<boolean> => {
+    try {
+      console.log('Checking installation state...');
+
+      // Check stored app identifier
+      const storedVersion = await AsyncStorage.getItem(APP_VERSION_KEY);
+      const storedBuild = await AsyncStorage.getItem(APP_BUILD_KEY);
+      const storedIdentifier = storedVersion && storedBuild ? `${storedVersion}-${storedBuild}` : null;
+
+      console.log('Stored identifier:', storedIdentifier);
+      console.log('Current identifier:', CURRENT_APP_IDENTIFIER);
+      console.log('Version:', CURRENT_APP_VERSION, 'Build:', CURRENT_BUILD_NUMBER);
+
+      // If no stored identifier or identifier mismatch, clear tokens
+      if (!storedIdentifier || storedIdentifier !== CURRENT_APP_IDENTIFIER) {
+        console.log('Fresh install or version/build change detected - clearing old tokens');
+
+        // Clear all stored auth data
+        await clearTokens();
+        await AsyncStorage.removeItem(INSTALLATION_ID_KEY);
+
+        // Store new version, build, and installation ID
+        await AsyncStorage.setItem(APP_VERSION_KEY, CURRENT_APP_VERSION);
+        await AsyncStorage.setItem(APP_BUILD_KEY, CURRENT_BUILD_NUMBER);
+        await AsyncStorage.setItem(INSTALLATION_ID_KEY, Date.now().toString());
+
+        console.log('New installation state saved');
+
+        return true; // Is fresh install or update
+      }
+
+      return false; // Same version and build
+    } catch (error) {
+      console.error('Error checking installation state:', error);
+      return false;
+    }
+  };
+
+  // Enhanced token validation
+  const validateAndLoadTokens = async (): Promise<{ accessToken: string; refreshToken: string } | null> => {
+    try {
+      const storedTokens = await loadTokens();
+
+      if (!storedTokens?.accessToken || !storedTokens?.refreshToken) {
+        console.log('No tokens found in storage');
+        return null;
+      }
+
+      // Validate token by checking expiration
+      try {
+        const base64Url = storedTokens.accessToken.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64).split('').map(c => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join('')
+        );
+
+        const { exp } = JSON.parse(jsonPayload);
+        const isExpired = exp * 1000 < Date.now();
+
+        console.log('Token validation - Expired:', isExpired);
+
+        if (isExpired) {
+          console.log('Access token expired, will attempt refresh');
+          // Token is expired, but we'll try to refresh it
+          return storedTokens;
+        }
+
+        return storedTokens;
+      } catch (parseError) {
+        console.error('Error parsing token:', parseError);
+        // If we can't parse the token, it's invalid
+        await clearTokens();
+        return null;
+      }
+    } catch (error) {
+      console.error('Error validating tokens:', error);
+      return null;
     }
   };
 
@@ -155,10 +251,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const storedTokens = await loadTokens();
+        console.log('=== AUTH INITIALIZATION STARTED ===');
+
+        // Check if this is a fresh install
+        const isFreshInstall = await checkInstallationState();
+
+        if (isFreshInstall) {
+          console.log('Fresh install detected - starting with clean state');
+          setIsInitializing(false);
+          return;
+        }
+
+        // Validate and load tokens
+        const storedTokens = await validateAndLoadTokens();
 
         if (storedTokens?.accessToken) {
-          // Validate token and get user profile
+          // Try to get user profile
           try {
             const response = await axios.get(`${API_URL}/api/profile/`, {
               headers: {
@@ -166,22 +274,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 'X-Expo-Go': isExpoGo ? 'true' : 'false'
               }
             });
-            console.log('Profile response(User):', response.data);
 
+            console.log('Profile loaded successfully:', response.data);
             setUser(response.data);
-          } catch (error) {
-            // If token is invalid or expired, try refresh
+
+          } catch (profileError: any) {
+            console.log('Profile fetch failed, attempting token refresh');
+
+            // If profile fetch fails, try to refresh token
             if (storedTokens.refreshToken) {
-              await refreshAccessToken(storedTokens.refreshToken);
+              const refreshSuccess = await refreshAccessToken(storedTokens.refreshToken);
+
+              if (!refreshSuccess) {
+                console.log('Token refresh failed - clearing auth state');
+                await clearTokens();
+                setUser(null);
+              }
             } else {
-              // If no refresh token, clear user and tokens
+              console.log('No refresh token available - clearing auth state');
               await clearTokens();
               setUser(null);
             }
           }
+        } else {
+          console.log('No valid tokens found');
         }
+
+        console.log('=== AUTH INITIALIZATION COMPLETED ===');
       } catch (error) {
         console.error('Auth initialization error:', error);
+        // On any error, clear auth state to be safe
+        await clearTokens();
+        setUser(null);
       } finally {
         setIsInitializing(false);
       }

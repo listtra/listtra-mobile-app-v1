@@ -13,6 +13,7 @@ export default {
 
     ios: {
       bundleIdentifier: "com.listtra.app",
+      buildNumber: "1",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#f8f8f8",
@@ -51,6 +52,7 @@ export default {
 
     android: {
       package: "com.listtra.app",
+      versionCode: 1,
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff",
