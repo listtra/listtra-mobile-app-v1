@@ -1,5 +1,5 @@
 // app/search/page.tsx
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import PersistentWebView from '../../components/PersistentWebView';
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { q } = useLocalSearchParams();
 
   // Handle back button press
   const handleBackPress = () => {
@@ -17,7 +18,7 @@ export default function SearchScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
-        <PersistentWebView route="search" />
+        <PersistentWebView route={`search?q=${q}`} />
       </View>
     </SafeAreaView>
   );

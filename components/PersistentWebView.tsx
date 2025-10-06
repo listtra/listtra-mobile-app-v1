@@ -70,7 +70,7 @@ type WebViewMessage =
   | { type: 'NAVIGATE_CHAT'; chatId: string }
   | { type: 'VIEW_ALL_CHATS'; listingId?: string }
   | { type: 'NAVIGATE'; path: string }
-  | { type: 'NAVIGATE_SEARCH' }
+  | { type: 'NAVIGATE_SEARCH'; query?: string }
   | { type: 'CATEGORIES_CLICKED'; category: string }
   | { type: 'NAVIGATE_TO_CATEGORY'; category: string }
   | { type: 'NAVIGATE_TO_SUBCATEGORY'; subcategory: string }
@@ -450,7 +450,11 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             return;
 
           case 'NAVIGATE_SEARCH':
-            router.push('/search/page');
+            if(data.query) {
+              router.push(`/search/page?q=${encodeURIComponent(data.query)}`);
+            } else {
+              router.push('/search/page');
+            }
             return;
 
           case 'CATEGORIES_CLICKED':
