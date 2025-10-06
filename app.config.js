@@ -2,7 +2,7 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "listtra-mobile-app",
+    name: "Listtra",
     slug: "listtra-mobile-app",
     version: "1.0.0",
     orientation: "portrait",
@@ -17,7 +17,7 @@ export default {
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#f8f8f8",
-      googleServicesFile: "./ios/GoogleService-Info.plist",
+      googleServicesFile: "./GoogleService-Info.plist",
       infoPlist: {
         UIStatusBarStyle: "UIStatusBarStyleDarkContent",
         UIViewControllerBasedStatusBarAppearance: false,
@@ -62,7 +62,7 @@ export default {
       softInputMode: "adjustResize",
       statusBarBackgroundColor: "#f8f8f8",
       statusBarTranslucent: false,
-      googleServicesFile: "./android/app/google-services.json",
+      googleServicesFile: "./google-services.json",
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

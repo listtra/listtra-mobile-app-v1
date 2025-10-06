@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "listtramobileapp.app"
-               BlueprintName = "listtramobileapp"
-               ReferencedContainer = "container:listtramobileapp.xcodeproj">
+               BuildableName = "Listtra.app"
+               BlueprintName = "Listtra"
+               ReferencedContainer = "container:Listtra.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "listtramobileappTests.xctest"
-               BlueprintName = "listtramobileappTests"
-               ReferencedContainer = "container:listtramobileapp.xcodeproj">
+               BuildableName = "ListtraTests.xctest"
+               BlueprintName = "ListtraTests"
+               ReferencedContainer = "container:Listtra.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "listtramobileapp.app"
-            BlueprintName = "listtramobileapp"
-            ReferencedContainer = "container:listtramobileapp.xcodeproj">
+            BuildableName = "Listtra.app"
+            BlueprintName = "Listtra"
+            ReferencedContainer = "container:Listtra.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "listtramobileapp.app"
-            BlueprintName = "listtramobileapp"
-            ReferencedContainer = "container:listtramobileapp.xcodeproj">
+            BuildableName = "Listtra.app"
+            BlueprintName = "Listtra"
+            ReferencedContainer = "container:Listtra.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
