@@ -6,7 +6,6 @@ import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { googleSignInService } from '../services/googleSignInService';
 import { Platform } from 'react-native';
-import CookieManager from '@react-native-cookies/cookies';
 
 // Configure Google WebBrowser auth (keeping for web fallback)
 //WebBrowser.maybeCompleteAuthSession();
@@ -553,26 +552,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await googleSignInService.signOut();
     } catch (error) {
       console.error('Error signing out from Google:', error);
-    }
-
-    // Clear WebView cache and cookies on iOS
-    if (Platform.OS === 'ios') {
-      try {
-        console.log('Clearing WebView cache and cookies on iOS...');
-        // Clear all cookies for iOS
-        CookieManager.getAll(true)
-          .then((cookies) => {
-            console.log('CookieManager.getAll from webkit-view =>', cookies);
-          });
-        await CookieManager.clearAll(true);
-        CookieManager.getAll(true)
-          .then((cookies) => {
-            console.log('CookieManager.getAll from webkit-view =>', cookies);
-          });
-        console.log('WebView cache and cookies cleared successfully');
-      } catch (error) {
-        console.error('Error clearing WebView cache:', error);
-      }
     }
 
     // Clear user state first
