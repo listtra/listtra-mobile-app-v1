@@ -22,7 +22,7 @@ const getBaseUrl = () => {
   if (__DEV__) {
     return 'http://192.168.31.224:3000'; // Development
   }
-  return 'https://listtra-git-fine-tuning2-listtra.vercel.app'; // Production - replace with your actual production URL
+  return 'https://listtra.com'; // Production - replace with your actual production URL
 };
 
 const BASE_URL = getBaseUrl();
