@@ -630,11 +630,11 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       // Performance optimizations
       javaScriptEnabled: true,
       domStorageEnabled: true,
-      cacheEnabled: true,
+      cacheEnabled: false,
 
       // Security settings - Updated for better image loading
       thirdPartyCookiesEnabled: true, // Enable for image loading
-      sharedCookiesEnabled: true,
+      sharedCookiesEnabled: false,
       originWhitelist: ['*'], // Allow all origins for images
       mixedContentMode: 'compatibility' as const, // Allow mixed content
 
