@@ -1,6 +1,6 @@
 // app/auth/signup.tsx
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView from '../../components/PersistentWebView';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +24,8 @@ const handleMessage = (event: any) => {
         pathname: '/auth/verify-email',
         params: { email: data.email }
       });
+    } else if (data.type === 'OPEN_EXTERNAL_LINK') {
+      Linking.openURL(data.url);
     }
   } catch (error) {
     console.error('Error handling WebView message:', error);
