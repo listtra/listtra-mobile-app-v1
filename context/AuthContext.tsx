@@ -66,14 +66,15 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 const APP_VERSION_KEY = '@app_version';
-const APP_BUILD_KEY = '@app_build';
 const INSTALLATION_ID_KEY = '@installation_id';
-// ✅ Track both version and build number
-const CURRENT_APP_VERSION = Constants.expoConfig?.version || '1.0.0';
-const CURRENT_BUILD_NUMBER = String(Constants.expoConfig?.ios?.buildNumber || Constants.expoConfig?.android?.versionCode || '1');
 
-// ✅ Create a unique identifier combining both
-const CURRENT_APP_IDENTIFIER = `${CURRENT_APP_VERSION}-${CURRENT_BUILD_NUMBER}`;
+const CURRENT_APP_VERSION = Constants.expoConfig?.version || '1.0.0';
+const CURRENT_BUILD_NUMBER =
+  String(
+    Constants.expoConfig?.ios?.buildNumber ||
+    Constants.expoConfig?.android?.versionCode ||
+    '1'
+  );
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -170,34 +171,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Checking installation state...');
 
-      // Check stored app identifier
       const storedVersion = await AsyncStorage.getItem(APP_VERSION_KEY);
-      const storedBuild = await AsyncStorage.getItem(APP_BUILD_KEY);
-      const storedIdentifier = storedVersion && storedBuild ? `${storedVersion}-${storedBuild}` : null;
+      const storedInstallationId = await AsyncStorage.getItem(INSTALLATION_ID_KEY);
 
-      console.log('Stored identifier:', storedIdentifier);
-      console.log('Current identifier:', CURRENT_APP_IDENTIFIER);
-      console.log('Version:', CURRENT_APP_VERSION, 'Build:', CURRENT_BUILD_NUMBER);
+      console.log('Stored version:', storedVersion);
+      console.log('Current version:', CURRENT_APP_VERSION);
+      console.log('Stored installation ID:', storedInstallationId);
 
-      // If no stored identifier or identifier mismatch, clear tokens
-      if (!storedIdentifier || storedIdentifier !== CURRENT_APP_IDENTIFIER) {
-        console.log('Fresh install or version/build change detected - clearing old tokens');
+      // ✅ Fresh install only (AsyncStorage is empty after uninstall)
+      if (!storedVersion || !storedInstallationId) {
+        console.log('Fresh install detected — clearing tokens and setting new state');
 
-        // Clear all stored auth data
         await clearTokens();
-        await AsyncStorage.removeItem(INSTALLATION_ID_KEY);
 
-        // Store new version, build, and installation ID
         await AsyncStorage.setItem(APP_VERSION_KEY, CURRENT_APP_VERSION);
-        await AsyncStorage.setItem(APP_BUILD_KEY, CURRENT_BUILD_NUMBER);
         await AsyncStorage.setItem(INSTALLATION_ID_KEY, Date.now().toString());
 
-        console.log('New installation state saved');
-
-        return true; // Is fresh install or update
+        return true; // Fresh install
       }
 
-      return false; // Same version and build
+      console.log('Existing installation detected — keeping tokens');
+      return false; // Not a reinstall
     } catch (error) {
       console.error('Error checking installation state:', error);
       return false;
