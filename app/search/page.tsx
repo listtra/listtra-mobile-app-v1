@@ -10,6 +10,8 @@ export default function SearchScreen() {
   const router = useRouter();
   const { q } = useLocalSearchParams();
 
+  const searchRoute = q ? `search?q=${q}` : 'search';
+
   // Handle back button press
   const handleBackPress = () => {
     router.back();
@@ -18,7 +20,7 @@ export default function SearchScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
-        <PersistentWebView route={`search?q=${q}`} />
+        <PersistentWebView route={searchRoute} />
       </View>
     </SafeAreaView>
   );
