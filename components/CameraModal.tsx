@@ -107,6 +107,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
       resetState();
       if (!cameraPermission?.granted) {
         requestCameraPermission();
+        return;
       }
     }
   }, [visible, cameraPermission?.granted]);
@@ -419,6 +420,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
     if (photosToSend.length > 0) {
       try {
+        setIsLoading(true);
         // Convert to base64 only when sending
         const photosBase64 = await convertPhotosToBase64(photosToSend);
 
@@ -427,8 +429,8 @@ const CameraModal: React.FC<CameraModalProps> = ({
       } catch (error) {
         logger.error('[CameraModal] Error in handleFinish:', error);
         Alert.alert('Error', 'Failed to process images. Please try again.');
+      } finally {
         setIsLoading(false);
-        return;
       }
     }
 
