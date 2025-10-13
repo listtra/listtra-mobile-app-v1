@@ -121,7 +121,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 const styles = StyleSheet.create({
   tabBarContainer: {
     flexDirection: 'row',
-    height: 80,
+    height: 75,
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.06)',
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 9,
     color: '#666',
-    marginTop: 5,
+    marginTop: 0,
     textAlign: 'center',
   },
   tabLabelFocused: {
