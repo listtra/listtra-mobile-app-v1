@@ -1,4 +1,4 @@
-package com.listtra.app
+package com.zirkly.app
 
 import android.app.Application
 import android.content.res.Configuration

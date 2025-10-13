@@ -1,29 +1,29 @@
 {
-    "project_info": {
-      "project_number": "326716256066",
-      "project_id": "listtra-push-notifications",
-      "storage_bucket": "listtra-push-notifications.firebasestorage.app"
-    },
-    "client": [
-      {
-        "client_info": {
-          "mobilesdk_app_id": "1:326716256066:android:5c5669d8a71410553522db",
-          "android_client_info": {
-            "package_name": "com.listtra.app"
-          }
-        },
-        "oauth_client": [],
-        "api_key": [
-          {
-            "current_key": "AIzaSyD_sWseeRTIvjLm6NWrz54mh1RNm8IU4JI"
-          }
-        ],
-        "services": {
-          "appinvite_service": {
-            "other_platform_oauth_client": []
-          }
+  "project_info": {
+    "project_number": "309588651291",
+    "project_id": "zirkly-push-notification",
+    "storage_bucket": "zirkly-push-notification.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:309588651291:android:495f501905b80c5865f7be",
+        "android_client_info": {
+          "package_name": "com.zirkly.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCx9Xw3sWArUspfiex5SxDdJUylgLYbEoQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
         }
       }
-    ],
-    "configuration_version": "1"
-  }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,4 @@
-package com.listtra.app
+package com.zirkly.app
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

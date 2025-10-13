@@ -31,8 +31,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="listtra"/>
-        <data android:scheme="exp+listtra-mobile-app"/>
+        <data android:scheme="zirkly"/>
+        <data android:scheme="exp+zirkly-mobile-app"/>
       </intent-filter>
     </activity>
   </application>

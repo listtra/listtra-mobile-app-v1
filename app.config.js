@@ -2,17 +2,17 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "Listtra",
-    slug: "listtra-mobile-app",
+    name: "Zirkly",
+    slug: "zirkly-mobile-app",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "listtra",
+    scheme: "zirkly",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
 
     ios: {
-      bundleIdentifier: "com.listtra.app",
+      bundleIdentifier: "com.zirkly.app",
       buildNumber: "1",
       supportsTablet: true,
       statusBarStyle: "dark-content",
@@ -51,7 +51,7 @@ export default {
     },
 
     android: {
-      package: "com.listtra.app",
+      package: "com.zirkly.app",
       versionCode: 1,
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
@@ -134,10 +134,9 @@ export default {
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
       eas: {
-        projectId: "ef242669-581a-4988-924f-6bf58ec279d9",
+        projectId: "4b354982-5b2c-4a00-8860-d4701f089a23"
       },
     },
-
     owner: "jibinb",
   },
 };
