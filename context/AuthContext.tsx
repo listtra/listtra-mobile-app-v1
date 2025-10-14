@@ -14,7 +14,7 @@ import { Platform } from 'react-native';
 const API_URL = 'https://backend.listtra.com';
 
 // Define app scheme for deep linking
-const APP_SCHEME = 'listtra';
+const APP_SCHEME = 'zirkly';
 
 // Define types for our context
 type User = {

@@ -76,7 +76,7 @@
           <key>NSExceptionRequiresForwardSecrecy</key>
           <true/>
         </dict>
-        <key>listtra.com</key>
+        <key>zirkly.com</key>
         <dict>
           <key>NSIncludesSubdomains</key>
           <true/>

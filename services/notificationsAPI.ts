@@ -54,7 +54,7 @@ export const notificationsAPI = {
   sendTestNotification: async (token: string, message?: string, type?: string) => {
     const api = await getApiInstance(token);
     const response = await api.post('/api/notifications_new/send-test/', {
-      message: message || 'Test notification from Listtra backend!',
+      message: message || 'Test notification from Zirkly backend!',
       type: type || 'test'
     });
     return response.data;

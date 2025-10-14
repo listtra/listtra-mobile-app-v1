@@ -140,7 +140,7 @@ export const pushNotificationService = {
   },
 
   // Send a local test notification (works in simulator/Expo Go)
-  sendLocalTestNotification: async (title: string = 'Test Notification', body: string = 'This is a test notification from Listtra!') => {
+  sendLocalTestNotification: async (title: string = 'Test Notification', body: string = 'This is a test notification from Zirkly!') => {
     try {
       console.log('Sending local test notification...');
       

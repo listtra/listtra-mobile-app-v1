@@ -20,9 +20,9 @@ import OfflineScreen from './OfflineScreen';
 // Environment-based configuration
 const getBaseUrl = () => {
   if (__DEV__) {
-    return 'http://10.241.164.190:3000'; // Development
+    return 'https://zirkly.com'; // Development
   }
-  return 'https://listtra.com'; // Production - replace with your actual production URL
+  return 'https://zirkly.com'; // Production - replace with your actual production URL
 };
 
 const BASE_URL = getBaseUrl();
@@ -658,7 +658,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       allowUniversalAccessFromFileURLs: true,
 
       // User agent
-      userAgent: `Listtra-Mobile/${Platform.OS}`,
+      userAgent: `Zirkly-Mobile/${Platform.OS}`,
 
     }), [currentUrl, handleLoadEnd, handleError, handleHttpError, handleMessage, handleScroll]);
 

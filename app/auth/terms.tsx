@@ -47,7 +47,7 @@ export default function TermsPage() {
           <Text style={styles.lastUpdated}>Last Updated: 5-Mar-2025</Text>
           
           <Text style={styles.paragraph}>
-            Welcome to Listtra! These Terms and Conditions govern your access and
+            Welcome to Zirkly! These Terms and Conditions govern your access and
             use of our mobile application and services. By using our app, you
             agree to abide by these terms.
           </Text>
@@ -55,7 +55,7 @@ export default function TermsPage() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>1. Acceptance of Terms</Text>
             <Text style={styles.sectionText}>
-              By registering, accessing, or using Listtra, you agree to comply
+              By registering, accessing, or using Zirkly, you agree to comply
               with these Terms and Conditions and our Privacy Policy. If you do
               not agree, you must discontinue using the app.
             </Text>
@@ -94,7 +94,7 @@ export default function TermsPage() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>5. Transactions and Payments</Text>
             <View style={styles.listContainer}>
-              <Text style={styles.listItem}>• Payments may be processed through third-party payment providers. Listtra is not responsible for payment disputes.</Text>
+              <Text style={styles.listItem}>• Payments may be processed through third-party payment providers. Zirkly is not responsible for payment disputes.</Text>
               <Text style={styles.listItem}>• Buyers and sellers are encouraged to meet in safe locations for direct transactions when applicable.</Text>
             </View>
           </View>
@@ -113,7 +113,7 @@ export default function TermsPage() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>7. Account Suspension and Termination</Text>
             <Text style={styles.sectionText}>
-              Listtra reserves the right to suspend or terminate user accounts at
+              Zirkly reserves the right to suspend or terminate user accounts at
               our discretion, including but not limited to violations of these
               Terms.
             </Text>
@@ -122,7 +122,7 @@ export default function TermsPage() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>8. Liability Disclaimer</Text>
             <View style={styles.listContainer}>
-              <Text style={styles.listItem}>• Listtra is not responsible for any damages, losses, or disputes arising from transactions between users.</Text>
+              <Text style={styles.listItem}>• Zirkly is not responsible for any damages, losses, or disputes arising from transactions between users.</Text>
               <Text style={styles.listItem}>• We do not guarantee the accuracy or reliability of user-generated content.</Text>
             </View>
           </View>

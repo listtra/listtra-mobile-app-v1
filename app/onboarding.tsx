@@ -39,7 +39,7 @@ const slides = [
   {
     id: 4,
     image: require('../assets/images/onboarding4.png'),
-    title: 'Join the Listtra community.',
+    title: 'Join the Zirkly community.',
     subtitle:
       'Connect with your local marketplace — buy, sell, and grow together!',
   },

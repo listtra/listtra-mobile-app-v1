@@ -35,7 +35,7 @@ export default {
               NSExceptionMinimumTLSVersion: "TLSv1.2",
               NSExceptionRequiresForwardSecrecy: true,
             },
-            "listtra.com": {
+            "zirkly.com": {
               NSIncludesSubdomains: true,
               NSExceptionMinimumTLSVersion: "TLSv1.2",
               NSExceptionRequiresForwardSecrecy: true,
