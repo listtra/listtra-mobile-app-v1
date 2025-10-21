@@ -88,6 +88,7 @@ export default {
     plugins: [
       "expo-secure-store",
       "expo-router",
+      "expo-apple-authentication",
       "expo-notifications",
       [
         "expo-splash-screen",

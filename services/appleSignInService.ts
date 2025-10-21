@@ -1,4 +1,4 @@
-import { appleAuth, AppleRequestResponseFullName } from '@invertase/react-native-apple-authentication';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
@@ -18,7 +18,7 @@ export class AppleSignInService {
             return false;
         }
         try {
-            return appleAuth.isSupported;
+            return await AppleAuthentication.isAvailableAsync();
         } catch (error) {
             console.error('Error checking Apple Sign-In availability:', error);
             return false;
@@ -37,31 +37,33 @@ export class AppleSignInService {
 
             // Perform the sign-in request
             console.log('⭐ AppleSignInService: Calling appleAuth.requestAsync()...');
-            const appleAuthRequestResponse = await appleAuth.performRequest({
-                requestedOperation: appleAuth.Operation.LOGIN,
-                requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+            const credential = await AppleAuthentication.signInAsync({
+                requestedScopes: [
+                    AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                    AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                ],
             });
 
             console.log('⭐ AppleSignInService: Apple Sign-In response:', {
-                hasIdentityToken: !!appleAuthRequestResponse.identityToken,
-                hasAuthorizationCode: !!appleAuthRequestResponse.authorizationCode,
-                hasUser: !!appleAuthRequestResponse.user,
-                hasEmail: !!appleAuthRequestResponse.email,
-                hasFullName: !!appleAuthRequestResponse.fullName,
+                hasIdentityToken: !!credential.identityToken,
+                hasAuthorizationCode: !!credential.authorizationCode,
+                hasUser: !!credential.user,
+                hasEmail: !!credential.email,
+                hasFullName: !!credential.fullName,
             });
 
-            if (!appleAuthRequestResponse.identityToken) {
+            if (!credential.identityToken) {
                 throw new Error('No identity token received from Apple Sign-In');
             }
 
             console.log('⭐ AppleSignInService: Exchanging token with backend...');
             // Exchange the Apple identity token with your backend
             const backendResponse = await this.exchangeTokenWithBackend(
-                appleAuthRequestResponse.identityToken,
-                appleAuthRequestResponse.authorizationCode,
-                appleAuthRequestResponse.user,
-                appleAuthRequestResponse.email,
-                appleAuthRequestResponse.fullName
+                credential.identityToken,
+                credential.authorizationCode,
+                credential.user,
+                credential.email,
+                credential.fullName
             );
 
             console.log('⭐ AppleSignInService: Backend response:', backendResponse);
@@ -87,15 +89,15 @@ export class AppleSignInService {
             });
 
             // Handle specific Apple Sign-In errors
-            if (error.code === appleAuth.Error.CANCELED) {
+            if (error.code === 'ERR_CANCELED') {
                 return { success: false, error: 'Apple Sign-In was canceled' };
-            } else if (error.code === appleAuth.Error.FAILED) {
+            } else if (error.code === 'ERR_FAILED') {
                 return { success: false, error: 'Apple Sign-In failed' };
-            } else if (error.code === appleAuth.Error.INVALID_RESPONSE) {
+            } else if (error.code === 'ERR_INVALID_RESPONSE') {
                 return { success: false, error: 'Invalid response from Apple' };
-            } else if (error.code === appleAuth.Error.NOT_HANDLED) {
+            } else if (error.code === 'ERR_NOT_HANDLED') {
                 return { success: false, error: 'Apple Sign-In not handled' };
-            } else if (error.code === appleAuth.Error.UNKNOWN) {
+            } else if (error.code === 'ERR_UNKNOWN') {
                 return { success: false, error: 'Unknown Apple Sign-In error' };
             }
 
@@ -118,7 +120,7 @@ export class AppleSignInService {
         authorizationCode?: string | null,
         user?: string | null,
         email?: string | null,
-        fullName?: AppleRequestResponseFullName | null
+        fullName?: AppleAuthentication.AppleAuthenticationFullName | null
     ) {
         try {
             const API_URL = Constants.expoConfig?.extra?.apiUrl || 'https://backend.listtra.com';
