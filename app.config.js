@@ -16,7 +16,7 @@ export default {
       entitlements: {
         "com.apple.developer.applesignin": ["Default"]
       },
-      buildNumber: "3",
+      buildNumber: "4",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#f8f8f8",
@@ -55,7 +55,7 @@ export default {
 
     android: {
       package: "com.zirkly.app",
-      versionCode: 2,
+      versionCode: 4,
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
