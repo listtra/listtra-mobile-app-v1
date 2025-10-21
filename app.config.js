@@ -13,7 +13,10 @@ export default {
 
     ios: {
       bundleIdentifier: "com.zirkly.app",
-      buildNumber: "1",
+      entitlements: {
+        "com.apple.developer.applesignin": ["Default"]
+      },
+      buildNumber: "2",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#f8f8f8",
@@ -47,15 +50,15 @@ export default {
             },
           },
         },
-      },
+      }
     },
 
     android: {
       package: "com.zirkly.app",
-      versionCode: 1,
+      versionCode: 2,
       adaptiveIcon: {
-        foregroundImage: "./assets/images/adaptive-icon.png",
-        backgroundColor: "#ffffff",
+        foregroundImage: "./assets/images/adaptive.png",
+        backgroundColor: "#2528be",
       },
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",

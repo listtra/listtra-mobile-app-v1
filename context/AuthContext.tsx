@@ -6,6 +6,7 @@ import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { googleSignInService } from '../services/googleSignInService';
 import { Platform } from 'react-native';
+import { appleSignInService } from '@/services/appleSignInService';
 
 // Configure Google WebBrowser auth (keeping for web fallback)
 //WebBrowser.maybeCompleteAuthSession();
@@ -40,6 +41,7 @@ type AuthContextType = {
   storeTokens: (accessToken: string, refreshToken: string, userData?: any) => Promise<void>;
   setTokensDirectly: (accessToken: string, refreshToken: string, userData?: any) => Promise<void>;
   handleGoogleSignIn: () => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
+  handleAppleSignIn: () => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
 };
 
 // Create the context with default values
@@ -60,6 +62,7 @@ const AuthContext = createContext<AuthContextType>({
   setTokensDirectly: async () => { },
   storeTokens: async () => { },
   handleGoogleSignIn: async () => ({ success: false }),
+  handleAppleSignIn: async () => ({ success: false }),
 });
 
 // Hook to use the auth context
@@ -541,11 +544,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     console.log('Logging out user from mobile app');
 
-    // Sign out from Google as well
+    // Sign out from Google and Apple as well
     try {
       await googleSignInService.signOut();
+      await appleSignInService.signOut();
     } catch (error) {
-      console.error('Error signing out from Google:', error);
+      console.error('Error signing out from social providers:', error);
     }
 
     // Clear user state first
@@ -633,6 +637,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const handleAppleSignIn = async (): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('🍎 AuthContext: Starting native Apple Sign-In...');
+
+      const result = await appleSignInService.signIn();
+      console.log('🍎 AuthContext: AppleSignInService result:', result);
+
+      if (result.success && result.tokens && result.user) {
+        console.log('🍎 AuthContext: Native Apple Sign-In successful');
+        console.log('🍎 AuthContext: Tokens:', result.tokens);
+        console.log('🍎 AuthContext: User:', result.user);
+
+        console.log('🍎 AuthContext: Apple sign-in successful - returning tokens and user');
+        setIsLoading(false);
+
+        return {
+          success: true,
+          tokens: result.tokens,
+          user: result.user
+        };
+      } else {
+        console.error('🍎 AuthContext: Native Apple Sign-In failed:', result.error);
+        setError(result.error || 'Apple Sign-In failed');
+        setIsLoading(false);
+        return { success: false, error: result.error || 'Apple Sign-In failed' };
+      }
+    } catch (error: any) {
+      console.error('🍎 AuthContext: Apple sign in error:', error);
+      setError('Authentication failed. Please try again.');
+      setIsLoading(false);
+      return { success: false, error: 'Authentication failed' };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -650,6 +691,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await setTokensDirectly(accessToken, refreshToken, userData);
         },
         handleGoogleSignIn,
+        handleAppleSignIn,
         storeTokens: async (accessToken: string, refreshToken: string, userData?: any): Promise<void> => {
           await storeTokens(accessToken, refreshToken);
           if (userData) {

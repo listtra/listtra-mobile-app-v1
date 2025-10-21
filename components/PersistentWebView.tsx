@@ -84,7 +84,7 @@ type WebViewMessage =
   | { type: 'AUTH_LOGIN_SUCCESS'; tokens: any; user: any }
   | { type: 'AUTH_RESTORED'; user?: any }
   | { type: 'OPEN_IMAGE_PICKER'; options?: { maxImages?: number; quality?: number; allowsEditing?: boolean; aspect?: number[]; includeCamera?: boolean } }
-  | { type: 'OPEN_WEB_OAUTH'; provider: 'google' }
+  | { type: 'OPEN_WEB_OAUTH'; provider: 'google' | 'apple' }
   | { type: 'SHARE_LISTING'; data: any }
   | { type: string;[key: string]: any }; // fallback
 
@@ -142,7 +142,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     const insets = useSafeAreaInsets();
 
     // Auth context
-    const { tokens, logout, isAuthenticated, user, handleGoogleSignIn, setTokensDirectly } = useAuth();
+    const { tokens, logout, isAuthenticated, user, handleGoogleSignIn, handleAppleSignIn, setTokensDirectly } = useAuth();
 
     // Component state
     const [isLoading, setIsLoading] = useState(true);
@@ -270,6 +270,60 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       }
     }, [handleGoogleSignIn]);
 
+    const handleAppleOAuth = useCallback(async () => {
+      try {
+        log('Starting Apple OAuth flow');
+
+        const result = await handleAppleSignIn();
+
+        if (result.success && result.tokens && result.user) {
+          log('Apple Sign-In successful');
+
+          const safeTokens = JSON.stringify(result.tokens);
+          const safeUser = JSON.stringify(result.user);
+
+          console.log('Calling Apple Auth Success', safeTokens, safeUser);
+
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'APPLE_AUTH_SUCCESS',
+            tokens: safeTokens,
+            user: safeUser
+          }));
+
+        } else {
+          logError('Apple Sign-In failed:', result.error);
+
+          // Show error message to user
+          Alert.alert(
+            'Sign-In Error',
+            result.error || 'Apple Sign-In failed. Please try again.',
+            [{ text: 'OK' }]
+          );
+
+          // Also send error back to WebView
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'APPLE_AUTH_ERROR',
+            error: result.error || 'Apple Sign-In failed'
+          }));
+        }
+      } catch (error) {
+        logError('Apple OAuth error:', error);
+
+        // Show generic error message
+        Alert.alert(
+          'Sign-In Error',
+          'An unexpected error occurred during sign-in. Please try again.',
+          [{ text: 'OK' }]
+        );
+
+        // Send error back to WebView
+        webViewRef.current?.postMessage(JSON.stringify({
+          type: 'APPLE_AUTH_ERROR',
+          error: 'An unexpected error occurred during sign-in'
+        }));
+      }
+    }, [handleAppleSignIn]);
+
 
     /** -------------------------
      * 🔹 Camera Modal Handler
@@ -359,6 +413,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           case 'OPEN_WEB_OAUTH':
             if (data.provider === 'google') {
               handleGoogleOAuth();
+            } else if (data.provider === 'apple') {
+              handleAppleOAuth();
             }
             return;
 
@@ -450,7 +506,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             return;
 
           case 'NAVIGATE_SEARCH':
-            if(data.query) {
+            if (data.query) {
               router.push(`/search/page?q=${encodeURIComponent(data.query)}`);
             } else {
               router.push('/search/page');
@@ -529,6 +585,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       handlePhotosSelected,
       handleShare,
       handleGoogleOAuth,
+      handleAppleOAuth,
       logout,
       setTokensDirectly,
       tokens.accessToken,
