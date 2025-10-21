@@ -56,10 +56,6 @@ export default {
     android: {
       package: "com.zirkly.app",
       versionCode: 2,
-      adaptiveIcon: {
-        foregroundImage: "./assets/images/adaptive.png",
-        backgroundColor: "#2528be",
-      },
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
@@ -90,15 +86,15 @@ export default {
       "expo-router",
       "expo-apple-authentication",
       "expo-notifications",
-      [
-        "expo-splash-screen",
-        {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
-          resizeMode: "contain",
-          backgroundColor: "#ffffff",
-        },
-      ],
+      // [
+      //   "expo-splash-screen",
+      //   {
+      //     image: "./assets/images/splash-icon.png",
+      //     imageWidth: 200,
+      //     resizeMode: "contain",
+      //     backgroundColor: "#ffffff",
+      //   },
+      // ],
       [
         "expo-location",
         {
