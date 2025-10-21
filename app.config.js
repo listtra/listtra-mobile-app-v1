@@ -16,7 +16,7 @@ export default {
       entitlements: {
         "com.apple.developer.applesignin": ["Default"]
       },
-      buildNumber: "2",
+      buildNumber: "3",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#f8f8f8",
