@@ -12,7 +12,7 @@ import { appleSignInService } from '@/services/appleSignInService';
 //WebBrowser.maybeCompleteAuthSession();
 
 // API endpoint configuration
-const API_URL = 'https://backend.listtra.com';
+const API_URL = Constants.expoConfig?.extra?.apiUrl;
 
 // Define app scheme for deep linking
 const APP_SCHEME = 'zirkly';

@@ -131,7 +131,7 @@ export class GoogleSignInService {
 
   private async exchangeTokenWithBackend(idToken: string) {
     try {
-      const API_URL = Constants.expoConfig?.extra?.apiUrl || 'https://backend.listtra.com';
+      const API_URL = Constants.expoConfig?.extra?.apiUrl;
       
       const response = await fetch(`${API_URL}/api/auth/google/`, {
         method: 'POST',

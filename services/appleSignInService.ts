@@ -123,7 +123,7 @@ export class AppleSignInService {
         fullName?: AppleAuthentication.AppleAuthenticationFullName | null
     ) {
         try {
-            const API_URL = Constants.expoConfig?.extra?.apiUrl || 'https://backend.listtra.com';
+            const API_URL = Constants.expoConfig?.extra?.apiUrl;
 
             const response = await fetch(`${API_URL}/api/auth/apple/`, {
                 method: 'POST',

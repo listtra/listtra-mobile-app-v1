@@ -96,6 +96,15 @@
           <key>NSExceptionRequiresForwardSecrecy</key>
           <true/>
         </dict>
+        <key>dev.zirkly.com</key>
+        <dict>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+          <key>NSExceptionMinimumTLSVersion</key>
+          <string>TLSv1.2</string>
+          <key>NSExceptionRequiresForwardSecrecy</key>
+          <true/>
+        </dict>
       </dict>
     </dict>
     <key>NSCameraUsageDescription</key>

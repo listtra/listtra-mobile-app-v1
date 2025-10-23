@@ -1,6 +1,7 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-const API_URL = 'https://backend.listtra.com';
+const API_URL = Constants?.expoConfig?.extra?.apiUrl;
 
 // Function to get API instance with auth token
 const getApiInstance = async (token: string) => {
