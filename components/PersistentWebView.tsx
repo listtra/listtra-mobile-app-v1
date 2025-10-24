@@ -85,7 +85,7 @@ type WebViewMessage =
   | { type: 'AUTH_RESTORED'; user?: any }
   | { type: 'OPEN_IMAGE_PICKER'; options?: { maxImages?: number; quality?: number; allowsEditing?: boolean; aspect?: number[]; includeCamera?: boolean } }
   | { type: 'OPEN_WEB_OAUTH'; provider: 'google' | 'apple' }
-  | { type: 'SHARE_LISTING'; data: any }
+  | { type: 'SHARE_LISTING'; shareData: any; data: any }
   | { type: string;[key: string]: any }; // fallback
 
 /** -------------------------
@@ -190,17 +190,37 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           throw new Error('Invalid share data');
         }
 
+        // Use the pre-formatted text from web if available, otherwise create a simple message
+        const shareMessage = shareData.text || `${shareData.title}\n\nCheck it out: ${shareData.url}`;
+
         const shareOptions = {
           title: shareData.title,
-          message: `${shareData.title}\n\nCheck it out: ${shareData.url}`,
+          message: shareMessage,
+          url: shareData.url, // Include URL for platforms that support it
         };
+
+        // Add image if available (for platforms that support it)
+        if (shareData.image) {
+          shareOptions.url = shareData.image;
+        }
 
         const result = await Share.share(shareOptions);
 
         if (result.action === Share.sharedAction) {
           log('Content shared successfully:', result.activityType || 'default');
+
+          // Send success confirmation back to WebView
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'SHARE_SUCCESS',
+            activityType: result.activityType
+          }));
         } else {
           log('Share dismissed by user');
+
+          // Send dismissal notification back to WebView
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'SHARE_DISMISSED'
+          }));
         }
       } catch (error) {
         logError('Share error:', error);
@@ -407,7 +427,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             return;
 
           case 'SHARE_LISTING':
-            handleShare(data.data);
+            handleShare(data.shareData || data.data);
             return;
 
           case 'OPEN_WEB_OAUTH':
