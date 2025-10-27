@@ -6,7 +6,7 @@ export default {
     slug: "zirkly-mobile-app",
     version: "1.0.1",
     orientation: "portrait",
-    icon: "./assets/images/icon.png",
+    icon: "./assets/images/icon1.png",
     scheme: "zirkly",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,

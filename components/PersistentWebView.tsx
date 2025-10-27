@@ -186,23 +186,25 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
      * ------------------------- */
     const handleShare = useCallback(async (shareData: any) => {
       try {
-        if (!shareData?.title || !shareData?.url) {
+        if (!shareData?.title) {
           throw new Error('Invalid share data');
         }
 
         // Use the pre-formatted text from web if available, otherwise create a simple message
         const shareMessage = shareData.text || `${shareData.title}\n\nCheck it out: ${shareData.url}`;
 
-        const shareOptions = {
+        const shareOptions: any = {
           title: shareData.title,
           message: shareMessage,
-          url: shareData.url, // Include URL for platforms that support it
+          //url: shareData.url, // Include URL for platforms that support it
         };
 
         // Add image if available (for platforms that support it)
-        if (shareData.image) {
-          shareOptions.url = shareData.image;
+        if (!shareData.image && shareData.url) {
+          shareOptions.url = shareData.url;
         }
+
+        console.log('Share options:', shareOptions);
 
         const result = await Share.share(shareOptions);
 

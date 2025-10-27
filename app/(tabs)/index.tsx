@@ -1,8 +1,8 @@
-// app/(tabs)/index.tsx
+import WelcomeHeader from '@/components/WelcomeHeader';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
 
 // Global variable to store the refresh function
@@ -74,6 +74,7 @@ export default function ListingsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <WelcomeHeader />
       <View style={styles.webViewContainer}>
         <PersistentWebView
           route="listings"
