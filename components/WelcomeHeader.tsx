@@ -29,9 +29,10 @@ export default function WelcomeHeader() {
         <View style={styles.textContainer}>
           <View style={styles.welcomeRow}>
             <Text style={styles.greeting}>{getGreeting()} </Text>
-            <Text style={styles.username}>{
-              isAuthenticated && user ? user.nickname : ''
-              }</Text>
+            <Text style={styles.username}>
+              {isAuthenticated && user?.nickname ? `${user.nickname}!` : '!'}
+            </Text>
+
           </View>
         </View>
       </View>
