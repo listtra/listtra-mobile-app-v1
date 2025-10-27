@@ -5,9 +5,9 @@ import { useAuth } from '../context/AuthContext';
 export default function WelcomeHeader() {
   const { user, isAuthenticated } = useAuth();
 
-  if (!isAuthenticated || !user) {
-    return null;
-  }
+  // if (!isAuthenticated || !user) {
+  //   return null;
+  // }
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -29,7 +29,9 @@ export default function WelcomeHeader() {
         <View style={styles.textContainer}>
           <View style={styles.welcomeRow}>
             <Text style={styles.greeting}>{getGreeting()} </Text>
-            <Text style={styles.username}>{user.nickname}</Text>
+            <Text style={styles.username}>{
+              isAuthenticated && user ? user.nickname : ''
+              }</Text>
           </View>
         </View>
       </View>
@@ -59,8 +61,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greeting: {
-    fontSize: 18,
-    color: '#a0a0a0',
+    fontSize: 14,
+    color: '#000000',
     marginBottom: 4,
   },
   welcomeRow: {
@@ -79,7 +81,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   username: {
-    fontSize: 18,
+    fontSize: 14,
     color: '#2528be',
     marginRight: 6,
   },

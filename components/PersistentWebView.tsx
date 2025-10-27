@@ -1,5 +1,4 @@
 import NetInfo from '@react-native-community/netinfo';
-import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter } from 'expo-router';
 import React, {
   forwardRef,
@@ -190,19 +189,24 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           throw new Error('Invalid share data');
         }
 
-        // Use the pre-formatted text from web if available, otherwise create a simple message
-        const shareMessage = shareData.text || `${shareData.title}\n\nCheck it out: ${shareData.url}`;
+        console.log('Share data:', shareData);
 
-        const shareOptions: any = {
-          title: shareData.title,
-          message: shareMessage,
-          //url: shareData.url, // Include URL for platforms that support it
-        };
+        // Use the pre-formatted text from web if available
+        const shareMessage = shareData.text || `${shareData.title}\n\n${shareData.url || ''}`;
 
-        // Add image if available (for platforms that support it)
-        if (!shareData.image && shareData.url) {
-          shareOptions.url = shareData.url;
-        }
+        // iOS-specific handling for WhatsApp compatibility
+        const isIOS = Platform.OS === 'ios';
+
+        const shareOptions: any = isIOS
+          ? {
+            // On iOS, WhatsApp works better with just message field
+            message: shareMessage,
+          }
+          : {
+            // Android can handle both
+            title: shareData.title,
+            message: shareMessage,
+          };
 
         console.log('Share options:', shareOptions);
 
@@ -211,7 +215,6 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         if (result.action === Share.sharedAction) {
           log('Content shared successfully:', result.activityType || 'default');
 
-          // Send success confirmation back to WebView
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'SHARE_SUCCESS',
             activityType: result.activityType
@@ -219,15 +222,12 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         } else {
           log('Share dismissed by user');
 
-          // Send dismissal notification back to WebView
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'SHARE_DISMISSED'
           }));
         }
       } catch (error) {
         logError('Share error:', error);
-
-        // Send error back to WebView
         webViewRef.current?.postMessage(JSON.stringify({
           type: 'SHARE_ERROR',
           error: 'Failed to share content'
