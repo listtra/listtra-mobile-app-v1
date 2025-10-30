@@ -33,7 +33,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const getTabIcon = (routeName: string, isFocused: boolean) => {
     switch (routeName) {
       case 'index':
-        return { name: isFocused ? 'list' : 'list-outline' as const, size: 26 };
+        return { name: isFocused ? 'home' : 'home-outline' as const, size: 24 };
       case 'notifications':
         return { name: isFocused ? 'notifications' : 'notifications-outline' as const, size: 24 };
       case 'chats':
@@ -75,7 +75,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 
         const tabIcon = getTabIcon(route.name, isFocused);
         const tabLabels: Record<string, string> = {
-          index: "Listing",
+          index: "Home",
           notifications: "Notification",
           add: "Post an Ad",
           chats: "Message",

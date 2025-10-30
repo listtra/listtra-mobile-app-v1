@@ -774,11 +774,11 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           </ScrollView>
         )}
 
-        {isLoading && (
+        {/* {isLoading && (
           <View style={styles.loaderContainer}>
             <ActivityIndicator size="large" color="#2528be" />
           </View>
-        )}
+        )} */}
 
         {/* Camera Modal */}
         <CameraModal
