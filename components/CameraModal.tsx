@@ -341,16 +341,16 @@ const CameraModal: React.FC<CameraModalProps> = ({
           // ✅ IMPROVED ERROR HANDLING FOR MULTIPLE PHOTOS
           try {
             setIsLoading(true);
-            const processedPhotos = await Promise.all(
-              result.assets.map(async (asset, index) => {
-                try {
-                  return await processImage(asset.uri);
-                } catch (error) {
-                  logger.error(`[CameraModal] Failed to process image ${index}:`, error);
-                  throw error;
-                }
-              })
-            );
+            const processedPhotos: Photo[] = [];
+            for (let i = 0; i < result.assets.length; i++) {
+              try {
+                const processed = await processImage(result.assets[i].uri);
+                processedPhotos.push(processed);
+              } catch (error) {
+                logger.error(`[CameraModal] Failed to process image ${i}:`, error);
+                throw error;
+              }
+            }
 
             const newPhotos = [...photos, ...processedPhotos].slice(0, availableSlots);
             setPhotos(newPhotos);
