@@ -19,7 +19,7 @@ export default {
       buildNumber: "6",
       supportsTablet: true,
       statusBarStyle: "dark-content",
-      statusBarBackgroundColor: "#f8f8f8",
+      statusBarBackgroundColor: "#f1f1f1",
       googleServicesFile: "./GoogleService-Info.plist",
       infoPlist: {
         UIStatusBarStyle: "UIStatusBarStyleDarkContent",
@@ -64,7 +64,7 @@ export default {
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
-      statusBarBackgroundColor: "#f8f8f8",
+      statusBarBackgroundColor: "#f1f1f1",
       statusBarTranslucent: false,
       googleServicesFile: "./google-services.json",
       permissions: [

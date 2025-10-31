@@ -16,10 +16,10 @@ function RootLayoutContent() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8f8f8' }}>
+    <View style={{ flex: 1, backgroundColor: '#f1f1f1' }}>
       <StatusBar
         style="dark"
-        backgroundColor="#f8f8f8"
+        backgroundColor="#f1f1f1"
         translucent={true}
       />
 
@@ -32,7 +32,7 @@ function RootLayoutContent() {
             left: 0,
             right: 0,
             height: insets.top,
-            backgroundColor: '#f8f8f8',
+            backgroundColor: '#f1f1f1',
             zIndex: 1000
           }}
         />
@@ -40,7 +40,7 @@ function RootLayoutContent() {
 
       <View style={{
         flex: 1,
-        backgroundColor: '#f8f8f8',
+        backgroundColor: '#f1f1f1',
       }}>
         <AuthGuard>
           <>

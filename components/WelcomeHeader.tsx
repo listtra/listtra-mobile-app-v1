@@ -42,7 +42,7 @@ export default function WelcomeHeader() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f1f1f1',
     paddingHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: {

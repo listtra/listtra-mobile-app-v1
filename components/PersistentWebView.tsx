@@ -1,4 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, {
   forwardRef,
@@ -9,7 +10,7 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Alert, Platform, RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
@@ -85,6 +86,7 @@ type WebViewMessage =
   | { type: 'OPEN_IMAGE_PICKER'; options?: { maxImages?: number; quality?: number; allowsEditing?: boolean; aspect?: number[]; includeCamera?: boolean } }
   | { type: 'OPEN_WEB_OAUTH'; provider: 'google' | 'apple' }
   | { type: 'SHARE_LISTING'; shareData: any; data: any }
+  | { type: 'REQUEST_NATIVE_LOCATION' }
   | { type: string;[key: string]: any }; // fallback
 
 /** -------------------------
@@ -401,6 +403,73 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     }, []);
 
     /** -------------------------
+     * 🔹 Request Location Handler
+     * ------------------------- */
+    const handleRequestLocation = useCallback(async () => {
+      try {
+        log('Native location requested from WebView');
+
+        // Request foreground location permission
+        const { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status !== 'granted') {
+          logError('Location permission denied');
+
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'NATIVE_LOCATION_ERROR',
+            error: 'PERMISSION_DENIED',
+            message: 'Location permission denied. Please enable location in your device settings.'
+          }));
+          return;
+        }
+
+        log('Location permission granted, getting current position...');
+
+        // Get current location with balanced accuracy
+        const locationResult = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 10000,
+          distanceInterval: 10,
+        });
+
+        const locationData = {
+          latitude: locationResult.coords.latitude,
+          longitude: locationResult.coords.longitude,
+          accuracy: locationResult.coords.accuracy,
+          timestamp: locationResult.timestamp,
+        };
+
+        log('Location obtained successfully:', locationData);
+
+        // Send location to WebView
+        webViewRef.current?.postMessage(JSON.stringify({
+          type: 'NATIVE_LOCATION_SUCCESS',
+          location: locationData
+        }));
+
+      } catch (error: any) {
+        logError('Location error:', error);
+
+        let errorMessage = 'Failed to get location';
+        let errorCode = 'UNKNOWN_ERROR';
+
+        if (error.code === 'E_LOCATION_UNAVAILABLE') {
+          errorMessage = 'Location services are unavailable. Please check your device settings.';
+          errorCode = 'POSITION_UNAVAILABLE';
+        } else if (error.code === 'E_LOCATION_TIMEOUT') {
+          errorMessage = 'Location request timed out. Please try again.';
+          errorCode = 'TIMEOUT';
+        }
+
+        webViewRef.current?.postMessage(JSON.stringify({
+          type: 'NATIVE_LOCATION_ERROR',
+          error: errorCode,
+          message: errorMessage
+        }));
+      }
+    }, []);
+
+    /** -------------------------
      * 🔹 Message Handler
      * ------------------------- */
     const handleMessage = useCallback((event: WebViewMessageEvent) => {
@@ -585,6 +654,10 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
 
           case 'NAVIGATE_TO_LOCATION': router.push('/location'); return;
 
+          case 'REQUEST_NATIVE_LOCATION':
+            handleRequestLocation();
+            return;
+
           default:
             // Handle unknown message types
             log('Unknown message type:', data.type);
@@ -608,6 +681,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       handleShare,
       handleGoogleOAuth,
       handleAppleOAuth,
+      handleRequestLocation,
       logout,
       setTokensDirectly,
       tokens.accessToken,
@@ -702,7 +776,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       ref: webViewRef,
       source: { uri: currentUrl },
       injectedJavaScript: injectedJS,
-      style: [styles.webView, { backgroundColor: '#f8f8f8' }],
+      style: [styles.webView, { backgroundColor: '#f1f1f1' }],
       onLoad: handleLoadEnd,
       onLoadEnd: handleLoadEnd,
       onError: handleError,
@@ -805,7 +879,7 @@ export default PersistentWebView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8'
+    backgroundColor: '#f1f1f1'
   },
   scrollView: {
     flex: 1
@@ -816,12 +890,12 @@ const styles = StyleSheet.create({
   webView: {
     flex: 1,
     minHeight: '100%',
-    backgroundColor: '#f8f8f8'
+    backgroundColor: '#f1f1f1'
   },
   loaderContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f1f1f1',
   },
 });

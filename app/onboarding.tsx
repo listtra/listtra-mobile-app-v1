@@ -106,7 +106,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f8f8" />
+      <StatusBar barStyle="dark-content" backgroundColor="#f1f1f1" />
 
       {/* Skip Button - moved above progress bar */}
       <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
@@ -157,7 +157,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f1f1f1',
   },
   skipButton: {
     position: 'absolute',

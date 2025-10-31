@@ -53,7 +53,7 @@
       "edgeToEdgeEnabled": false,
       "statusBarStyle":"dark-content",
       "softInputMode": "adjustResize",
-      "statusBarBackgroundColor": "#f8f8f8",
+      "statusBarBackgroundColor": "#f1f1f1",
       "statusBarTranslucent": false,
       "googleServicesFile": "./android/app/google-services.json",
       "permissions": [
