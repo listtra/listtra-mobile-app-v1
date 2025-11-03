@@ -776,7 +776,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       ref: webViewRef,
       source: { uri: currentUrl },
       injectedJavaScript: injectedJS,
-      style: [styles.webView, { backgroundColor: '#f1f1f1' }],
+      style: [styles.webView, { backgroundColor: '#f5f5f5' }],
       onLoad: handleLoadEnd,
       onLoadEnd: handleLoadEnd,
       onError: handleError,
@@ -879,7 +879,7 @@ export default PersistentWebView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f1f1'
+    backgroundColor: '#f5f5f5'
   },
   scrollView: {
     flex: 1
@@ -890,12 +890,12 @@ const styles = StyleSheet.create({
   webView: {
     flex: 1,
     minHeight: '100%',
-    backgroundColor: '#f1f1f1'
+    backgroundColor: '#f5f5f5'
   },
   loaderContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f1f1f1',
+    backgroundColor: '#f5f5f5',
   },
 });

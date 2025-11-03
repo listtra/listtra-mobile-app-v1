@@ -23,7 +23,7 @@ export default {
       buildNumber: "6",
       supportsTablet: true,
       statusBarStyle: "dark-content",
-      statusBarBackgroundColor: "#f1f1f1",
+      statusBarBackgroundColor: "#f5f5f5",
       googleServicesFile: "./GoogleService-Info.plist",
       infoPlist: {
         UIStatusBarStyle: "UIStatusBarStyleDarkContent",
@@ -78,6 +78,14 @@ export default {
               scheme: "https",
               host: "www.zirkly.com",
               pathPrefix: "/listings"
+            },
+            {
+              scheme: "https",
+              host: "zirkly.com"
+            },
+            {
+              scheme: "https",
+              host: "www.zirkly.com"
             }
           ],
           category: ["BROWSABLE", "DEFAULT"]
@@ -87,7 +95,7 @@ export default {
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
-      statusBarBackgroundColor: "#f1f1f1",
+      statusBarBackgroundColor: "#f5f5f5",
       statusBarTranslucent: false,
       googleServicesFile: "./google-services.json",
       permissions: [

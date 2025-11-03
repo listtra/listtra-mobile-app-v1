@@ -69,8 +69,20 @@ function RootLayoutContent() {
     // For custom schemes like zirkly://, the hostname contains the first part
     // and path contains the rest. We need to combine them.
     // For https:// URLs, everything is in path
-    const fullPath = path?.startsWith('listings/') ? path : (hostname && path) ? `${hostname}/${path}` : (path || hostname || '');
+    const fullPath = path || '';
     console.log('Full path to check:', fullPath);
+
+    // Handle root domain (zirkly.com or www.zirkly.com with no path or just "/")
+    if (!fullPath || fullPath === '' || fullPath === '/' || fullPath === 'listings') {
+      console.log('Root domain or /listings detected, navigating to home');
+      if (isInitial) {
+        router.replace('/(tabs)');
+      } else {
+        router.push('/(tabs)');
+      }
+      console.log('=== End Deep Link Debug ===');
+      return;
+    }
 
     // Handle listing URLs: zirkly://listings/slug/product_id or https://zirkly.com/listings/slug/product_id
     if (fullPath?.startsWith('listings/')) {
@@ -139,10 +151,10 @@ function RootLayoutContent() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f1f1f1' }}>
+    <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
       <StatusBar
         style="dark"
-        backgroundColor="#f1f1f1"
+        backgroundColor="#f5f5f5"
         translucent={true}
       />
 
@@ -155,7 +167,7 @@ function RootLayoutContent() {
             left: 0,
             right: 0,
             height: insets.top,
-            backgroundColor: '#f1f1f1',
+            backgroundColor: '#f5f5f5',
             zIndex: 1000
           }}
         />
@@ -170,7 +182,7 @@ function RootLayoutContent() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: '#f1f1f1',
+            backgroundColor: '#f5f5f5',
             zIndex: 9999,
             justifyContent: 'center',
             alignItems: 'center',
@@ -182,7 +194,7 @@ function RootLayoutContent() {
 
       <View style={{
         flex: 1,
-        backgroundColor: '#f1f1f1',
+        backgroundColor: '#f5f5f5',
       }}>
         <AuthGuard>
           <>

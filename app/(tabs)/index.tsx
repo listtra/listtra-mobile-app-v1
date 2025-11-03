@@ -1,4 +1,3 @@
-import WelcomeHeader from '@/components/WelcomeHeader';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -74,7 +73,6 @@ export default function ListingsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <WelcomeHeader />
       <View style={styles.webViewContainer}>
         <PersistentWebView
           route="listings"

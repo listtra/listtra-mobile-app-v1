@@ -7,28 +7,28 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		05F429BB50E759A28D2B6FB4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2AF026158574198FB752B4CB /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		3C77EB8BADFA2794EF3BDBB3 /* libPods-Zirkly.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA6DABFC968DC3AD01BBB52F /* libPods-Zirkly.a */; };
+		15E4D5E1AAB644528DD4AB14 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B632CB4EC574A6FA4653D3D /* GoogleService-Info.plist */; };
+		2A60EE00C2AA7835BF12B998 /* libPods-Zirkly.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F484ACCA5834C4E8E307AA7 /* libPods-Zirkly.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		BF410899F49F4F60AC37E782 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 87D0541E4DFB4D2BBC1517FB /* GoogleService-Info.plist */; };
-		C3B45ED52A9B2BB267090487 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B31079EF401984D1F140F4B /* ExpoModulesProvider.swift */; };
+		D933A59D517CC081484EBC54 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D040B2E1EA83770DDA19EA75 /* ExpoModulesProvider.swift */; };
+		E6439833B7C334C94AB96B6C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D1F0C38F4A666B1ED96209C3 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0F484ACCA5834C4E8E307AA7 /* libPods-Zirkly.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Zirkly.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07F961A680F5B00A75B9A /* Zirkly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zirkly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Zirkly/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Zirkly/Info.plist; sourceTree = "<group>"; };
-		2AF026158574198FB752B4CB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Zirkly/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		6A5EBDCDD45DC974872D2D26 /* Pods-Zirkly.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Zirkly.debug.xcconfig"; path = "Target Support Files/Pods-Zirkly/Pods-Zirkly.debug.xcconfig"; sourceTree = "<group>"; };
-		87D0541E4DFB4D2BBC1517FB /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Zirkly/GoogleService-Info.plist"; sourceTree = "<group>"; };
-		88F118739216E43FA1DA6747 /* Pods-Zirkly.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Zirkly.release.xcconfig"; path = "Target Support Files/Pods-Zirkly/Pods-Zirkly.release.xcconfig"; sourceTree = "<group>"; };
-		9B31079EF401984D1F140F4B /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Zirkly/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		3B632CB4EC574A6FA4653D3D /* GoogleService-Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "Zirkly/GoogleService-Info.plist"; sourceTree = "<group>"; };
+		6D7178A4E05AC0163B0F2782 /* Pods-Zirkly.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Zirkly.debug.xcconfig"; path = "Target Support Files/Pods-Zirkly/Pods-Zirkly.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Zirkly/SplashScreen.storyboard; sourceTree = "<group>"; };
-		AA6DABFC968DC3AD01BBB52F /* libPods-Zirkly.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Zirkly.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		D040B2E1EA83770DDA19EA75 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Zirkly/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		D1F0C38F4A666B1ED96209C3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Zirkly/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		E25226DD5BF6C83EBD525F48 /* Pods-Zirkly.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Zirkly.release.xcconfig"; path = "Target Support Files/Pods-Zirkly/Pods-Zirkly.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Zirkly/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Zirkly-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Zirkly-Bridging-Header.h"; path = "Zirkly/Zirkly-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -39,7 +39,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3C77EB8BADFA2794EF3BDBB3 /* libPods-Zirkly.a in Frameworks */,
+				2A60EE00C2AA7835BF12B998 /* libPods-Zirkly.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,29 +55,27 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				87D0541E4DFB4D2BBC1517FB /* GoogleService-Info.plist */,
-				2AF026158574198FB752B4CB /* PrivacyInfo.xcprivacy */,
+				3B632CB4EC574A6FA4653D3D /* GoogleService-Info.plist */,
+				D1F0C38F4A666B1ED96209C3 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Zirkly;
-			sourceTree = "<group>";
-		};
-		1B615F438578A7C6B3A907AE /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				6A5EBDCDD45DC974872D2D26 /* Pods-Zirkly.debug.xcconfig */,
-				88F118739216E43FA1DA6747 /* Pods-Zirkly.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				AA6DABFC968DC3AD01BBB52F /* libPods-Zirkly.a */,
+				0F484ACCA5834C4E8E307AA7 /* libPods-Zirkly.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		30CF426CEA466F42C8B6E9DF /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				B7D0AE4A3FEE18993B68BBB2 /* Zirkly */,
+			);
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -94,8 +92,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				1B615F438578A7C6B3A907AE /* Pods */,
-				8F88C3224A0BDAA94DE8674D /* ExpoModulesProviders */,
+				F53B2AF64BB0EBF772C5FE66 /* Pods */,
+				30CF426CEA466F42C8B6E9DF /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -110,18 +108,10 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		8F88C3224A0BDAA94DE8674D /* ExpoModulesProviders */ = {
+		B7D0AE4A3FEE18993B68BBB2 /* Zirkly */ = {
 			isa = PBXGroup;
 			children = (
-				B05A47D2BB62E8FCDE89D134 /* Zirkly */,
-			);
-			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
-		B05A47D2BB62E8FCDE89D134 /* Zirkly */ = {
-			isa = PBXGroup;
-			children = (
-				9B31079EF401984D1F140F4B /* ExpoModulesProvider.swift */,
+				D040B2E1EA83770DDA19EA75 /* ExpoModulesProvider.swift */,
 			);
 			name = Zirkly;
 			sourceTree = "<group>";
@@ -135,6 +125,16 @@
 			path = Zirkly/Supporting;
 			sourceTree = "<group>";
 		};
+		F53B2AF64BB0EBF772C5FE66 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				6D7178A4E05AC0163B0F2782 /* Pods-Zirkly.debug.xcconfig */,
+				E25226DD5BF6C83EBD525F48 /* Pods-Zirkly.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -143,13 +143,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Zirkly" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				7A06EBE577A9F3079E3EC7B1 /* [Expo] Configure project */,
+				E1CE57B2687F4B9F296D185A /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				E1105F8C7D2C9A439E1BF9DF /* [CP] Embed Pods Frameworks */,
+				3AD79BF72878343A483E1449 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -170,8 +170,6 @@
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
-						DevelopmentTeam = "7DWNYSF658";
-						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -201,8 +199,8 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				BF410899F49F4F60AC37E782 /* GoogleService-Info.plist in Resources */,
-				05F429BB50E759A28D2B6FB4 /* PrivacyInfo.xcprivacy in Resources */,
+				15E4D5E1AAB644528DD4AB14 /* GoogleService-Info.plist in Resources */,
+				E6439833B7C334C94AB96B6C /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -246,24 +244,23 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		7A06EBE577A9F3079E3EC7B1 /* [Expo] Configure project */ = {
+		3AD79BF72878343A483E1449 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputFileListPaths = (
-			);
 			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Zirkly/Pods-Zirkly-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
 			);
-			name = "[Expo] Configure project";
-			outputFileListPaths = (
-			);
+			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Zirkly/expo-configure-project.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Zirkly/Pods-Zirkly-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -323,23 +320,24 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Zirkly/Pods-Zirkly-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		E1105F8C7D2C9A439E1BF9DF /* [CP] Embed Pods Frameworks */ = {
+		E1CE57B2687F4B9F296D185A /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Zirkly/Pods-Zirkly-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			inputFileListPaths = (
 			);
-			name = "[CP] Embed Pods Frameworks";
+			inputPaths = (
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Zirkly/Pods-Zirkly-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Zirkly/expo-configure-project.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -349,7 +347,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				C3B45ED52A9B2BB267090487 /* ExpoModulesProvider.swift in Sources */,
+				D933A59D517CC081484EBC54 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -358,7 +356,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6A5EBDCDD45DC974872D2D26 /* Pods-Zirkly.debug.xcconfig */;
+			baseConfigurationReference = 6D7178A4E05AC0163B0F2782 /* Pods-Zirkly.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -389,15 +387,12 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
-				DEVELOPMENT_TEAM = "7DWNYSF658";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Debug;
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 88F118739216E43FA1DA6747 /* Pods-Zirkly.release.xcconfig */;
+			baseConfigurationReference = E25226DD5BF6C83EBD525F48 /* Pods-Zirkly.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -422,9 +417,6 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
-				DEVELOPMENT_TEAM = "7DWNYSF658";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Release;
 		};
