@@ -22,7 +22,7 @@ const getBaseUrl = () => {
   if (__DEV__) {
     return 'http://192.168.29.101:3000'; // Development
   }
-  return 'https://zirkly.com'; // Production - replace with your actual production URL
+  return 'https://www.zirkly.com'; // Production - replace with your actual production URL
 };
 
 const BASE_URL = getBaseUrl();
