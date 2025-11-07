@@ -14,7 +14,7 @@ export default {
     ios: {
       bundleIdentifier: "com.zirkly.app",
       associatedDomains: [
-        "applinks:zirkly.com",
+        //"applinks:zirkly.com",
         "applinks:www.zirkly.com"
       ],
       entitlements: {
@@ -69,20 +69,20 @@ export default {
           action: "VIEW",
           autoVerify: true,
           data: [
-            {
-              scheme: "https",
-              host: "zirkly.com",
-              pathPrefix: "/listings"
-            },
+            // {
+            //   scheme: "https",
+            //   host: "zirkly.com",
+            //   pathPrefix: "/listings"
+            // },
             {
               scheme: "https",
               host: "www.zirkly.com",
               pathPrefix: "/listings"
             },
-            {
-              scheme: "https",
-              host: "zirkly.com"
-            },
+            // {
+            //   scheme: "https",
+            //   host: "zirkly.com"
+            // },
             {
               scheme: "https",
               host: "www.zirkly.com"
@@ -159,7 +159,7 @@ export default {
     },
 
     extra: {
-      apiUrl: "https://backend.listtra.com",
+      apiUrl: "http://127.0.0.1:8000",
       googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
