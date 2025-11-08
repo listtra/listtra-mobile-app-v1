@@ -20,7 +20,7 @@ import OfflineScreen from './OfflineScreen';
 // Environment-based configuration
 const getBaseUrl = () => {
   if (__DEV__) {
-    return 'http://192.168.29.101:3000'; // Development
+    return 'http://192.168.31.224:3000'; // Development
   }
   return 'https://www.zirkly.com'; // Production - replace with your actual production URL
 };
@@ -84,7 +84,7 @@ type WebViewMessage =
   | { type: 'AUTH_LOGIN_SUCCESS'; tokens: any; user: any }
   | { type: 'AUTH_RESTORED'; user?: any }
   | { type: 'OPEN_IMAGE_PICKER'; options?: { maxImages?: number; quality?: number; allowsEditing?: boolean; aspect?: number[]; includeCamera?: boolean } }
-  | { type: 'OPEN_WEB_OAUTH'; provider: 'google' | 'apple' }
+  | { type: 'OPEN_WEB_OAUTH'; provider: 'google' | 'apple'; referralCode?: string }
   | { type: 'SHARE_LISTING'; shareData: any; data: any }
   | { type: 'REQUEST_NATIVE_LOCATION' }
   | { type: string;[key: string]: any }; // fallback
@@ -240,11 +240,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     /** -------------------------
      * 🔹 Google OAuth Handler
      * ------------------------- */
-    const handleGoogleOAuth = useCallback(async () => {
+    const handleGoogleOAuth = useCallback(async (referralCode?: string) => {
       try {
         log('Starting Google OAuth flow');
+        if (referralCode) {
+          log('With referral code:', referralCode);
+        }
 
-        const result = await handleGoogleSignIn();
+        const result = await handleGoogleSignIn(referralCode);
 
         if (result.success && result.tokens && result.user) {
           log('Google Sign-In successful');
@@ -257,7 +260,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'GOOGLE_AUTH_SUCCESS',
             tokens: safeTokens,
-            user: safeUser
+            user: safeUser,
+            referralCode: referralCode || null
           }));
 
         } else {
@@ -294,11 +298,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       }
     }, [handleGoogleSignIn]);
 
-    const handleAppleOAuth = useCallback(async () => {
+    const handleAppleOAuth = useCallback(async (referralCode?: string) => {
       try {
         log('Starting Apple OAuth flow');
+        if (referralCode) {
+          log('With referral code:', referralCode);
+        }
 
-        const result = await handleAppleSignIn();
+        const result = await handleAppleSignIn(referralCode);
 
         if (result.success && result.tokens && result.user) {
           log('Apple Sign-In successful');
@@ -311,7 +318,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'APPLE_AUTH_SUCCESS',
             tokens: safeTokens,
-            user: safeUser
+            user: safeUser,
+            referralCode: referralCode || null
           }));
 
         } else {
@@ -502,10 +510,11 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             return;
 
           case 'OPEN_WEB_OAUTH':
+            console.log('OPEN_WEB_OAUTH received', data);
             if (data.provider === 'google') {
-              handleGoogleOAuth();
+              handleGoogleOAuth(data.referralCode);
             } else if (data.provider === 'apple') {
-              handleAppleOAuth();
+              handleAppleOAuth(data.referralCode);
             }
             return;
 

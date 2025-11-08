@@ -159,7 +159,7 @@ export default {
     },
 
     extra: {
-      apiUrl: "http://127.0.0.1:8000",
+      apiUrl: "https://dev.zirkly.com",
       googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,

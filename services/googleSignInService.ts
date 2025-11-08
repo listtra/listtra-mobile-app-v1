@@ -57,15 +57,17 @@ export class GoogleSignInService {
     }
   }
 
-  async signIn(): Promise<GoogleSignInResult> {
+  async signIn(referralCode?: string): Promise<GoogleSignInResult> {
     try {
       console.log('⭐ GoogleSignInService: Starting Google Sign-In...');
-      
+      if (referralCode) {
+        console.log('⭐ GoogleSignInService: With referral code:', referralCode);
+      }
       // Check if device supports Google Play Services (Android)
       console.log('⭐ GoogleSignInService: Checking Play Services...');
       await GoogleSignin.hasPlayServices();
       console.log('⭐ GoogleSignInService: Play Services available');
-      
+
       // Sign in
       console.log('⭐ GoogleSignInService: Calling GoogleSignin.signIn()...');
       const userInfo = await GoogleSignin.signIn();
@@ -82,9 +84,9 @@ export class GoogleSignInService {
 
       console.log('⭐ GoogleSignInService: Exchanging token with backend...');
       // Exchange the Google ID token with your backend
-      const backendResponse = await this.exchangeTokenWithBackend(userInfo.data.idToken);
+      const backendResponse = await this.exchangeTokenWithBackend(userInfo.data.idToken, referralCode);
       console.log('⭐ GoogleSignInService: Backend response:', backendResponse);
-      
+
       if (backendResponse.success) {
         console.log('⭐ GoogleSignInService: Authentication successful!');
         return {
@@ -98,7 +100,7 @@ export class GoogleSignInService {
 
     } catch (error: any) {
       console.error('⭐ GoogleSignInService: Google Sign-In error:', error);
-      
+
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
         return { success: false, error: 'Sign-in cancelled by user' };
       } else if (error.code === statusCodes.IN_PROGRESS) {
@@ -129,18 +131,26 @@ export class GoogleSignInService {
     }
   }
 
-  private async exchangeTokenWithBackend(idToken: string) {
+  private async exchangeTokenWithBackend(idToken: string, referralCode?: string) {
     try {
       const API_URL = Constants.expoConfig?.extra?.apiUrl;
-      
+
+      const requestBody: any = {
+        id_token: idToken,
+      };
+
+      // Add referral code if provided
+      if (referralCode) {
+        requestBody.referral_code = referralCode;
+        console.log('⭐ GoogleSignInService: Including referral code:', referralCode);
+      }
+
       const response = await fetch(`${API_URL}/api/auth/google/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          id_token: idToken,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();

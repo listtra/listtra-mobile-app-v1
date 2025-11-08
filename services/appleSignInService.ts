@@ -25,10 +25,12 @@ export class AppleSignInService {
         }
     }
 
-    async signIn(): Promise<AppleSignInResult> {
+    async signIn(referralCode?: string): Promise<AppleSignInResult> {
         try {
             console.log('⭐ AppleSignInService: Starting Apple Sign-In...');
-
+            if (referralCode) {
+                console.log('⭐ AppleSignInService: With referral code:', referralCode);
+            }
             // Check if Apple Sign-In is available
             const isAvailable = await this.isAvailable();
             if (!isAvailable) {
@@ -63,7 +65,8 @@ export class AppleSignInService {
                 credential.authorizationCode,
                 credential.user,
                 credential.email,
-                credential.fullName
+                credential.fullName,
+                referralCode
             );
 
             console.log('⭐ AppleSignInService: Backend response:', backendResponse);
@@ -120,23 +123,32 @@ export class AppleSignInService {
         authorizationCode?: string | null,
         user?: string | null,
         email?: string | null,
-        fullName?: AppleAuthentication.AppleAuthenticationFullName | null
+        fullName?: AppleAuthentication.AppleAuthenticationFullName | null,
+        referralCode?: string
     ) {
         try {
             const API_URL = Constants.expoConfig?.extra?.apiUrl;
+
+            const requestBody: any = {
+                identity_token: identityToken,
+                authorization_code: authorizationCode,
+                user: user,
+                email: email,
+                full_name: fullName,
+            };
+
+            // Add referral code if provided
+            if (referralCode) {
+                requestBody.referral_code = referralCode;
+                console.log('⭐ AppleSignInService: Including referral code:', referralCode);
+            }
 
             const response = await fetch(`${API_URL}/api/auth/apple/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    identity_token: identityToken,
-                    authorization_code: authorizationCode,
-                    user: user,
-                    email: email,
-                    full_name: fullName,
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             const data = await response.json();

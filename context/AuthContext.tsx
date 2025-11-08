@@ -40,8 +40,8 @@ type AuthContextType = {
   };
   storeTokens: (accessToken: string, refreshToken: string, userData?: any) => Promise<void>;
   setTokensDirectly: (accessToken: string, refreshToken: string, userData?: any) => Promise<void>;
-  handleGoogleSignIn: () => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
-  handleAppleSignIn: () => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
+  handleGoogleSignIn: (referralCode?: string) => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
+  handleAppleSignIn: (referralCode?: string) => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
 };
 
 // Create the context with default values
@@ -600,14 +600,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Updated handleGoogleSignIn to use native Google Sign-In
-  const handleGoogleSignIn = async (): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
+  const handleGoogleSignIn = async (referralCode?: string): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
     setIsLoading(true);
     setError(null);
 
     try {
       console.log('🚀 AuthContext: Starting native Google Sign-In...');
+      if (referralCode) {
+        console.log('🚀 AuthContext: With referral code:', referralCode);
+      }
 
-      const result = await googleSignInService.signIn();
+      const result = await googleSignInService.signIn(referralCode);
       console.log('🚀 AuthContext: GoogleSignInService result:', result);
 
       if (result.success && result.tokens && result.user) {
@@ -637,14 +640,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const handleAppleSignIn = async (): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
+  const handleAppleSignIn = async (referralCode?: string): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
     setIsLoading(true);
     setError(null);
 
     try {
       console.log('🍎 AuthContext: Starting native Apple Sign-In...');
+      if (referralCode) {
+        console.log('🚀 AuthContext: With referral code:', referralCode);
+      }
 
-      const result = await appleSignInService.signIn();
+      const result = await appleSignInService.signIn(referralCode);
       console.log('🍎 AuthContext: AppleSignInService result:', result);
 
       if (result.success && result.tokens && result.user) {
