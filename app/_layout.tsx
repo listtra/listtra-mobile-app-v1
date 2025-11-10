@@ -5,13 +5,15 @@ import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Platform, View } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthProvider } from '../context/AuthContext';
 import { NotificationProvider } from '../context/NotificationContext';
 import { PushNotificationProvider } from '../context/PushNotificationContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import SplashScreen from '@/components/SplashScreen';
 
 function RootLayoutContent() {
   const insets = useSafeAreaInsets();
@@ -65,6 +67,17 @@ function RootLayoutContent() {
     console.log('Parsed path:', path);
     console.log('Hostname:', hostname);
     console.log('Query params:', queryParams);
+
+    const referralCode = queryParams?.ref || queryParams?.referralCode;
+    if (referralCode) {
+      console.log('Referral code detected in deep link:', referralCode);
+      try {
+        await AsyncStorage.setItem('referral_code', referralCode as any);
+        console.log('Referral code stored in AsyncStorage');
+      } catch (error) {
+        console.error('Error storing referral code:', error);
+      }
+    }
 
     // For custom schemes like zirkly://, the hostname contains the first part
     // and path contains the rest. We need to combine them.
@@ -239,6 +252,23 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
+
+  const [showSplash, setShowSplash] = useState(true);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }).start(() => setShowSplash(false));
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  console.log('showSplash', showSplash);
+
   if (!loaded) {
     return null;
   }
@@ -249,7 +279,13 @@ export default function RootLayout() {
         <PushNotificationProvider>
           <NotificationProvider>
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <RootLayoutContent />
+              {showSplash ? (
+                <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+                  <SplashScreen />
+                </Animated.View>
+              ) : (
+                <RootLayoutContent />
+              )}
             </ThemeProvider>
           </NotificationProvider>
         </PushNotificationProvider>

@@ -553,7 +553,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               return router.back();
             }
             if (pageType.isListingDetail) {
-              router.back();
+              router.push('/(tabs)');
               return;
             }
             return;

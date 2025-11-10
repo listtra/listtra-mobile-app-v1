@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Global variable to store the refresh function
 let globalIndexRefresh: (() => void) | null = null;
@@ -18,6 +19,29 @@ export const triggerIndexRefresh = () => {
 export default function ListingsScreen() {
   const webViewRef = useRef<PersistentWebViewRef>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [route, setRoute] = useState('listings');
+
+  // Load referral code from AsyncStorage and append to route
+  useEffect(() => {
+    const loadReferralCode = async () => {
+      try {
+        const referralCode = await AsyncStorage.getItem('referral_code');
+        if (referralCode) {
+          console.log('Referral code found, appending to route:', referralCode);
+          setRoute(`listings?ref=${encodeURIComponent(referralCode)}`);
+          // Clear the referral code after using it to avoid reusing it
+          await AsyncStorage.removeItem('referral_code');
+        } else {
+          setRoute('listings');
+        }
+      } catch (error) {
+        console.error('Error loading referral code:', error);
+        setRoute('listings');
+      }
+    };
+
+    loadReferralCode();
+  }, []);
 
   // Handle refresh functionality
   const handleRefresh = useCallback(async () => {
@@ -75,7 +99,7 @@ export default function ListingsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
         <PersistentWebView
-          route="listings"
+          route={route}
           ref={webViewRef}
           onMessage={handleMessage}
           refreshing={isRefreshing}
