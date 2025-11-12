@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // ============================================================================
 
 const IMAGE_CONFIG = {
-  MAX_DIMENSION: 1600,
+  MAX_DIMENSION: 1024,
   QUALITY: {
     HIGH: 0.95,
     MEDIUM: 0.85,
@@ -146,7 +146,11 @@ const CameraModal: React.FC<CameraModalProps> = ({
         info.height > IMAGE_CONFIG.MAX_DIMENSION;
 
       const manipulations = needsResize
-        ? [{ resize: { width: IMAGE_CONFIG.MAX_DIMENSION } }]
+        ? [{
+          resize: info.width > info.height
+            ? { width: IMAGE_CONFIG.MAX_DIMENSION }   // Landscape
+            : { height: IMAGE_CONFIG.MAX_DIMENSION }  // Portrait
+        }]
         : [];
 
       const quality = needsResize
