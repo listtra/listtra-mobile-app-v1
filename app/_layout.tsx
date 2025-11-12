@@ -267,8 +267,6 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, []);
 
-  console.log('showSplash', showSplash);
-
   if (!loaded) {
     return null;
   }

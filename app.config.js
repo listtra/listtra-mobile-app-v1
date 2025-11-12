@@ -158,7 +158,7 @@ export default {
     },
 
     extra: {
-      apiUrl: "https://backend.listtra.com",
+      apiUrl: "https://dev.zirkly.com",
       googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
