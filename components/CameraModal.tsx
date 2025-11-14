@@ -328,10 +328,10 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: !allowsMultiple,
+        allowsEditing: false,
         allowsMultipleSelection: allowsMultiple,
         selectionLimit: availableSlots,
-        aspect: allowsMultiple ? undefined : [1, 1],
+        //aspect: allowsMultiple ? undefined : [1, 1],
         quality: IMAGE_CONFIG.QUALITY.MEDIUM,
       });
 
@@ -342,7 +342,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
           setCurrentSource('gallery');
           setState('preview');
         } else {
-          // ✅ IMPROVED ERROR HANDLING FOR MULTIPLE PHOTOS
+          // ✅ IMPROVED: Return to camera screen after adding multiple photos
           try {
             setIsLoading(true);
             const processedPhotos: Photo[] = [];
@@ -359,12 +359,15 @@ const CameraModal: React.FC<CameraModalProps> = ({
             const newPhotos = [...photos, ...processedPhotos].slice(0, availableSlots);
             setPhotos(newPhotos);
 
+            // ✅ ALWAYS return to camera screen after multi-select
+            setState('camera');
+
             // ✅ CHECK TOTAL COUNT INCLUDING EXISTING PHOTOS
-            if (currentPhotoCount + newPhotos.length >= maxPhotos) {
-              handleFinish(newPhotos);
-            } else {
-              setState('camera');
-            }
+            // if (currentPhotoCount + newPhotos.length >= maxPhotos) {
+            //   handleFinish(newPhotos);
+            // } else {
+            //   setState('camera');
+            // }
           } catch (error) {
             logger.error('[CameraModal] Error processing multiple images:', error);
             Alert.alert('Processing Error', 'Failed to process some images. Please try selecting fewer images or try again.');
@@ -475,7 +478,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
         {state === 'preview' && 'Preview'}
       </Text>
 
-      {photos.length > 0 ? (
+      { state === 'camera' && photos.length > 0 ? (
         <TouchableOpacity
           onPress={() => handleFinish()}
           style={styles.doneButton}
@@ -491,7 +494,6 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
   const renderCameraScreen = () => {
     if (!cameraPermission?.granted) {
-      // ... existing permission UI ...
       return (
         <View style={styles.permissionContainer}>
           <Ionicons name="camera-outline" size={64} color="rgba(255, 255, 255, 0.5)" />
@@ -563,7 +565,6 @@ const CameraModal: React.FC<CameraModalProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* ... existing thumbnails and loading overlay ... */}
         {photos.length > 0 && (
           <View style={styles.thumbnailsContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -854,7 +855,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   retakeButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#2528be',
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 25,

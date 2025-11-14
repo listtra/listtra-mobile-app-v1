@@ -37,7 +37,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
       case 'notifications':
         return { name: isFocused ? 'notifications' : 'notifications-outline' as const, size: 24 };
       case 'chats':
-        return { name: isFocused ? 'chatbox' : 'chatbox-outline' as const, size: 24 };
+        return { name: isFocused ? 'paper-plane' : 'paper-plane-outline' as const, size: 24 };
       case 'add':
         return { name: 'add-circle' as const, size: 36 };
       case 'profile':

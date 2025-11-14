@@ -1,19 +1,25 @@
-import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { Stack, useRouter } from 'expo-router';
+import { StyleSheet, ActivityIndicator, View } from 'react-native';
+import { useEffect } from 'react';
 
 export default function NotFoundScreen() {
+  const router = useRouter();
+
+  // useEffect(() => {
+  //   // Automatically redirect to home after a brief moment
+  //   const timer = setTimeout(() => {
+  //     router.replace('/(tabs)');
+  //   }, 500);
+
+  //   return () => clearTimeout(timer);
+  // }, []);
+
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <ThemedView style={styles.container}>
-        <ThemedText type="title">This screen does not exist.</ThemedText>
-        <Link href="/" style={styles.link}>
-          <ThemedText type="link">Go to home screen!</ThemedText>
-        </Link>
-      </ThemedView>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { backgroundColor: '#f5f5f5' }]}>
+        <ActivityIndicator size="large" color="#2528be" />
+      </View>
     </>
   );
 }
@@ -24,9 +30,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-  },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
   },
 });

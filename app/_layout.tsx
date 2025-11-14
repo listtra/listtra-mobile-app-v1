@@ -17,26 +17,17 @@ import SplashScreen from '@/components/SplashScreen';
 
 function RootLayoutContent() {
   const insets = useSafeAreaInsets();
-  const [isProcessingDeepLink, setIsProcessingDeepLink] = useState(false);
 
   // Handle initial URL and deep links
   useEffect(() => {
     let isMounted = true;
 
     const handleInitialURL = async () => {
-      // Wait a bit for the app to be ready
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       if (!isMounted) return;
 
       const initialUrl = await Linking.getInitialURL();
       if (initialUrl && isMounted) {
-        setIsProcessingDeepLink(true);
-        await handleDeepLink(initialUrl, true);
-        // Keep loading screen for a bit longer to ensure smooth transition
-        setTimeout(() => {
-          if (isMounted) setIsProcessingDeepLink(false);
-        }, 300);
+        await handleDeepLink(initialUrl);
       }
     };
 
@@ -44,7 +35,7 @@ function RootLayoutContent() {
 
     // Listen for subsequent deep links
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      handleDeepLink(url, false);
+      handleDeepLink(url);
     });
 
     return () => {
@@ -53,114 +44,46 @@ function RootLayoutContent() {
     };
   }, []);
 
-  const handleDeepLink = async (url: string, isInitial: boolean = false) => {
-    console.log('=== Deep Link Debug ===');
-    console.log('Raw URL:', url);
-    console.log('Is initial:', isInitial);
+  const handleDeepLink = async (url: string) => {
+    console.log('Deep Link URL:', url);
 
-    // Parse the URL
     const parsed = Linking.parse(url);
-    console.log('Full parsed object:', JSON.stringify(parsed));
+    const { path, queryParams } = parsed;
 
-    const { hostname, path, queryParams } = parsed;
-
-    console.log('Parsed path:', path);
-    console.log('Hostname:', hostname);
-    console.log('Query params:', queryParams);
-
+    // Handle referral codes
     const referralCode = queryParams?.ref || queryParams?.referralCode;
     if (referralCode) {
-      console.log('Referral code detected in deep link:', referralCode);
       try {
         await AsyncStorage.setItem('referral_code', referralCode as any);
-        console.log('Referral code stored in AsyncStorage');
+        console.log('Referral code stored');
       } catch (error) {
         console.error('Error storing referral code:', error);
       }
     }
 
-    // For custom schemes like zirkly://, the hostname contains the first part
-    // and path contains the rest. We need to combine them.
-    // For https:// URLs, everything is in path
     const fullPath = path || '';
-    console.log('Full path to check:', fullPath);
 
-    // Handle root domain (zirkly.com or www.zirkly.com with no path or just "/")
-    if (!fullPath || fullPath === '' || fullPath === '/' || fullPath === 'listings') {
-      console.log('Root domain or /listings detected, navigating to home');
-      if (isInitial) {
-        router.replace('/(tabs)');
-      } else {
-        router.push('/(tabs)');
-      }
-      console.log('=== End Deep Link Debug ===');
+    // Root or /listings -> go to home
+    if (!fullPath || fullPath === '' || fullPath === '/' || fullPath === 'listings' || fullPath === 'listings/') {
+      router.replace('/(tabs)');
       return;
     }
 
-    // Handle listing URLs: zirkly://listings/slug/product_id or https://zirkly.com/listings/slug/product_id
-    if (fullPath?.startsWith('listings/')) {
+    // Listing detail: /listings/slug/product_id
+    if (fullPath.startsWith('listings/')) {
       const parts = fullPath.split('/').filter(Boolean);
-
       if (parts.length >= 3) {
-        const slug = parts[1];
-        const product_id = parts[2];
-        const targetPath = `/listings/${slug}/${product_id}/page`;
+        // First navigate to tabs (base route), then push listing
+        router.replace('/(tabs)');
+        setTimeout(() => {
+          router.push(`/listings/${parts[1]}/${parts[2]}/page` as any);
+        }, 100);
+        return;
+      }
+    }
 
-        try {
-          if (isInitial) {
-            // For initial links: set up home as base, then navigate to listing
-            // This ensures back button goes to home instead of closing app
-            router.replace('/(tabs)');
-            setTimeout(() => {
-              router.push(targetPath as any);
-              console.log('Initial navigation successful');
-            }, 150);
-          } else {
-            // For subsequent links, just push normally
-            router.push(targetPath as any);
-            console.log('Navigation successful');
-          }
-        } catch (error) {
-          console.error('Navigation error:', error);
-        }
-      } else {
-        console.log('ERROR: Not enough parts. Expected 3+, got:', parts.length);
-      }
-    }
-    // Handle profile URLs
-    else if (fullPath?.startsWith('profiles/')) {
-      const parts = fullPath.split('/').filter(Boolean);
-      const nickname = parts[1];
-      if (nickname) {
-        if (isInitial) {
-          router.replace('/(tabs)');
-          setTimeout(() => router.push(`/profiles/${nickname}` as any), 150);
-        } else {
-          router.push(`/profiles/${nickname}` as any);
-        }
-      }
-    }
-    // Handle category URLs
-    else if (fullPath?.startsWith('categories/')) {
-      const parts = fullPath.split('/').filter(Boolean);
-      const category = parts[1];
-      if (category) {
-        if (isInitial) {
-          router.replace('/(tabs)');
-          setTimeout(() => router.push(`/categories/${category}` as any), 150);
-        } else {
-          router.push(`/categories/${category}` as any);
-        }
-      }
-    }
-    // Default to home - but only if not initial (don't redirect on app launch)
-    else if (!isInitial) {
-      console.log('No matching route, going to home');
-      router.push('/(tabs)');
-    } else {
-      console.log('No matching route on initial load, staying on current screen');
-    }
-    console.log('=== End Deep Link Debug ===');
+    // Default: go to home
+    router.replace('/(tabs)');
   };
 
   return (
@@ -171,7 +94,6 @@ function RootLayoutContent() {
         translucent={true}
       />
 
-      {/* Status bar background for iOS - positioned absolutely */}
       {Platform.OS === 'ios' && (
         <View
           style={{
@@ -186,29 +108,7 @@ function RootLayoutContent() {
         />
       )}
 
-      {/* Deep Link Loading Overlay */}
-      {isProcessingDeepLink && (
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: '#f5f5f5',
-            zIndex: 9999,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <ActivityIndicator size="large" color="#2528be" />
-        </View>
-      )}
-
-      <View style={{
-        flex: 1,
-        backgroundColor: '#f5f5f5',
-      }}>
+      <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
         <AuthGuard>
           <>
             <Stack>
