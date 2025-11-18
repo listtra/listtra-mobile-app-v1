@@ -15,7 +15,7 @@ export default function SettingsScreen() {
       console.log('Settings WebView message:', data);
 
       if (data.type === 'WEB_LOGOUT_SUCCESS') {
-        console.log('Logout success message received from web app');
+        console.log('Logout success message received from web app', data);
 
         // Then clear mobile app tokens
         authLogout();

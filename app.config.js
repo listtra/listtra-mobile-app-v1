@@ -20,7 +20,7 @@ export default {
       entitlements: {
         "com.apple.developer.applesignin": ["Default"]
       },
-      buildNumber: "9",
+      buildNumber: "10",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#f5f5f5",
@@ -91,7 +91,7 @@ export default {
           category: ["BROWSABLE", "DEFAULT"]
         }
       ],
-      versionCode: 9,
+      versionCode: 10,
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
@@ -158,7 +158,7 @@ export default {
     },
 
     extra: {
-      apiUrl: "https://backend.listtra.com",
+      apiUrl: "https://dev.zirkly.com",
       googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,

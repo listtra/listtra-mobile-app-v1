@@ -532,9 +532,9 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             }, NAVIGATION_DELAY);
             return;
 
-          case 'WEB_LOGOUT_SUCCESS':
-            logout().finally(() => router.replace('/auth/signin'));
-            return;
+          // case 'WEB_LOGOUT_SUCCESS':
+          //   logout().finally(() => router.replace('/auth/signin'));
+          //   return;
 
           case 'GO_BACK': {
             const pageType = getPageType(currentUrl, route);
@@ -802,10 +802,10 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       thirdPartyCookiesEnabled: true, // Enable for image loading
       sharedCookiesEnabled: false,
       originWhitelist: ['*'], // Allow all origins for images
-      mixedContentMode: 'compatibility' as const, // Allow mixed content
+      mixedContentMode: "always" as const, // Allow mixed content
 
       // Add these for better image support
-      allowsBackForwardNavigationGestures: false,
+      allowsBackForwardNavigationGestures: true,
       bounces: false,
       scrollEnabled: true,
       showsHorizontalScrollIndicator: false,
@@ -814,6 +814,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       // Media settings
       allowsInlineMediaPlayback: true,
       mediaPlaybackRequiresUserAction: false,
+      keyboardDisplayRequiresUserAction: false,
 
       // File access (enable for images)
       allowFileAccess: true,
@@ -838,7 +839,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             message={error || 'No internet connection'}
           />
         ) : disableRefresh ? (
-          <WebView {...webViewProps} pullToRefreshEnabled={true} />
+          <WebView {...webViewProps} useWebView2={true} pullToRefreshEnabled={true} />
         ) : (
           <ScrollView
             style={styles.scrollView}
@@ -853,7 +854,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
               />
             }
           >
-            <WebView {...webViewProps} pullToRefreshEnabled={false} />
+            <WebView {...webViewProps} useWebView2={true} pullToRefreshEnabled={false} />
           </ScrollView>
         )}
 

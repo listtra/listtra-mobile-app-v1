@@ -112,7 +112,7 @@ export default function SplashScreen() {
           </Text>
 
           <Animated.View style={taglineStyle}>
-            <Text style={styles.tagline}>Where pre-loved comes first</Text>
+            <Text style={styles.tagline}>Where pre-loved comes first.</Text>
           </Animated.View>
         </Animated.View>
       </LinearGradient>
@@ -134,8 +134,8 @@ const styles = StyleSheet.create({
   },
   logoWrapper: { alignItems: "center", justifyContent: "center" },
   logo: { width: 80, height: 80 },
-  textContainer: { alignItems: "center", marginTop: 32 },
-  brandText: { color: "white", fontSize: 48, fontWeight: "700", letterSpacing: -1 },
+  textContainer: { alignItems: "center", marginTop: 70 },
+  brandText: { color: "white", fontSize: 48, letterSpacing: 1, fontFamily: "Manrope", fontWeight: "500" },
   brandHighlight: { color: "#60a5fa" },
   tagline: { color: "rgba(255,255,255,0.8)", fontSize: 16, textAlign: "center", marginTop: 8 },
 });

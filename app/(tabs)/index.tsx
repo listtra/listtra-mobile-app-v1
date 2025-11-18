@@ -82,11 +82,6 @@ export default function ListingsScreen() {
       const data = JSON.parse(event.nativeEvent.data);
       console.log('Listings WebView message:', data);
 
-      if (data.type === 'AUTH_REQUIRED') {
-        console.log('AUTH_REQUIRED message received in listings');
-        // This shouldn't happen on listings page, but handle it gracefully
-      }
-
       if (data.type === 'WEBVIEW_AUTH_CLEARED') {
         console.log('WebView auth cleared confirmation received in listings');
       }

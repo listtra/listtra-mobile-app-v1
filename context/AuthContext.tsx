@@ -1,12 +1,10 @@
+import { appleSignInService } from '@/services/appleSignInService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { googleSignInService } from '../services/googleSignInService';
-import { Platform } from 'react-native';
-import { appleSignInService } from '@/services/appleSignInService';
 
 // Configure Google WebBrowser auth (keeping for web fallback)
 //WebBrowser.maybeCompleteAuthSession();
@@ -70,6 +68,8 @@ export const useAuth = () => useContext(AuthContext);
 
 const APP_VERSION_KEY = '@app_version';
 const INSTALLATION_ID_KEY = '@installation_id';
+const ACCESS_TOKEN_KEY = '@access_token';
+const REFRESH_TOKEN_KEY = '@refresh_token';
 
 const CURRENT_APP_VERSION = Constants.expoConfig?.version || '1.0.0';
 const CURRENT_BUILD_NUMBER =
@@ -91,37 +91,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
-  // Function to store tokens securely
+  // Function to store tokens in AsyncStorage
   const storeTokens = async (accessToken: string, refreshToken: string, userData?: any) => {
     try {
       console.log('Storing tokens, token lengths:', accessToken.length, refreshToken.length);
       console.log('User data to store:', userData);
 
-      // Special handling for Expo Go
-      if (isExpoGo) {
-        console.log('Using Expo Go token storage approach');
-        await SecureStore.deleteItemAsync('accessToken');
-        await SecureStore.deleteItemAsync('refreshToken');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await SecureStore.setItemAsync('accessToken', accessToken);
-        await SecureStore.setItemAsync('refreshToken', refreshToken);
+      // Store tokens in AsyncStorage
+      await AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 
-        const storedAccessToken = await SecureStore.getItemAsync('accessToken');
-        const storedRefreshToken = await SecureStore.getItemAsync('refreshToken');
+      // Verify tokens were stored
+      const storedAccessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      const storedRefreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
 
-        console.log('Tokens stored verification:', {
-          accessTokenStored: !!storedAccessToken,
-          refreshTokenStored: !!storedRefreshToken,
-          accessTokenLength: storedAccessToken?.length,
-          refreshTokenLength: storedRefreshToken?.length
-        });
+      console.log('Tokens stored verification:', {
+        accessTokenStored: !!storedAccessToken,
+        refreshTokenStored: !!storedRefreshToken,
+        accessTokenLength: storedAccessToken?.length,
+        refreshTokenLength: storedRefreshToken?.length
+      });
 
-        if (!storedAccessToken || !storedRefreshToken) {
-          console.error('Failed to store tokens in Expo Go');
-        }
-      } else {
-        await SecureStore.setItemAsync('accessToken', accessToken);
-        await SecureStore.setItemAsync('refreshToken', refreshToken);
+      if (!storedAccessToken || !storedRefreshToken) {
+        console.error('Failed to store tokens in AsyncStorage');
       }
 
       // Update state
@@ -139,11 +131,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Function to load tokens from secure storage
+  // Function to load tokens from AsyncStorage
   const loadTokens = async () => {
     try {
-      const accessToken = await SecureStore.getItemAsync('accessToken');
-      const refreshToken = await SecureStore.getItemAsync('refreshToken');
+      const accessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
 
       if (accessToken && refreshToken) {
         setTokens({ accessToken, refreshToken });
@@ -156,12 +148,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Function to clear tokens from secure storage
+  // Function to clear tokens from AsyncStorage
   const clearTokens = async () => {
     try {
-      console.log('Clearing tokens from SecureStore...');
-      await SecureStore.deleteItemAsync('accessToken');
-      await SecureStore.deleteItemAsync('refreshToken');
+      console.log('Clearing tokens from AsyncStorage...');
+      await AsyncStorage.removeItem(ACCESS_TOKEN_KEY);
+      await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
       setTokens({ accessToken: null, refreshToken: null });
       console.log('Tokens cleared successfully');
     } catch (error) {
