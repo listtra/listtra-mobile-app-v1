@@ -15,7 +15,7 @@ export default function ProfileScreen() {
   // Handle refresh parameter
   useFocusEffect(
     React.useCallback(() => {
-      console.log('ChatScreen focused, forcing WebView refresh');
+      console.log('ProfileScreen focused, forcing WebView refresh');
       setKey(prev => prev + 1);
     }, [])
   );

@@ -27,7 +27,7 @@ export default function SettingsScreen() {
       }
 
       if (data.type === 'NAVIGATE_BACK' || data.type === 'CLOSE_SETTINGS') {
-        router.back();
+        router.push('/(tabs)/profile');
       }
 
       if (data.type === 'NAVIGATE_TO_PROFILE_AND_REFRESH') {

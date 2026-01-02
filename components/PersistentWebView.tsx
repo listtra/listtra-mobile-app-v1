@@ -20,7 +20,7 @@ import OfflineScreen from './OfflineScreen';
 // Environment-based configuration
 const getBaseUrl = () => {
   if (__DEV__) {
-    return 'http://192.168.31.224:3000'; // Development
+    return 'https://listtra-git-preview-listtra.vercel.app'; // Development
   }
   return 'https://www.zirkly.com'; // Production - replace with your actual production URL
 };
