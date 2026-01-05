@@ -10,7 +10,7 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { Alert, Platform, RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
@@ -22,7 +22,7 @@ const getBaseUrl = () => {
   if (__DEV__) {
     return 'https://listtra-git-preview-listtra.vercel.app'; // Development
   }
-  return 'https://www.zirkly.com'; // Production - replace with your actual production URL
+  return 'https://listtra-git-preview-listtra.vercel.app'; // Production - replace with your actual production URL
 };
 
 const BASE_URL = getBaseUrl();
@@ -796,29 +796,59 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       // Performance optimizations
       javaScriptEnabled: true,
       domStorageEnabled: true,
-      cacheEnabled: false,
+      cacheEnabled: true, // ✅ Enable caching for better performance
+      cacheMode: 'LOAD_DEFAULT' as const, // ✅ Better caching on Android
 
-      // Security settings - Updated for better image loading
+      // Security settings - Production hardened
       thirdPartyCookiesEnabled: true, // Enable for image loading
       sharedCookiesEnabled: false,
-      originWhitelist: ['*'], // Allow all origins for images
-      mixedContentMode: "always" as const, // Allow mixed content
+      originWhitelist: ['https://*', 'http://localhost:*', 'about:*'], // ✅ Whitelist specific origins
+      mixedContentMode: "compatibility" as const, // ✅ Safer than "always"
 
-      // Add these for better image support
+      // Navigation and scroll settings
       allowsBackForwardNavigationGestures: true,
       bounces: false,
       scrollEnabled: true,
       showsHorizontalScrollIndicator: false,
       showsVerticalScrollIndicator: false,
+      nestedScrollEnabled: true, // ✅ Better scroll performance
 
       // Media settings
       allowsInlineMediaPlayback: true,
       mediaPlaybackRequiresUserAction: false,
       keyboardDisplayRequiresUserAction: false,
 
-      // File access (enable for images)
+      // File access - Secured
       allowFileAccess: true,
-      allowUniversalAccessFromFileURLs: true,
+      allowUniversalAccessFromFileURLs: false, // ✅ Security fix - disabled
+
+      // Memory optimizations
+      setSupportMultipleWindows: false, // ✅ Prevents memory leaks
+      incognito: false, // ✅ Persist session for better performance
+
+      // Loading state
+      startInLoadingState: true,
+      renderLoading: () => (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#2528be" />
+        </View>
+      ),
+
+      // Crash handlers
+      onContentProcessDidTerminate: () => {
+        // ✅ iOS: WebView process terminated, reload
+        log('WebView process terminated (iOS), reloading...');
+        webViewRef.current?.reload();
+      },
+      onRenderProcessGone: (syntheticEvent: any) => {
+        // ✅ Android: Renderer process crashed or was killed
+        const { didCrash } = syntheticEvent.nativeEvent;
+        log(`WebView render process gone (Android), crashed: ${didCrash}, reloading...`);
+        webViewRef.current?.reload();
+      },
+
+      // Developer settings
+      webviewDebuggingEnabled: __DEV__, // ✅ Enable debugging in development
 
       // User agent
       userAgent: `Zirkly-Mobile/${Platform.OS}`,
