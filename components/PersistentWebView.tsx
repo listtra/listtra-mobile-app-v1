@@ -20,7 +20,7 @@ import OfflineScreen from './OfflineScreen';
 // Environment-based configuration
 const getBaseUrl = () => {
   if (__DEV__) {
-    return 'https://listtra-git-preview-listtra.vercel.app'; // Development
+    return 'http://localhost:3000'; // Development
   }
   return 'https://listtra-git-preview-listtra.vercel.app'; // Production - replace with your actual production URL
 };
@@ -87,6 +87,7 @@ type WebViewMessage =
   | { type: 'OPEN_WEB_OAUTH'; provider: 'google' | 'apple'; referralCode?: string }
   | { type: 'SHARE_LISTING'; shareData: any; data: any }
   | { type: 'REQUEST_NATIVE_LOCATION' }
+  | { type: 'WALLET_CLICKED'; returnTo?: string }
   | { type: string;[key: string]: any }; // fallback
 
 /** -------------------------
@@ -667,6 +668,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             handleRequestLocation();
             return;
 
+          case 'WALLET_CLICKED':
+            if (data.returnTo) {
+              router.push(`/wallet/page?returnTo=${encodeURIComponent(data.returnTo)}`);
+            } else {
+              router.push('/wallet/page');
+            }
+            return;
+
           default:
             // Handle unknown message types
             log('Unknown message type:', data.type);
@@ -796,7 +805,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
       // Performance optimizations
       javaScriptEnabled: true,
       domStorageEnabled: true,
-      cacheEnabled: true, // ✅ Enable caching for better performance
+      cacheEnabled: false, // ✅ Enable caching for better performance
       cacheMode: 'LOAD_DEFAULT' as const, // ✅ Better caching on Android
 
       // Security settings - Production hardened

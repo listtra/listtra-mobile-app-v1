@@ -125,6 +125,7 @@ function RootLayoutContent() {
               <Stack.Screen name="navbar-add" options={{ headerShown: false }} />
               <Stack.Screen name="liked" options={{ headerShown: false }} />
               <Stack.Screen name="search/page" options={{ headerShown: false }} />
+              <Stack.Screen name="wallet/page" options={{ headerShown: false }} />
               <Stack.Screen
                 name="settings"
                 options={{
