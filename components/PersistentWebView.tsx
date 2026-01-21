@@ -22,7 +22,7 @@ const getBaseUrl = () => {
   if (__DEV__) {
     return 'http://localhost:3000'; // Development
   }
-  return 'https://listtra-git-preview-listtra.vercel.app'; // Production - replace with your actual production URL
+  return 'https://www.zirkly.com'; // Production - replace with your actual production URL
 };
 
 const BASE_URL = getBaseUrl();

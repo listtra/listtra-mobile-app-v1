@@ -3,16 +3,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const API_URL = 'https://backend.listtra.com';
@@ -85,8 +85,8 @@ export default function ResetPasswordScreen() {
       behavior={Platform.OS === 'ios' ? 'height' : 'height'}
       style={styles.container}
     >
-      <StatusBar style="light" />
-      
+      <StatusBar style="dark" backgroundColor="#f5f5f5" />
+
       {/* Blue Header */}
       <View style={styles.header}>
         {/* Back Button */}
@@ -103,7 +103,7 @@ export default function ResetPasswordScreen() {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
@@ -126,14 +126,14 @@ export default function ResetPasswordScreen() {
               secureTextEntry={!showNewPassword}
               placeholderTextColor="#A0A0A0"
             />
-            <Pressable 
+            <Pressable
               onPress={() => setShowNewPassword(!showNewPassword)}
               style={styles.inputIcon}
             >
-              <Ionicons 
-                name={showNewPassword ? "eye-off" : "eye"} 
-                size={20} 
-                color="#A0A0A0" 
+              <Ionicons
+                name={showNewPassword ? "eye-off" : "eye"}
+                size={20}
+                color="#A0A0A0"
               />
             </Pressable>
           </View>
@@ -148,14 +148,14 @@ export default function ResetPasswordScreen() {
               secureTextEntry={!showConfirmPassword}
               placeholderTextColor="#A0A0A0"
             />
-            <Pressable 
+            <Pressable
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
               style={styles.inputIcon}
             >
-              <Ionicons 
-                name={showConfirmPassword ? "eye-off" : "eye"} 
-                size={20} 
-                color="#A0A0A0" 
+              <Ionicons
+                name={showConfirmPassword ? "eye-off" : "eye"}
+                size={20}
+                color="#A0A0A0"
               />
             </Pressable>
           </View>

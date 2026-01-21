@@ -1,6 +1,7 @@
 import { useTabAuth } from '@/hooks/useTabAuth';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { Dimensions, Platform, Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -167,19 +168,22 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: false,
-        tabBarStyle: { display: 'none' },
-      }}
-      tabBar={(props) => <CustomTabBar {...props} />}
-    >
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="notifications" />
-      <Tabs.Screen name="add" />
-      <Tabs.Screen name="chats" />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+    <>
+      <StatusBar style="dark" backgroundColor="#f5f5f5" />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarShowLabel: false,
+          tabBarStyle: { display: 'none' },
+        }}
+        tabBar={(props) => <CustomTabBar {...props} />}
+      >
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="notifications" />
+        <Tabs.Screen name="add" />
+        <Tabs.Screen name="chats" />
+        <Tabs.Screen name="profile" />
+      </Tabs>
+    </>
   );
 }

@@ -3,15 +3,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const API_URL = 'https://backend.listtra.com';
@@ -23,7 +23,7 @@ export default function VerifyResetOTPScreen() {
   const [error, setError] = useState<string | null>(null);
   const [resendLoading, setResendLoading] = useState(false);
   const router = useRouter();
-  
+
   // Create refs for each input
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
@@ -43,7 +43,7 @@ export default function VerifyResetOTPScreen() {
         if (i < 6) newOtp[i] = digit;
       });
       setOtp(newOtp);
-      
+
       // Focus on the last filled input or the last input
       const lastFilledIndex = Math.min(pastedOtp.length - 1, 5);
       if (inputRefs.current[lastFilledIndex]) {
@@ -54,7 +54,7 @@ export default function VerifyResetOTPScreen() {
       const newOtp = [...otp];
       newOtp[index] = value;
       setOtp(newOtp);
-      
+
       // Move to next input if current is filled
       if (value && index < 5) {
         inputRefs.current[index + 1]?.focus();
@@ -71,7 +71,7 @@ export default function VerifyResetOTPScreen() {
 
   const handleVerifyOTP = async () => {
     const otpString = otp.join('');
-    
+
     if (otpString.length !== 6) {
       setError('Please enter the complete 6-digit OTP');
       return;
@@ -86,9 +86,9 @@ export default function VerifyResetOTPScreen() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email,
-          otp: otpString 
+          otp: otpString
         }),
       });
 
@@ -154,8 +154,8 @@ export default function VerifyResetOTPScreen() {
       behavior={Platform.OS === 'ios' ? 'height' : 'height'}
       style={styles.container}
     >
-      <StatusBar style="light" />
-      
+      <StatusBar style="dark" backgroundColor="#f5f5f5" />
+
       {/* Blue Header */}
       <View style={styles.header}>
         {/* Back Button */}
@@ -175,7 +175,7 @@ export default function VerifyResetOTPScreen() {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
@@ -226,7 +226,7 @@ export default function VerifyResetOTPScreen() {
           {/* Resend OTP section */}
           <View style={styles.resendContainer}>
             <Text style={styles.resendText}>Having problem? </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={handleResendOTP}
               disabled={resendLoading}
             >

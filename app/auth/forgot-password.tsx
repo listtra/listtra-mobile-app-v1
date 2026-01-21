@@ -3,15 +3,15 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 const API_URL = 'https://backend.listtra.com';
@@ -75,8 +75,8 @@ export default function ForgotPasswordScreen() {
       behavior={Platform.OS === 'ios' ? 'height' : 'height'}
       style={styles.container}
     >
-      <StatusBar style="light" />
-      
+      <StatusBar style="dark" backgroundColor="#f5f5f5" />
+
       {/* Blue Header */}
       <View style={styles.header}>
         {/* Back Button */}
@@ -93,7 +93,7 @@ export default function ForgotPasswordScreen() {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
