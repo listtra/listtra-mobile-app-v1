@@ -1,12 +1,12 @@
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { pushNotificationService } from '../services/pushNotificationService';
 import { useAuth } from './AuthContext';
 
 type PushNotificationContextType = {
   expoPushToken: string | null;
-  notification: Notifications.Notification | null;
+  notification: any | null;
   unreadCount: number;
   requestPermissions: () => Promise<boolean>;
   resetUnreadCount: () => void;
@@ -24,7 +24,7 @@ const PushNotificationContext = createContext<PushNotificationContextType>({
 // Provider component
 export const PushNotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
-  const [notification, setNotification] = useState<Notifications.Notification | null>(null);
+  const [notification, setNotification] = useState<any | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
@@ -36,6 +36,11 @@ export const PushNotificationProvider = ({ children }: { children: React.ReactNo
   // Request permissions and register for push notifications
   const requestPermissions = async (): Promise<boolean> => {
     if (!authToken) return false;
+    
+    // Only proceed on mobile platforms
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+      return false;
+    }
     
     try {
       const pushToken = await pushNotificationService.registerForPushNotificationsAsync(authToken);
@@ -52,47 +57,63 @@ export const PushNotificationProvider = ({ children }: { children: React.ReactNo
 
   // Setup notifications when user is authenticated
   useEffect(() => {
+    // Skip if not authenticated, no token, or not on mobile
     if (!isAuthenticated || !authToken) return;
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
 
-    // Register for push notifications
-    pushNotificationService.registerForPushNotificationsAsync(authToken)
-      .then((pushToken) => {
-        if (pushToken) {
+    let mounted = true;
+
+    // Initialize notifications
+    const initializeNotifications = async () => {
+      try {
+        // Register for push notifications
+        const pushToken = await pushNotificationService.registerForPushNotificationsAsync(authToken);
+        if (pushToken && mounted) {
           setExpoPushToken(pushToken);
         }
-      })
-      .catch(error => {
-        console.error('Failed to get push token:', error);
-      });
 
-    // Add notification received listener
-    notificationListener.current = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        setNotification(notification);
-        setUnreadCount((prev) => prev + 1);
-      }
-    );
+        // Add notification received listener
+        const receivedListener = await pushNotificationService.addNotificationReceivedListener(
+          (notification) => {
+            if (mounted) {
+              setNotification(notification);
+              setUnreadCount((prev) => prev + 1);
+            }
+          }
+        );
+        notificationListener.current = receivedListener;
 
-    // Add notification response received listener
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        console.log('Notification response received', response);
-        
-        // Navigate to main listings page when user taps any push notification
-        try {
-          console.log('Navigating to main listings page...');
-          router.push('/(tabs)/');
-        } catch (error) {
-          console.error('Navigation error:', error);
-        }
-        
-        // Reset notification state
-        setNotification(null);
+        // Add notification response received listener
+        const responseListenerRef = await pushNotificationService.addNotificationResponseReceivedListener(
+          (response) => {
+            console.log('Notification response received', response);
+            
+            if (mounted) {
+              // Navigate to main listings page when user taps any push notification
+              try {
+                console.log('Navigating to main listings page...');
+                router.push('/(tabs)');
+              } catch (error) {
+                console.error('Navigation error:', error);
+              }
+              
+              // Reset notification state
+              setNotification(null);
+            }
+          }
+        );
+        responseListener.current = responseListenerRef;
+      } catch (error) {
+        console.error('Failed to initialize push notifications:', error);
       }
-    );
+    };
+
+    initializeNotifications();
 
     // Clean up listeners when component unmounts or user logs out
     return () => {
+      mounted = false;
+      
       if (notificationListener.current) {
         notificationListener.current.remove();
       }
@@ -104,7 +125,7 @@ export const PushNotificationProvider = ({ children }: { children: React.ReactNo
           .catch(error => console.error('Failed to unregister push token:', error));
       }
     };
-  }, [isAuthenticated, authToken, router]);
+  }, [isAuthenticated, authToken]);
 
   // Reset unread count
   const resetUnreadCount = () => {

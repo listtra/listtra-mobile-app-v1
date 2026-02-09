@@ -24,7 +24,7 @@ export default function AddScreen() {
             key={key}
             route="add"
             disableRefresh={true}
-            maxPhotos={3} // You can change this to 1, 2, or 3
+            maxPhotos={5} // Set to max possible (for Plus users), web will control actual limit
           />
         </View>
       </SafeAreaView>

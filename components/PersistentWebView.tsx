@@ -22,13 +22,13 @@ const getBaseUrl = () => {
   if (__DEV__) {
     return 'http://localhost:3000'; // Development
   }
-  return 'https://www.zirkly.com'; // Production - replace with your actual production URL
+  return 'https://staging.zirkly.com'; // Production - replace with your actual production URL
 };
 
 const BASE_URL = getBaseUrl();
 
 const NAVIGATION_DELAY = 300;
-const MAX_IMAGES = 3;
+// Note: maxPhotos is now passed as a prop and determined by web based on subscription
 
 // Enhanced image configuration
 const IMAGE_CONFIG = {
@@ -83,7 +83,7 @@ type WebViewMessage =
   | { type: 'AUTH_VALIDATION_SUCCESS'; tokens: any; user: any }
   | { type: 'AUTH_LOGIN_SUCCESS'; tokens: any; user: any }
   | { type: 'AUTH_RESTORED'; user?: any }
-  | { type: 'OPEN_IMAGE_PICKER'; options?: { maxImages?: number; quality?: number; allowsEditing?: boolean; aspect?: number[]; includeCamera?: boolean } }
+  | { type: 'OPEN_IMAGE_PICKER'; options?: { maxImages?: number; totalMaxImages?: number; currentCount?: number; quality?: number; allowsEditing?: boolean; aspect?: number[]; includeCamera?: boolean } }
   | { type: 'OPEN_WEB_OAUTH'; provider: 'google' | 'apple'; referralCode?: string }
   | { type: 'SHARE_LISTING'; shareData: any; data: any }
   | { type: 'REQUEST_NATIVE_LOCATION' }
@@ -156,6 +156,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
     // Camera modal state
     const [cameraModalVisible, setCameraModalVisible] = useState(false);
     const [currentPhotoCount, setCurrentPhotoCount] = useState(0);
+    const [totalMaxPhotos, setTotalMaxPhotos] = useState(maxPhotos || 3); // Track total limit from web
 
     const router = useRouter();
 
@@ -489,9 +490,20 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
         switch (data.type) {
           case 'OPEN_IMAGE_PICKER':
             logImageDebug('Camera modal requested from WebView', data.options);
-            if (data.options?.maxImages !== undefined) {
-              const alreadySelected = maxPhotos - data.options.maxImages;
-              setCurrentPhotoCount(alreadySelected);
+            if (data.options?.totalMaxImages !== undefined) {
+              // Web sends total max and current count
+              setTotalMaxPhotos(data.options.totalMaxImages);
+              setCurrentPhotoCount(data.options.currentCount || 0);
+            } else if (data.options?.maxImages !== undefined) {
+              // Fallback: web only sends remaining slots (backwards compatibility)
+              const remainingSlots = data.options.maxImages;
+              if (remainingSlots > totalMaxPhotos) {
+                setTotalMaxPhotos(remainingSlots);
+                setCurrentPhotoCount(0);
+              } else {
+                const alreadySelected = totalMaxPhotos - remainingSlots;
+                setCurrentPhotoCount(alreadySelected);
+              }
             }
             handleOpenCameraModal();
             return;
@@ -540,7 +552,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           case 'GO_BACK': {
             const pageType = getPageType(currentUrl, route);
 
+
             if (pageType.isSigninPage) return router.replace('/(tabs)');
+            if (data.from === 'analytics-page' && data.slug && data.product_id) {
+              return router.replace({
+                pathname: '/listings/[slug]/[product_id]/page',
+                params: { slug: data.slug, product_id: data.product_id }
+              });
+            }
             if (data.from === 'edit-page' && data.slug && data.product_id) {
               return router.replace({
                 pathname: '/listings/[slug]/[product_id]/page',
@@ -563,7 +582,21 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
           // Navigation handlers
           case 'LISTING_CLICKED':
             if (data.listing?.slug && data.listing?.product_id) {
-              router.push({ pathname: '/listings/[slug]/[product_id]/page', params: data.listing });
+              // Include queryParams (source, q) for proper view tracking
+              const listingParams: any = {
+                slug: data.listing.slug,
+                product_id: data.listing.product_id,
+              };
+
+              // Pass source and search query if available
+              if (data.listing.queryParams?.source) {
+                listingParams.source = data.listing.queryParams.source;
+              }
+              if (data.listing.queryParams?.q) {
+                listingParams.q = data.listing.queryParams.q;
+              }
+
+              router.push({ pathname: '/listings/[slug]/[product_id]/page', params: listingParams });
             }
             return;
 
@@ -911,7 +944,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, PersistentWebViewProp
             setCurrentPhotoCount(0); // ✅ RESET COUNT WHEN CLOSING
           }}
           onPhotosSelected={handlePhotosSelected}
-          maxPhotos={maxPhotos}
+          maxPhotos={totalMaxPhotos}
           currentPhotoCount={currentPhotoCount} // ✅ PASS CURRENT COUNT
         />
       </View>

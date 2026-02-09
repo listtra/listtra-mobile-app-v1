@@ -1,35 +1,40 @@
 // app/listings/[slug]/[product_id]/page.tsx
-import { useFocusEffect } from '@react-navigation/native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import PersistentWebView, { PersistentWebViewRef } from '../../../../components/PersistentWebView';
+import PersistentWebView from '../../../../components/PersistentWebView';
 
 export default function ListingDetailScreen() {
   const params = useLocalSearchParams();
   const slug = typeof params.slug === 'string' ? params.slug : String(params.slug || '');
   const product_id = typeof params.product_id === 'string' ? params.product_id : String(params.product_id || '');
-  const router = useRouter();
-  const [key, setKey] = useState(0);
 
-  // Handle back button press
-  const handleBackPress = () => {
-    router.back();
+  // Extract source tracking params
+  const source = typeof params.source === 'string' ? params.source : '';
+  const q = typeof params.q === 'string' ? params.q : '';
+
+  // Build route with query params for view tracking
+  const buildRoute = () => {
+    let route = `listings/${slug}/${product_id}`;
+    const queryParams = new URLSearchParams();
+
+    if (source) queryParams.append('source', source);
+    if (q) queryParams.append('q', q);
+
+    const queryString = queryParams.toString();
+    if (queryString) {
+      route += `?${queryString}`;
+    }
+
+    return route;
   };
-
-  useFocusEffect(
-    React.useCallback(() => {
-      setKey(prev => prev + 1);
-    }, [])
-  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.webViewContainer}>
         <PersistentWebView
-          key={key}
-          route={`listings/${slug}/${product_id}`}
+          route={buildRoute()}
           disableRefresh={true}
         />
       </View>

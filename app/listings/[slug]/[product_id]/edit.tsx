@@ -1,9 +1,9 @@
 // app/listings/[slug]/[product_id]/edit.tsx
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import PersistentWebView from '../../../../components/PersistentWebView';
 
 export default function ListingEditScreen() {
@@ -39,6 +39,7 @@ export default function ListingEditScreen() {
           route={`listings/${slug}/${product_id}/edit`} 
           disableAutoNavigation={true}
           disableRefresh={true}
+          maxPhotos={5} // Set to max possible (for Plus users), web will control actual limit
         />
       </View>
     </SafeAreaView>

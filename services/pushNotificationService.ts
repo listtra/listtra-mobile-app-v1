@@ -1,24 +1,55 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { notificationsAPI } from './notificationsAPI';
 
-// Configure notification behavior when app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Type definitions for when Notifications is dynamically imported
+type NotificationsModule = typeof import('expo-notifications');
+
+// Store the Notifications module reference
+let Notifications: NotificationsModule | null = null;
+
+// Initialize notifications module (call this before using any notification functions)
+const initializeNotifications = async (): Promise<NotificationsModule | null> => {
+  if (Notifications) return Notifications;
+  
+  // Only import on mobile platforms
+  if (Platform.OS === 'ios' || Platform.OS === 'android') {
+    try {
+      Notifications = await import('expo-notifications');
+      
+      // Configure notification handler after import
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+      
+      return Notifications;
+    } catch (error) {
+      console.error('Failed to import expo-notifications:', error);
+      return null;
+    }
+  }
+  
+  return null;
+};
 
 export const pushNotificationService = {
   // Register for push notifications and return the token
   registerForPushNotificationsAsync: async (authToken: string): Promise<string | null> => {
     console.log('Starting push notification registration...');
+    
+    // Initialize notifications module
+    const NotificationsModule = await initializeNotifications();
+    if (!NotificationsModule) {
+      console.log('Notifications not available on this platform');
+      return null;
+    }
     
     // Check if we're in Expo Go
     const isExpoGo = Constants.executionEnvironment === 'storeClient';
@@ -35,13 +66,13 @@ export const pushNotificationService = {
     }
 
     // Get permission
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    const { status: existingStatus } = await NotificationsModule.getPermissionsAsync();
     let finalStatus = existingStatus;
     
     console.log('Current permission status:', existingStatus);
     
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await NotificationsModule.requestPermissionsAsync();
       finalStatus = status;
       console.log('Permission request result:', status);
     }
@@ -61,11 +92,11 @@ export const pushNotificationService = {
       console.log('Project ID:', projectId);
       
       if (projectId) {
-        const result = await Notifications.getExpoPushTokenAsync({ projectId });
+        const result = await NotificationsModule.getExpoPushTokenAsync({ projectId });
         token = result.data;
       } else {
         // Fallback if projectId isn't available
-        const result = await Notifications.getExpoPushTokenAsync();
+        const result = await NotificationsModule.getExpoPushTokenAsync();
         token = result.data;
       }
       
@@ -88,7 +119,7 @@ export const pushNotificationService = {
       }
 
       // Set up notification categories/actions
-      await Notifications.setNotificationCategoryAsync('message', [
+      await NotificationsModule.setNotificationCategoryAsync('message', [
         {
           identifier: 'reply',
           buttonTitle: 'Reply',
@@ -107,17 +138,17 @@ export const pushNotificationService = {
 
       // Configure for Android
       if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
+        await NotificationsModule.setNotificationChannelAsync('default', {
           name: 'Default',
-          importance: Notifications.AndroidImportance.MAX,
+          importance: NotificationsModule.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#FF231F7C',
         });
         
         // Additional channel for messages
-        await Notifications.setNotificationChannelAsync('messages', {
+        await NotificationsModule.setNotificationChannelAsync('messages', {
           name: 'Messages',
-          importance: Notifications.AndroidImportance.HIGH,
+          importance: NotificationsModule.AndroidImportance.HIGH,
           sound: 'default',
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#FF231F7C',
@@ -142,9 +173,12 @@ export const pushNotificationService = {
   // Send a local test notification (works in simulator/Expo Go)
   sendLocalTestNotification: async (title: string = 'Test Notification', body: string = 'This is a test notification from Zirkly!') => {
     try {
+      const NotificationsModule = await initializeNotifications();
+      if (!NotificationsModule) return false;
+      
       console.log('Sending local test notification...');
       
-      await Notifications.scheduleNotificationAsync({
+      await NotificationsModule.scheduleNotificationAsync({
         content: {
           title,
           body,
@@ -162,27 +196,19 @@ export const pushNotificationService = {
     }
   },
 
-  // Add a notification response listener that opens the app
-  setupNotificationListener: (callback: (notification: Notifications.Notification) => void) => {
-    const subscription = Notifications.addNotificationReceivedListener(callback);
+  // Add notification listeners
+  addNotificationReceivedListener: async (callback: (notification: any) => void) => {
+    const NotificationsModule = await initializeNotifications();
+    if (!NotificationsModule) return () => {};
     
-    // Response listener (when user taps on notification)
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        // Handle deep linking or navigation logic here
-        const data = response.notification.request.content.data;
-        // Extract data from notification to navigate to appropriate screen
-        console.log('Notification tapped with data:', data);
-        
-        // Example: if (data.type === 'chat') { navigate to chat screen }
-      }
-    );
+    return NotificationsModule.addNotificationReceivedListener(callback);
+  },
 
-    // Return function to clean up listeners
-    return () => {
-      subscription.remove();
-      responseSubscription.remove();
-    };
+  addNotificationResponseReceivedListener: async (callback: (response: any) => void) => {
+    const NotificationsModule = await initializeNotifications();
+    if (!NotificationsModule) return () => {};
+    
+    return NotificationsModule.addNotificationResponseReceivedListener(callback);
   },
 
   // Unregister device token when user logs out

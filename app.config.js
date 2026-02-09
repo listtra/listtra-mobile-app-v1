@@ -4,7 +4,7 @@ export default {
   expo: {
     name: "Zirkly",
     slug: "zirkly-mobile-app",
-    version: "1.0.5",
+    version: "1.0.6",
     orientation: "portrait",
     icon: "./assets/images/icon3.png",
     scheme: "zirkly",
@@ -20,7 +20,7 @@ export default {
       entitlements: {
         "com.apple.developer.applesignin": ["Default"]
       },
-      buildNumber: "16",
+      buildNumber: "17",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#f5f5f5",
@@ -91,7 +91,7 @@ export default {
           category: ["BROWSABLE", "DEFAULT"]
         }
       ],
-      versionCode: 16,
+      versionCode: 17,
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
