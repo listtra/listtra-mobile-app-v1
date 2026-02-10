@@ -14,17 +14,17 @@ export default function SettingsScreen() {
       const data = JSON.parse(event.nativeEvent.data);
       console.log('Settings WebView message:', data);
 
-      if (data.type === 'WEB_LOGOUT_SUCCESS') {
-        console.log('Logout success message received from web app', data);
+      // if (data.type === 'WEB_LOGOUT_SUCCESS') {
+      //   console.log('Logout success message received from web app', data);
 
-        // Then clear mobile app tokens
-        authLogout();
+      //   // Then clear mobile app tokens
+      //   authLogout();
 
-        // Navigate back to tabs and then to signin
-        setTimeout(() => {
-          router.replace('/auth/signin');
-        }, 100);
-      }
+      //   // Navigate back to tabs and then to signin
+      //   setTimeout(() => {
+      //     router.replace('/auth/signin');
+      //   }, 100);
+      // }
 
       if (data.type === 'NAVIGATE_BACK' || data.type === 'CLOSE_SETTINGS') {
         router.push('/(tabs)/profile');
@@ -50,7 +50,6 @@ export default function SettingsScreen() {
           <PersistentWebView
             ref={webViewRef}
             route="settings"
-            disableRefresh={true}
             onMessage={handleMessage}
           />
         </View>

@@ -1,106 +1,12 @@
-import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import PersistentWebView from '@/components/PersistentWebView';
+import React from 'react';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Global variable to store the refresh function
-let globalIndexRefresh: (() => void) | null = null;
-
-export const triggerIndexRefresh = () => {
-  if (globalIndexRefresh) {
-    globalIndexRefresh();
-  } else {
-    console.log('No index refresh function available');
-  }
-};
-
-export default function ListingsScreen() {
-  const webViewRef = useRef<PersistentWebViewRef>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [route, setRoute] = useState('listings');
-
-  // Load referral code from AsyncStorage and append to route
-  useEffect(() => {
-    const loadReferralCode = async () => {
-      try {
-        const referralCode = await AsyncStorage.getItem('referral_code');
-        if (referralCode) {
-          console.log('Referral code found, appending to route:', referralCode);
-          setRoute(`listings?ref=${encodeURIComponent(referralCode)}`);
-          // Clear the referral code after using it to avoid reusing it
-          await AsyncStorage.removeItem('referral_code');
-        } else {
-          setRoute('listings');
-        }
-      } catch (error) {
-        console.error('Error loading referral code:', error);
-        setRoute('listings');
-      }
-    };
-
-    loadReferralCode();
-  }, []);
-
-  // Handle refresh functionality
-  const handleRefresh = useCallback(async () => {
-    if (webViewRef.current) {
-      setIsRefreshing(true);
-      webViewRef.current.refresh();
-      // Add a small delay to show the refresh indicator
-      setTimeout(() => setIsRefreshing(false), 1000);
-    }
-  }, []);
-
-  // Set the global refresh function when component mounts
-  useEffect(() => {
-    globalIndexRefresh = handleRefresh;
-
-    return () => {
-      globalIndexRefresh = null;
-    };
-  }, [handleRefresh]);
-
-  // Add a silent refresh function
-  const handleSilentRefresh = useCallback(() => {
-    if (webViewRef.current) {
-      webViewRef.current.refresh();
-      // Don't set isRefreshing to true
-    }
-  }, []);
-
-  // Update the useFocusEffect to use silent refresh
-  useFocusEffect(
-    useCallback(() => {
-      handleSilentRefresh(); // Use silent refresh instead
-    }, [handleSilentRefresh])
-  );
-  // Handle WebView messages
-  const handleMessage = (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      console.log('Listings WebView message:', data);
-
-      if (data.type === 'WEBVIEW_AUTH_CLEARED') {
-        console.log('WebView auth cleared confirmation received in listings');
-      }
-    } catch (error) {
-      console.error('Error handling WebView message in listings:', error);
-    }
-  };
-
+export default function MainScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.webViewContainer}>
-        <PersistentWebView
-          route={route}
-          ref={webViewRef}
-          onMessage={handleMessage}
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-        />
-      </View>
+      <PersistentWebView route="listings" />
     </SafeAreaView>
   );
 }
@@ -108,8 +14,6 @@ export default function ListingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  webViewContainer: {
-    flex: 1,
+    backgroundColor: '#f5f5f5',
   },
 });
