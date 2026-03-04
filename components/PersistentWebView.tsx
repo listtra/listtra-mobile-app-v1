@@ -126,6 +126,16 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(({ route, onMe
           }
           break;
 
+        case 'NAVIGATE_PROFILE_REVIEWS':
+          router.push({
+            pathname: '/(tabs)/profile',
+            params: {
+              tab: 'Reviews',
+              subTab: data.subTab  // 'all', 'buyer', or 'seller'
+            }
+          } as any);
+          break;
+
         case 'VIEW_ALL_CHATS':
           router.push(data.listingId
             ? `/(tabs)/chats?tab=selling&listing=${data.listingId}` as any
