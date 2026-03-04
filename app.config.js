@@ -20,10 +20,10 @@ export default {
       entitlements: {
         "com.apple.developer.applesignin": ["Default"]
       },
-      buildNumber: "17",
+      buildNumber: "21",
       supportsTablet: true,
       statusBarStyle: "dark-content",
-      statusBarBackgroundColor: "#f5f5f5",
+      statusBarBackgroundColor: "#ffffff",
       googleServicesFile: "./GoogleService-Info.plist",
       infoPlist: {
         UIStatusBarStyle: "UIStatusBarStyleDarkContent",
@@ -91,11 +91,11 @@ export default {
           category: ["BROWSABLE", "DEFAULT"]
         }
       ],
-      versionCode: 17,
+      versionCode: 21,
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
-      statusBarBackgroundColor: "#f5f5f5",
+      statusBarBackgroundColor: "#ffffff",
       statusBarTranslucent: false,
       googleServicesFile: "./google-services.json",
       permissions: [

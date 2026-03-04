@@ -81,7 +81,6 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       <LinearGradient
         colors={["#7c3aed", "#9333ea", "#4f46e5"]}
         start={{ x: 0, y: 0 }}

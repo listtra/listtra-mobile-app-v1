@@ -66,8 +66,6 @@ export default function ChatsScreen() {
         <PersistentWebView 
           route={route}
           ref={webViewRef}
-          onRefresh={handleRefresh}
-          refreshing={isRefreshing}
           key={key}
         />
       </View>

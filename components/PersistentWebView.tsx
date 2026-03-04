@@ -235,8 +235,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(({ route, onMe
         allowsInlineMediaPlayback
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
-        pullToRefreshEnabled
-        bounces
+        pullToRefreshEnabled={false}
+        bounces={false}
         startInLoadingState
         userAgent={`Zirkly-Mobile/${Platform.OS}`}
         originWhitelist={['https://*', 'http://localhost:*']}
@@ -261,7 +261,7 @@ PersistentWebView.displayName = 'PersistentWebView';
 export default PersistentWebView;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  webView: { flex: 1, backgroundColor: '#f5f5f5' },
-  loader: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  webView: { flex: 1, backgroundColor: '#ffffff' },
+  loader: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' },
 });

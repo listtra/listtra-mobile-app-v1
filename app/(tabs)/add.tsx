@@ -23,8 +23,6 @@ export default function AddScreen() {
           <PersistentWebView
             key={key}
             route="add"
-            disableRefresh={true}
-            maxPhotos={5} // Set to max possible (for Plus users), web will control actual limit
           />
         </View>
       </SafeAreaView>
