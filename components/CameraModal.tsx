@@ -478,13 +478,13 @@ const CameraModal: React.FC<CameraModalProps> = ({
         {state === 'preview' && 'Preview'}
       </Text>
 
-      { state === 'camera' && photos.length > 0 ? (
+      {state === 'camera' && photos.length > 0 ? (
         <TouchableOpacity
           onPress={() => handleFinish()}
           style={styles.doneButton}
           disabled={isLoading}
         >
-          <Text style={styles.doneButtonText}>Done</Text>
+          <Text style={styles.doneButtonText}>Confirm</Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.placeholder} />
