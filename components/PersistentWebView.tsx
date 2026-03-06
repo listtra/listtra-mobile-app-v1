@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Platform, Share, StyleSheet, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../context/AuthContext';
+import CameraModal from './CameraModal';
 
 const BASE_URL = __DEV__ ? 'http://localhost:3000' : 'https://staging.zirkly.com';
 
@@ -19,10 +20,19 @@ type Props = {
   onMessage?: (event: WebViewMessageEvent) => void;
 };
 
+const MAX_PHOTOS = 3;
+
+const calculateImageSize = (base64String: string): number => {
+  const padding = (base64String.match(/=/g) || []).length;
+  return Math.round((base64String.length * 0.75) - padding);
+};
+
 const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(({ route, onMessage }, ref) => {
   const webViewRef = useRef<WebView>(null);
   const justLoggedOut = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [cameraModalVisible, setCameraModalVisible] = useState(false);
+  const [currentPhotoCount, setCurrentPhotoCount] = useState(0);
   const { handleGoogleSignIn, handleAppleSignIn, setTokensDirectly, logout } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -38,6 +48,19 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(({ route, onMe
       const data = JSON.parse(event.nativeEvent.data);
 
       switch (data.type) {
+        // ---- Image Picker ----
+        case 'OPEN_IMAGE_PICKER': {
+          if (__DEV__) console.log('[WebView] OPEN_IMAGE_PICKER received', data.options);
+          if (data.options?.maxImages !== undefined) {
+            const alreadySelected = MAX_PHOTOS - data.options.maxImages;
+            setCurrentPhotoCount(Math.max(0, alreadySelected));
+          } else {
+            setCurrentPhotoCount(0);
+          }
+          setCameraModalVisible(true);
+          break;
+        }
+
         // ---- OAuth ----
         case 'OPEN_WEB_OAUTH': {
           const isGoogle = data.provider === 'google';
@@ -224,6 +247,27 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(({ route, onMe
     }
   }, [handleGoogleSignIn, handleAppleSignIn, setTokensDirectly, logout, router, onMessage]);
 
+  const handlePhotosSelected = useCallback((photos: any[]) => {
+    const formattedImages = photos.map((photo: any, index: number) => ({
+      base64: photo.base64,
+      type: 'image/jpeg',
+      name: `camera_${Date.now()}_${index}.jpg`,
+      width: photo.width,
+      height: photo.height,
+      size: Math.round(photo.base64 ? calculateImageSize(photo.base64) / 1024 : 0),
+    }));
+
+    webViewRef.current?.postMessage(JSON.stringify({
+      type: 'IMAGES_SELECTED',
+      images: formattedImages,
+      metadata: {
+        totalOriginalSize: formattedImages.reduce((sum: number, img: any) => sum + img.size, 0),
+        totalCompressedSize: formattedImages.reduce((sum: number, img: any) => sum + img.size, 0),
+        timestamp: Date.now(),
+      },
+    }));
+  }, []);
+
   const bottomInset = Math.min(insets.bottom, 12);
   const injectedJS = `
     window.SAFE_AREA_INSETS = ${JSON.stringify({ ...insets, bottom: bottomInset })};
@@ -262,6 +306,17 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(({ route, onMe
         onContentProcessDidTerminate={() => webViewRef.current?.reload()}
         onRenderProcessGone={() => webViewRef.current?.reload()}
         webviewDebuggingEnabled={__DEV__}
+      />
+
+      <CameraModal
+        visible={cameraModalVisible}
+        onClose={() => {
+          setCameraModalVisible(false);
+          setCurrentPhotoCount(0);
+        }}
+        onPhotosSelected={handlePhotosSelected}
+        maxPhotos={MAX_PHOTOS}
+        currentPhotoCount={currentPhotoCount}
       />
     </View>
   );
