@@ -20,7 +20,7 @@ export default {
       entitlements: {
         "com.apple.developer.applesignin": ["Default"]
       },
-      buildNumber: "21",
+      buildNumber: "22",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#ffffff",
@@ -91,7 +91,7 @@ export default {
           category: ["BROWSABLE", "DEFAULT"]
         }
       ],
-      versionCode: 21,
+      versionCode: 22,
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
