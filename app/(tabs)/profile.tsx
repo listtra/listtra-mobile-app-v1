@@ -1,16 +1,25 @@
 // app/(tabs)/profile.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
 import { useAuth } from '../../context/AuthContext';
-import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen() {
   const { logout: authLogout } = useAuth();
   const webViewRef = useRef<PersistentWebViewRef>(null);
   const [key, setKey] = useState(0);
+  const params = useLocalSearchParams<{ tab?: string; subTab?: string }>();
+
+  // Build route with query params when tab/subTab are provided
+  const webViewRoute = useMemo(() => {
+    const queryParts: string[] = [];
+    if (params.tab) queryParts.push(`tab=${encodeURIComponent(params.tab)}`);
+    if (params.subTab) queryParts.push(`subTab=${encodeURIComponent(params.subTab)}`);
+    return queryParts.length > 0 ? `profile?${queryParts.join('&')}` : 'profile';
+  }, [params.tab, params.subTab]);
 
   // Handle refresh parameter
   useFocusEffect(
@@ -40,7 +49,7 @@ export default function ProfileScreen() {
       <View style={styles.webViewContainer}>
         <PersistentWebView
           ref={webViewRef}
-          route="profile"
+          route={webViewRoute}
           onMessage={handleMessage}
           key={key}
         />
