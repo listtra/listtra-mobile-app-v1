@@ -129,6 +129,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(({ route, onMe
           break;
 
         case 'NAVIGATE_TO_LISTINGS':
+        case 'NAVIGATE_TO_HOME':
           router.push('/(tabs)' as any);
           break;
 
@@ -200,6 +201,10 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(({ route, onMe
             ? `/wallet/page?returnTo=${encodeURIComponent(data.returnTo)}` as any
             : '/wallet/page' as any
           );
+          break;
+
+        case 'RETURN_TO_WALLET':
+          router.push('/wallet/page' as any);
           break;
 
         case 'GO_BACK':
