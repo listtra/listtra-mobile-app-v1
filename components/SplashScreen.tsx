@@ -1,24 +1,24 @@
 // app/splash.tsx
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
 import {
-  View,
-  Image,
-  Text,
-  StyleSheet,
   Dimensions,
-  StatusBar,
+  Image,
   Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withDelay,
-  withSequence,
   interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
 
@@ -111,7 +111,7 @@ export default function SplashScreen() {
           </Text>
 
           <Animated.View style={taglineStyle}>
-            <Text style={styles.tagline}>Where pre-loved comes first.</Text>
+            <Text style={styles.tagline}>Australia's local marketplace</Text>
           </Animated.View>
         </Animated.View>
       </LinearGradient>
