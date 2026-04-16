@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function MainScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <PersistentWebView route="listings" />
+      <PersistentWebView route="/listings" />
     </SafeAreaView>
   );
 }

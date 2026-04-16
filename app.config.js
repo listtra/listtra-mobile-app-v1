@@ -15,12 +15,12 @@ export default {
       bundleIdentifier: "com.zirkly.app",
       associatedDomains: [
         //"applinks:zirkly.com",
-        "applinks:www.zirkly.com"
+        "applinks:www.zirkly.com",
       ],
       entitlements: {
-        "com.apple.developer.applesignin": ["Default"]
+        "com.apple.developer.applesignin": ["Default"],
       },
-      buildNumber: "23",
+      buildNumber: "24",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#ffffff",
@@ -56,10 +56,10 @@ export default {
               NSIncludesSubdomains: true,
               NSExceptionMinimumTLSVersion: "TLSv1.2",
               NSExceptionRequiresForwardSecrecy: true,
-            }
+            },
           },
         },
-      }
+      },
     },
 
     android: {
@@ -77,7 +77,7 @@ export default {
             {
               scheme: "https",
               host: "www.zirkly.com",
-              pathPrefix: "/listings"
+              pathPrefix: "/listings",
             },
             // {
             //   scheme: "https",
@@ -85,24 +85,20 @@ export default {
             // },
             {
               scheme: "https",
-              host: "www.zirkly.com"
-            }
+              host: "www.zirkly.com",
+            },
           ],
-          category: ["BROWSABLE", "DEFAULT"]
-        }
+          category: ["BROWSABLE", "DEFAULT"],
+        },
       ],
-      versionCode: 23,
+      versionCode: 24,
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
       statusBarBackgroundColor: "#ffffff",
       statusBarTranslucent: false,
       googleServicesFile: "./google-services.json",
-      permissions: [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA",
-      ],
+      permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "CAMERA"],
     },
 
     web: {
@@ -140,16 +136,19 @@ export default {
       [
         "@react-native-google-signin/google-signin",
         {
-          iosUrlScheme: "com.googleusercontent.apps.827930578004-9t2a9k7cmjevruiee4s0iq5k9h5p3eqg"
-        }
+          iosUrlScheme:
+            "com.googleusercontent.apps.827930578004-9t2a9k7cmjevruiee4s0iq5k9h5p3eqg",
+        },
       ],
       [
         "expo-image-picker",
         {
-          photosPermission: "Allow $(PRODUCT_NAME) to access your photos to upload listing images.",
-          cameraPermission: "Allow $(PRODUCT_NAME) to access your camera to take photos for listings.",
-          microphonePermission: false // Set to true if you need audio recording
-        }
+          photosPermission:
+            "Allow $(PRODUCT_NAME) to access your photos to upload listing images.",
+          cameraPermission:
+            "Allow $(PRODUCT_NAME) to access your camera to take photos for listings.",
+          microphonePermission: false, // Set to true if you need audio recording
+        },
       ],
     ],
 
@@ -164,7 +163,7 @@ export default {
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
       eas: {
-        projectId: "4b354982-5b2c-4a00-8860-d4701f089a23"
+        projectId: "4b354982-5b2c-4a00-8860-d4701f089a23",
       },
     },
     owner: "jibinb",
