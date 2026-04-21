@@ -111,7 +111,7 @@ export default function SplashScreen() {
           </Text>
 
           <Animated.View style={taglineStyle}>
-            <Text style={styles.tagline}>Australia's local marketplace</Text>
+            <Text style={styles.tagline}>Buy & sell furniture near you. Fast.</Text>
           </Animated.View>
         </Animated.View>
       </LinearGradient>
