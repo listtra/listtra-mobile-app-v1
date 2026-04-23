@@ -23,7 +23,7 @@ import CameraModal from "./CameraModal";
 
 const BASE_URL = __DEV__
   ? "http://localhost:3000"
-  : "https://staging.zirkly.com";
+  : "https://www.zirkly.com";
 
 export interface PersistentWebViewRef {
   refresh: () => void;
