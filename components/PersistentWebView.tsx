@@ -22,8 +22,8 @@ import { useAuth } from "../context/AuthContext";
 import CameraModal from "./CameraModal";
 
 const BASE_URL = __DEV__
-  ? "http://localhost:3000"
-  : "https://www.zirkly.com";
+  ? "https://staging.zirkly.com"
+  : "https://staging.zirkly.com";
 
 export interface PersistentWebViewRef {
   refresh: () => void;
@@ -46,6 +46,7 @@ const calculateImageSize = (base64String: string): number => {
 const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
   ({ route, onMessage }, ref) => {
     const webViewRef = useRef<WebView>(null);
+    const canGoBackRef = useRef(false);
     const justLoggedOut = useRef(false);
     const [isLoading, setIsLoading] = useState(true);
     const [cameraModalVisible, setCameraModalVisible] = useState(false);
@@ -274,9 +275,14 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
               router.push("/wallet/page" as any);
               break;
 
-            case "GO_BACK":
-              router.back();
+            case "GO_BACK": {
+              if (canGoBackRef.current) {
+                webViewRef.current?.goBack();
+              } else {
+                router.back();
+              }
               break;
+            }
 
             case "OPEN_SETTINGS":
               router.push("/settings" as any);
@@ -410,6 +416,9 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
           injectedJavaScript={injectedJS}
           onLoadEnd={() => setIsLoading(false)}
           onMessage={handleMessage}
+          onNavigationStateChange={(navState) => {
+            canGoBackRef.current = navState.canGoBack;
+          }}
           onShouldStartLoadWithRequest={handleNavigationRequest}
           onOpenWindow={(event) => {
             Linking.openURL(event.nativeEvent.targetUrl);

@@ -9,6 +9,7 @@ import { Animated, View } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthProvider } from '../context/AuthContext';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 type RootLayoutContentProps = {
   onWebViewReady?: () => void;
@@ -16,6 +17,7 @@ type RootLayoutContentProps = {
 
 function RootLayoutContent({ onWebViewReady }: RootLayoutContentProps) {
   const insets = useSafeAreaInsets();
+  usePushNotifications();
 
   // Trigger onWebViewReady when the component mounts
   // The actual WebView loading callback will be handled via context

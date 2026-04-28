@@ -37,11 +37,15 @@ export const notificationsAPI = {
     await api.post('/api/notifications_new/mark-all-read/');
   },
 
-  registerDevice: async (token: string, deviceToken: string, deviceType = 'mobile') => {
+  registerDevice: async (
+    token: string,
+    deviceToken: string,
+    platform: 'ios' | 'android' | 'web',
+  ) => {
     const api = await getApiInstance(token);
     await api.post('/api/notifications_new/register-device/', {
       token: deviceToken,
-      device_type: deviceType,
+      platform,
     });
   },
 

@@ -4,7 +4,7 @@ export default {
   expo: {
     name: "Zirkly",
     slug: "zirkly-mobile-app",
-    version: "1.0.7",
+    version: "1.0.8",
     orientation: "portrait",
     icon: "./assets/images/icon3.png",
     scheme: "zirkly",
@@ -13,6 +13,7 @@ export default {
 
     ios: {
       bundleIdentifier: "com.zirkly.app",
+      appleTeamId: "7DWNYSF658",
       associatedDomains: [
         //"applinks:zirkly.com",
         "applinks:www.zirkly.com",
@@ -20,7 +21,7 @@ export default {
       entitlements: {
         "com.apple.developer.applesignin": ["Default"],
       },
-      buildNumber: "27",
+      buildNumber: "28",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#ffffff",
@@ -28,6 +29,7 @@ export default {
       infoPlist: {
         UIStatusBarStyle: "UIStatusBarStyleDarkContent",
         UIViewControllerBasedStatusBarAppearance: false,
+        UIBackgroundModes: ["remote-notification"],
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
           NSExceptionDomains: {
@@ -91,7 +93,7 @@ export default {
           category: ["BROWSABLE", "DEFAULT"],
         },
       ],
-      versionCode: 27,
+      versionCode: 28,
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
@@ -108,10 +110,27 @@ export default {
     },
 
     plugins: [
+      "@bacons/apple-targets",
       "expo-secure-store",
       "expo-router",
       "expo-apple-authentication",
       "expo-notifications",
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      [
+        "expo-build-properties",
+        {
+          ios: {
+            useFrameworks: "static",
+            extraPods: [
+              {
+                name: "GoogleUtilities",
+                modular_headers: true,
+              },
+            ],
+          },
+        },
+      ],
       // [
       //   "expo-splash-screen",
       //   {
@@ -157,7 +176,7 @@ export default {
     },
 
     extra: {
-      apiUrl: "https://backend.listtra.com",
+      apiUrl: "https://dev.zirkly.com",
       googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
