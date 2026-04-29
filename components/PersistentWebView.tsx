@@ -22,7 +22,7 @@ import { useAuth } from "../context/AuthContext";
 import CameraModal from "./CameraModal";
 
 const BASE_URL = __DEV__
-  ? "https://staging.zirkly.com"
+  ? "http://localhost:3000"
   : "https://staging.zirkly.com";
 
 export interface PersistentWebViewRef {
