@@ -332,6 +332,66 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
               break;
             }
 
+            // Auto-fetch on launch:
+            //  - granted        -> fetch coords silently
+            //  - undetermined   -> prompt once (first launch UX), fetch if user allows
+            //  - denied         -> silent skip (iOS won't re-show the dialog anyway)
+            case "REQUEST_NATIVE_LOCATION_IF_GRANTED": {
+              try {
+                const initial = await Location.getForegroundPermissionsAsync();
+                console.log(
+                  "[NATIVE_LOCATION_IF_GRANTED] permission status:",
+                  initial.status,
+                );
+
+                let status = initial.status;
+                if (status === "undetermined") {
+                  const requested =
+                    await Location.requestForegroundPermissionsAsync();
+                  status = requested.status;
+                  console.log(
+                    "[NATIVE_LOCATION_IF_GRANTED] post-prompt status:",
+                    status,
+                  );
+                }
+
+                if (status !== "granted") {
+                  webViewRef.current?.postMessage(
+                    JSON.stringify({ type: "NATIVE_LOCATION_NOT_GRANTED" }),
+                  );
+                  return;
+                }
+
+                const loc = await Location.getCurrentPositionAsync({
+                  accuracy: Location.Accuracy.Balanced,
+                });
+                console.log(
+                  "[NATIVE_LOCATION_IF_GRANTED] got coords:",
+                  loc.coords.latitude,
+                  loc.coords.longitude,
+                );
+                webViewRef.current?.postMessage(
+                  JSON.stringify({
+                    type: "NATIVE_LOCATION_SUCCESS",
+                    location: {
+                      latitude: loc.coords.latitude,
+                      longitude: loc.coords.longitude,
+                      accuracy: loc.coords.accuracy,
+                    },
+                  }),
+                );
+              } catch (err) {
+                console.warn(
+                  "[NATIVE_LOCATION_IF_GRANTED] failed silently:",
+                  err,
+                );
+                webViewRef.current?.postMessage(
+                  JSON.stringify({ type: "NATIVE_LOCATION_NOT_GRANTED" }),
+                );
+              }
+              break;
+            }
+
             default:
               if (__DEV__) console.log("WebView message:", data.type);
               break;
