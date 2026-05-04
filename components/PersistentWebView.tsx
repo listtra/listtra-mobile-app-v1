@@ -1,8 +1,10 @@
+import NetInfo from "@react-native-community/netinfo";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -20,10 +22,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { useAuth } from "../context/AuthContext";
 import CameraModal from "./CameraModal";
+import OfflineScreen from "./OfflineScreen";
 
 const BASE_URL = __DEV__
   ? "http://localhost:3000"
-  : "https://staging.zirkly.com";
+  : "https://www.zirkly.com";
 
 export interface PersistentWebViewRef {
   refresh: () => void;
@@ -49,6 +52,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
     const canGoBackRef = useRef(false);
     const justLoggedOut = useRef(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isOffline, setIsOffline] = useState(false);
     const [cameraModalVisible, setCameraModalVisible] = useState(false);
     const [currentPhotoCount, setCurrentPhotoCount] = useState(0);
     const { handleGoogleSignIn, handleAppleSignIn, setTokensDirectly, logout } =
@@ -66,6 +70,46 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
       }),
       [],
     );
+
+    // Auto-recover: when connectivity returns, hide the offline screen and
+    // reload the WebView. WebView errors will flip us back to offline if the
+    // load still fails.
+    useEffect(() => {
+      const unsubscribe = NetInfo.addEventListener((state) => {
+        const connected = state.isConnected === true;
+        setIsOffline((prev) => {
+          if (!connected) return true;
+          if (prev) {
+            webViewRef.current?.reload();
+            setIsLoading(true);
+          }
+          return false;
+        });
+      });
+      return unsubscribe;
+    }, []);
+
+    const handleWebViewError = useCallback(() => {
+      setIsOffline(true);
+      setIsLoading(false);
+    }, []);
+
+    const handleWebViewHttpError = useCallback((e: any) => {
+      const statusCode = e?.nativeEvent?.statusCode;
+      if (typeof statusCode === "number" && statusCode >= 500) {
+        setIsOffline(true);
+        setIsLoading(false);
+      }
+    }, []);
+
+    const handleRetry = useCallback(async () => {
+      const state = await NetInfo.fetch();
+      if (state.isConnected) {
+        setIsOffline(false);
+        setIsLoading(true);
+        webViewRef.current?.reload();
+      }
+    }, []);
 
     const handleMessage = useCallback(
       async (event: WebViewMessageEvent) => {
@@ -475,6 +519,8 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
           style={styles.webView}
           injectedJavaScript={injectedJS}
           onLoadEnd={() => setIsLoading(false)}
+          onError={handleWebViewError}
+          onHttpError={handleWebViewHttpError}
           onMessage={handleMessage}
           onNavigationStateChange={(navState) => {
             canGoBackRef.current = navState.canGoBack;
@@ -518,6 +564,12 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
           maxPhotos={MAX_PHOTOS}
           currentPhotoCount={currentPhotoCount}
         />
+
+        {isOffline && (
+          <View style={StyleSheet.absoluteFill}>
+            <OfflineScreen onRetry={handleRetry} />
+          </View>
+        )}
       </View>
     );
   },
