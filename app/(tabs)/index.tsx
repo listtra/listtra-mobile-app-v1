@@ -1,50 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import WebViewScreen from '../../components/WebViewScreen';
-import { useAuth } from '../../context/AuthContext';
+import PersistentWebView from '@/components/PersistentWebView';
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function ListingsScreen() {
-  const { isInitializing, isAuthenticated, tokens } = useAuth();
-  const [isReady, setIsReady] = useState(false);
-  const [listingsUrl, setListingsUrl] = useState("https://listtra.com/listings");
-  
-  // Wait for auth to initialize
-  useEffect(() => {
-    if (!isInitializing) {
-      setIsReady(true);
-      
-      // If we have tokens, append them to the URL to force auth
-      if (isAuthenticated && tokens.accessToken) {
-        // Create a URL with tokens as parameters to force auth
-        setListingsUrl(`https://listtra.com/listings?isNativeAuth=true&token=${encodeURIComponent(tokens.accessToken)}`);
-      }
-    }
-  }, [isInitializing, isAuthenticated, tokens]);
-  
-  // Show loading spinner while initializing
-  if (isInitializing || !isReady) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6200EA" />
-      </View>
-    );
-  }
-  
-  // Simple approach: require authentication for listings
-  // This will properly set up the user session in the WebView
+export default function MainScreen() {
   return (
-    <WebViewScreen 
-      uri={listingsUrl} 
-      requiresAuth={true}
-    />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <PersistentWebView route="/listings" />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
+  container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#ffffff',
   },
 });

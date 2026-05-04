@@ -1,29 +1,35 @@
-import React from 'react';
+// app/(tabs)/add.tsx
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import WebViewScreen from '../../components/WebViewScreen';
-import { useAuth } from '../../context/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import PersistentWebView from '../../components/PersistentWebView';
 
-export default function AddListingScreen() {
-  const { isInitializing } = useAuth();
-  
-  // Wait for auth initialization before loading WebView
-  if (isInitializing) {
-    return <View style={styles.container} />;
-  }
+export default function AddScreen() {
+  const router = useRouter();
+  const [key, setKey] = useState(0);
+
+  // Force WebView refresh every time the screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      setKey(prev => prev + 1);
+    }, [])
+  );
 
   return (
-    <View style={styles.container}>
-      <WebViewScreen 
-        uri="https://listtra.com/listings/create" 
-        showLoader={true} 
-      />
-    </View>
+      <SafeAreaView style={styles.flex} edges={['top']}>
+        <View style={styles.webViewContainer}>
+          <PersistentWebView
+            key={key}
+            route="add"
+          />
+        </View>
+      </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-}); 
+  flex: { flex: 1 },
+  webViewContainer: { flex: 1, backgroundColor: 'white' },
+});

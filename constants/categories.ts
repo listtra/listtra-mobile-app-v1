@@ -1,0 +1,18 @@
+export const PREDEFINED_CATEGORIES = [
+  "Electronics",
+  "Mobile Phones",
+  "Laptops",
+  "TV & Home Theater",
+  "Furniture",
+  "Clothing & Accessories",
+  "Books & Stationery",
+  "Sports & Fitness",
+  "Home & Kitchen",
+  "Automotive",
+  "Toys & Games",
+  "Musical Instruments",
+  "Art & Collectibles",
+  "Jewelry & Watches",
+  "Health & Beauty",
+  "Other",
+]; 

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "309588651291",
+    "project_id": "zirkly-push-notification",
+    "storage_bucket": "zirkly-push-notification.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:309588651291:android:495f501905b80c5865f7be",
+        "android_client_info": {
+          "package_name": "com.zirkly.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCx9Xw3sWArUspfiex5SxDdJUylgLYbEoQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

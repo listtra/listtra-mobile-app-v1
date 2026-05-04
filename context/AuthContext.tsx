@@ -1,17 +1,19 @@
+import { appleSignInService } from '@/services/appleSignInService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import { makeRedirectUri } from 'expo-auth-session';
-import { Prompt } from 'expo-auth-session/build/AuthRequest.types';
-import * as Google from 'expo-auth-session/providers/google';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { googleSignInService } from '../services/googleSignInService';
 
-// Configure Google WebBrowser auth
-WebBrowser.maybeCompleteAuthSession();
+// Configure Google WebBrowser auth (keeping for web fallback)
+//WebBrowser.maybeCompleteAuthSession();
 
 // API endpoint configuration
-const API_URL = 'https://backend.listtra.com'; // Replace with your actual API URL
+const API_URL = Constants.expoConfig?.extra?.apiUrl;
+
+// Define app scheme for deep linking
+const APP_SCHEME = 'zirkly';
 
 // Define types for our context
 type User = {
@@ -27,7 +29,6 @@ type AuthContextType = {
   isAuthenticated: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
   register: (userData: any) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -35,7 +36,10 @@ type AuthContextType = {
     accessToken: string | null;
     refreshToken: string | null;
   };
+  storeTokens: (accessToken: string, refreshToken: string, userData?: any) => Promise<void>;
   setTokensDirectly: (accessToken: string, refreshToken: string, userData?: any) => Promise<void>;
+  handleGoogleSignIn: (referralCode?: string) => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
+  handleAppleSignIn: (referralCode?: string) => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
 };
 
 // Create the context with default values
@@ -45,20 +49,35 @@ const AuthContext = createContext<AuthContextType>({
   isInitializing: true,
   isAuthenticated: false,
   error: null,
-  login: async () => {},
-  loginWithGoogle: async () => {},
-  register: async () => {},
-  logout: async () => {},
-  clearError: () => {},
+  login: async () => { },
+  register: async () => { },
+  logout: async () => { },
+  clearError: () => { },
   tokens: {
     accessToken: null,
     refreshToken: null
   },
-  setTokensDirectly: async () => {},
+  setTokensDirectly: async () => { },
+  storeTokens: async () => { },
+  handleGoogleSignIn: async () => ({ success: false }),
+  handleAppleSignIn: async () => ({ success: false }),
 });
 
 // Hook to use the auth context
 export const useAuth = () => useContext(AuthContext);
+
+const APP_VERSION_KEY = '@app_version';
+const INSTALLATION_ID_KEY = '@installation_id';
+const ACCESS_TOKEN_KEY = '@access_token';
+const REFRESH_TOKEN_KEY = '@refresh_token';
+
+const CURRENT_APP_VERSION = Constants.expoConfig?.version || '1.0.0';
+const CURRENT_BUILD_NUMBER =
+  String(
+    Constants.expoConfig?.ios?.buildNumber ||
+    Constants.expoConfig?.android?.versionCode ||
+    '1'
+  );
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -70,38 +89,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshToken: null as string | null,
   });
 
-  // Configure Google OAuth - use the same web client ID as your NextAuth configuration
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    // Your actual Google client IDs
-    clientId: '317016913725-gglj4281l88npol4vbg1gcvdmb2nrs3m.apps.googleusercontent.com',
-    iosClientId: '317016913725-8epml8s6q7skce4t5ufk1vtev6rfn32t.apps.googleusercontent.com',
-    androidClientId: '317016913725-e958fch905dkuikib7j0532klv3k7loo.apps.googleusercontent.com',
-    scopes: ['profile', 'email'],
-    redirectUri: makeRedirectUri({
-      scheme: 'listtra'
-    }),
-    responseType: 'id_token',
-    usePKCE: true,
-    prompt: Prompt.Consent,
-  });
+  const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
-  // Function to store tokens securely
-  const storeTokens = async (accessToken: string, refreshToken: string) => {
+  // Function to store tokens in AsyncStorage
+  const storeTokens = async (accessToken: string, refreshToken: string, userData?: any) => {
     try {
-      await SecureStore.setItemAsync('accessToken', accessToken);
-      await SecureStore.setItemAsync('refreshToken', refreshToken);
+      console.log('Storing tokens, token lengths:', accessToken.length, refreshToken.length);
+      console.log('User data to store:', userData);
+
+      // Store tokens in AsyncStorage
+      await AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+      await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+
+      // Verify tokens were stored
+      const storedAccessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      const storedRefreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+
+      console.log('Tokens stored verification:', {
+        accessTokenStored: !!storedAccessToken,
+        refreshTokenStored: !!storedRefreshToken,
+        accessTokenLength: storedAccessToken?.length,
+        refreshTokenLength: storedRefreshToken?.length
+      });
+
+      if (!storedAccessToken || !storedRefreshToken) {
+        console.error('Failed to store tokens in AsyncStorage');
+      }
+
+      // Update state
       setTokens({ accessToken, refreshToken });
+
+      // Set user data if provided
+      if (userData) {
+        console.log('Setting user data from storeTokens:', userData);
+        setUser(userData);
+      }
+
+      console.log('Token state updated');
     } catch (error) {
       console.error('Error storing tokens:', error);
     }
   };
 
-  // Function to load tokens from secure storage
+  // Function to load tokens from AsyncStorage
   const loadTokens = async () => {
     try {
-      const accessToken = await SecureStore.getItemAsync('accessToken');
-      const refreshToken = await SecureStore.getItemAsync('refreshToken');
-      
+      const accessToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+
       if (accessToken && refreshToken) {
         setTokens({ accessToken, refreshToken });
         return { accessToken, refreshToken };
@@ -113,14 +148,92 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Function to clear tokens from secure storage
+  // Function to clear tokens from AsyncStorage
   const clearTokens = async () => {
     try {
-      await SecureStore.deleteItemAsync('accessToken');
-      await SecureStore.deleteItemAsync('refreshToken');
+      console.log('Clearing tokens from AsyncStorage...');
+      await AsyncStorage.removeItem(ACCESS_TOKEN_KEY);
+      await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
       setTokens({ accessToken: null, refreshToken: null });
+      console.log('Tokens cleared successfully');
     } catch (error) {
       console.error('Error clearing tokens:', error);
+    }
+  };
+
+  // Function to check if this is a fresh install or app version changed
+  const checkInstallationState = async (): Promise<boolean> => {
+    try {
+      console.log('Checking installation state...');
+
+      const storedVersion = await AsyncStorage.getItem(APP_VERSION_KEY);
+      const storedInstallationId = await AsyncStorage.getItem(INSTALLATION_ID_KEY);
+
+      console.log('Stored version:', storedVersion);
+      console.log('Current version:', CURRENT_APP_VERSION);
+      console.log('Stored installation ID:', storedInstallationId);
+
+      // ✅ Fresh install only (AsyncStorage is empty after uninstall)
+      if (!storedVersion || !storedInstallationId) {
+        console.log('Fresh install detected — clearing tokens and setting new state');
+
+        await clearTokens();
+
+        await AsyncStorage.setItem(APP_VERSION_KEY, CURRENT_APP_VERSION);
+        await AsyncStorage.setItem(INSTALLATION_ID_KEY, Date.now().toString());
+
+        return true; // Fresh install
+      }
+
+      console.log('Existing installation detected — keeping tokens');
+      return false; // Not a reinstall
+    } catch (error) {
+      console.error('Error checking installation state:', error);
+      return false;
+    }
+  };
+
+  // Enhanced token validation
+  const validateAndLoadTokens = async (): Promise<{ accessToken: string; refreshToken: string } | null> => {
+    try {
+      const storedTokens = await loadTokens();
+
+      if (!storedTokens?.accessToken || !storedTokens?.refreshToken) {
+        console.log('No tokens found in storage');
+        return null;
+      }
+
+      // Validate token by checking expiration
+      try {
+        const base64Url = storedTokens.accessToken.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          atob(base64).split('').map(c => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join('')
+        );
+
+        const { exp } = JSON.parse(jsonPayload);
+        const isExpired = exp * 1000 < Date.now();
+
+        console.log('Token validation - Expired:', isExpired);
+
+        if (isExpired) {
+          console.log('Access token expired, will attempt refresh');
+          // Token is expired, but we'll try to refresh it
+          return storedTokens;
+        }
+
+        return storedTokens;
+      } catch (parseError) {
+        console.error('Error parsing token:', parseError);
+        // If we can't parse the token, it's invalid
+        await clearTokens();
+        return null;
+      }
+    } catch (error) {
+      console.error('Error validating tokens:', error);
+      return null;
     }
   };
 
@@ -128,25 +241,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const storedTokens = await loadTokens();
-        
+        console.log('=== AUTH INITIALIZATION STARTED ===');
+
+        // Check if this is a fresh install
+        const isFreshInstall = await checkInstallationState();
+
+        if (isFreshInstall) {
+          console.log('Fresh install detected - starting with clean state');
+          setIsInitializing(false);
+          return;
+        }
+
+        // Validate and load tokens
+        const storedTokens = await validateAndLoadTokens();
+
         if (storedTokens?.accessToken) {
-          // Validate token and get user profile
+          // Try to get user profile
           try {
             const response = await axios.get(`${API_URL}/api/profile/`, {
               headers: {
-                Authorization: `Bearer ${storedTokens.accessToken}`
+                Authorization: `Bearer ${storedTokens.accessToken}`,
+                'X-Expo-Go': isExpoGo ? 'true' : 'false'
               }
             });
-            
+
+            console.log('Profile loaded successfully:', response.data);
             setUser(response.data);
-          } catch (error) {
-            // If token is invalid or expired, try refresh
-            await refreshAccessToken(storedTokens.refreshToken);
+
+          } catch (profileError: any) {
+            console.log('Profile fetch failed, attempting token refresh');
+
+            // If profile fetch fails, try to refresh token
+            if (storedTokens.refreshToken) {
+              const refreshSuccess = await refreshAccessToken(storedTokens.refreshToken);
+
+              if (!refreshSuccess) {
+                console.log('Token refresh failed - clearing auth state');
+                await clearTokens();
+                setUser(null);
+              }
+            } else {
+              console.log('No refresh token available - clearing auth state');
+              await clearTokens();
+              setUser(null);
+            }
           }
+        } else {
+          console.log('No valid tokens found');
         }
+
+        console.log('=== AUTH INITIALIZATION COMPLETED ===');
       } catch (error) {
         console.error('Auth initialization error:', error);
+        // On any error, clear auth state to be safe
+        await clearTokens();
+        setUser(null);
       } finally {
         setIsInitializing(false);
       }
@@ -154,16 +303,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initializeAuth();
   }, []);
-
-  // Handle Google auth response
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      handleGoogleAuth(authentication);
-    } else if (response?.type === 'error') {
-      setError('Google sign in failed. Please try again.');
-    }
-  }, [response]);
 
   // Set up token refresh mechanism
   useEffect(() => {
@@ -180,10 +319,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
           }).join('')
         );
-        
+
         const { exp } = JSON.parse(jsonPayload);
         const expiresIn = exp * 1000 - Date.now();
-        
+        const minutes = Math.floor(expiresIn / 60000);
+        const seconds = Math.floor((expiresIn % 60000) / 1000);
+        console.log(`Token expires in: ${minutes} minutes and ${seconds} seconds`);
+
         // If token expires in less than 5 minutes, refresh it
         if (expiresIn < 5 * 60 * 1000) {
           console.log('Token expiring soon, refreshing...');
@@ -196,95 +338,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check token expiration every minute
     const interval = setInterval(checkTokenExpiration, 60000);
-    
+
     // Check immediately on mount
     checkTokenExpiration();
-    
+
     return () => clearInterval(interval);
   }, []);
 
   // Function to handle refresh token
   const refreshAccessToken = async (refreshToken: string | null) => {
+    console.log('=== TOKEN REFRESH STARTED ===');
+    console.log('Refresh token available:', !!refreshToken);
+
     if (!refreshToken) {
+      console.log('No refresh token, clearing auth state');
       await clearTokens();
       setUser(null);
       return false;
     }
 
     try {
+      console.log('Making token refresh request...');
       const response = await axios.post(`${API_URL}/api/token/refresh/`, {
         refresh: refreshToken
       });
 
       if (response.data.access) {
+        console.log('Token refresh successful, storing new tokens');
         await storeTokens(response.data.access, refreshToken);
+
+        // Fetch user profile after token refresh to maintain authentication state
+        console.log('Fetching user profile after token refresh...');
+        try {
+          const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
+            headers: {
+              Authorization: `Bearer ${response.data.access}`,
+              'X-Expo-Go': isExpoGo ? 'true' : 'false'
+            }
+          });
+
+          console.log('Profile refreshed successfully:', profileResponse.data);
+          console.log('User state before update:', user);
+          setUser(profileResponse.data);
+          console.log('User state updated after token refresh');
+          console.log('isAuthenticated should now be:', !!(profileResponse.data && response.data.access));
+        } catch (profileError) {
+          console.error('Error fetching profile after token refresh:', profileError);
+          console.log('Clearing auth state due to profile fetch failure');
+          // If profile fetch fails after token refresh, clear everything
+          await clearTokens();
+          setUser(null);
+          return false;
+        }
+
+        console.log('=== TOKEN REFRESH COMPLETED SUCCESSFULLY ===');
         return true;
       }
-      
+
+      console.log('Token refresh response missing access token');
       return false;
     } catch (error) {
       console.error('Token refresh failed:', error);
+      console.log('Clearing auth state due to token refresh failure');
       await clearTokens();
       setUser(null);
       return false;
-    }
-  };
-
-  // Process Google authentication
-  const handleGoogleAuth = async (authentication: any) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // Get user info from Google
-      const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-        headers: { Authorization: `Bearer ${authentication.accessToken}` },
-      });
-      
-      const userInfo = await userInfoResponse.json();
-      
-      // Call your backend endpoint with the same data format as the web
-      const apiResponse = await axios.post(`${API_URL}/api/auth/google/`, {
-        email: userInfo.email,
-        name: userInfo.name,
-        picture: userInfo.picture,
-        id_token: authentication.idToken, // This matches what your web app is sending
-      });
-      
-      if (apiResponse.data.access && apiResponse.data.refresh) {
-        // Store tokens
-        await storeTokens(apiResponse.data.access, apiResponse.data.refresh);
-        
-        // Set user data
-        setUser({
-          id: apiResponse.data.user_id,
-          email: apiResponse.data.email,
-          nickname: apiResponse.data.nickname,
-        });
-        
-        // Navigate to home screen
-        router.replace('/(tabs)');
-        return true;
-      }
-      
-      return false;
-    } catch (error: any) {
-      console.error('Google auth error:', error);
-      
-      // Check if it's an account not found error - need to handle this the same way as web
-      if (error.response?.status === 400) {
-        // Store pending email for signup if needed
-        if (error.response?.data?.email) {
-          await SecureStore.setItemAsync('pendingEmail', error.response.data.email);
-        }
-        setError('No account found with this email. Please sign up first.');
-      } else {
-        setError('Sign in with Google failed. Please try again.');
-      }
-      
-      return false;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -294,29 +412,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
 
     try {
+      console.log('Starting login process with email:', email);
+      console.log('Is Expo Go environment:', isExpoGo);
+
       const response = await axios.post(`${API_URL}/api/token/`, {
         email,
-        password
+        password,
+        is_expo_go: isExpoGo
+      }, {
+        headers: {
+          'X-Expo-Go': isExpoGo ? 'true' : 'false'
+        }
       });
+
+      console.log('Login response received:', JSON.stringify({
+        success: true,
+        has_access_token: !!response.data.access,
+        has_refresh_token: !!response.data.refresh,
+        token_length: response.data.access ? response.data.access.length : 0
+      }));
 
       if (response.data.access && response.data.refresh) {
         // Store tokens
+        console.log('About to store tokens');
         await storeTokens(response.data.access, response.data.refresh);
-        
+        console.log('Tokens stored successfully');
+
         // Get user profile
-        const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
-          headers: {
-            Authorization: `Bearer ${response.data.access}`
-          }
-        });
-        
-        setUser(profileResponse.data);
-        
-        // Navigate to home screen
-        router.replace('/(tabs)');
+        console.log('Fetching user profile');
+        try {
+          const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
+            headers: {
+              Authorization: `Bearer ${response.data.access}`
+            }
+          });
+
+          console.log('Profile fetched successfully:', JSON.stringify({
+            has_profile_data: !!profileResponse.data,
+            profile_keys: profileResponse.data ? Object.keys(profileResponse.data) : []
+          }));
+
+          setUser(profileResponse.data);
+          console.log('User state updated');
+
+          // Navigate to home screen
+          console.log('Navigating to home screen');
+          router.replace('/(tabs)');
+        } catch (profileError) {
+          console.error('Error fetching profile:', profileError);
+          setError('Login successful but failed to fetch user profile');
+        }
       }
     } catch (error: any) {
       console.error('Login error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+
+      // Check if this is an email verification error
+      if (error.response?.data?.require_verification) {
+        // Redirect to verification page
+        router.push({
+          pathname: '/auth/verify-email',
+          params: { email }
+        });
+        return;
+      }
+
       setError(error.response?.data?.detail || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -329,14 +490,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
 
     try {
+      console.log('Attempting registration with data:', userData);
       // Register user
-      await axios.post(`${API_URL}/api/register/`, userData);
-      
-      // After registration, log the user in
-      await login(userData.email, userData.password);
+      const registerResponse = await axios.post(`${API_URL}/api/register/`, userData);
+      console.log('Registration response:', registerResponse.data);
+
+      // Check if registration requires email verification
+      if (registerResponse.data.require_verification) {
+        // Navigate to verification screen with email
+        router.push({
+          pathname: '/auth/verify-email',
+          params: { email: userData.email }
+        });
+      } else {
+        // If no verification required, go to success page instead of auto-login
+        router.replace('/auth/signup-success');
+      }
     } catch (error: any) {
       console.error('Registration error:', error);
-      setError(error.response?.data?.detail || 'Registration failed. Please try again.');
+      if (error.response) {
+        console.error('Error status:', error.response.status);
+        console.error('Error data:', error.response.data);
+
+        // Handle validation errors more specifically
+        if (error.response.data) {
+          const errorMessages = [];
+          for (const field in error.response.data) {
+            errorMessages.push(`${field}: ${error.response.data[field]}`);
+          }
+          if (errorMessages.length > 0) {
+            setError(errorMessages.join(', '));
+          } else {
+            setError(error.response.data.detail || 'Registration failed. Please try again.');
+          }
+        }
+      } else {
+        setError('Registration failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -344,9 +534,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Logout user
   const logout = async () => {
+    console.log('Logging out user from mobile app');
+
+    // Sign out from Google and Apple as well
+    try {
+      await googleSignInService.signOut();
+      await appleSignInService.signOut();
+    } catch (error) {
+      console.error('Error signing out from social providers:', error);
+    }
+
+    // Clear user state first
     setUser(null);
+
+    // Clear tokens from secure storage
     await clearTokens();
-    router.replace('/auth/signin');
+
+    console.log('Mobile app logout completed - tokens and user cleared');
+
+    // Note: WebView auth clearing is handled in PersistentWebView component
+    // when isAuthenticated becomes false
   };
 
   // Clear error messages
@@ -354,43 +561,114 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
   };
 
-  // Trigger Google login flow
-  const loginWithGoogle = async () => {
-    setError(null);
-    await promptAsync();
-  };
-
   // Function to directly set tokens (useful for WebView integration)
+  // In setTokensDirectly function, make sure you're setting the user:
   const setTokensDirectly = async (accessToken: string, refreshToken: string, userData?: any) => {
-    setIsLoading(true);
-    setError(null);
-
     try {
-      // Store tokens
-      await storeTokens(accessToken, refreshToken);
-      
+      await storeTokens(accessToken, refreshToken, userData);
+
       if (userData) {
-        // Set user data if provided
+        console.log('🔧 Setting user in setTokensDirectly:', userData);
         setUser(userData);
       } else {
-        // Otherwise get user profile from API
+        // If no userData provided, fetch it using the access token
         try {
-          const profileResponse = await axios.get(`${API_URL}/api/profile/`, {
+          const response = await axios.get(`${API_URL}/api/profile/`, {
             headers: {
               Authorization: `Bearer ${accessToken}`
             }
           });
-          
-          setUser(profileResponse.data);
-        } catch (profileError) {
-          console.error('Error fetching profile:', profileError);
+          console.log('🔧 Fetched user profile:', response.data);
+          setUser(response.data);
+        } catch (error) {
+          console.error('Error fetching user profile with provided token:', error);
         }
       }
+      return true;
+    } catch (error) {
+      console.error('Error setting tokens directly:', error);
+      return false;
+    }
+  };
+
+  // Updated handleGoogleSignIn to use native Google Sign-In
+  const handleGoogleSignIn = async (referralCode?: string): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('🚀 AuthContext: Starting native Google Sign-In...');
+      if (referralCode) {
+        console.log('🚀 AuthContext: With referral code:', referralCode);
+      }
+
+      const result = await googleSignInService.signIn(referralCode);
+      console.log('🚀 AuthContext: GoogleSignInService result:', result);
+
+      if (result.success && result.tokens && result.user) {
+        console.log('🚀 AuthContext: Native Google Sign-In successful');
+        console.log('🚀 AuthContext: Tokens:', result.tokens);
+        console.log('🚀 AuthContext: User:', result.user);
+
+        console.log('🚀 AuthContext: Google sign-in successful - returning tokens and user');
+        setIsLoading(false);
+
+        return {
+          success: true,
+          tokens: result.tokens,
+          user: result.user
+        };
+      } else {
+        console.error('🚀 AuthContext: Native Google Sign-In failed:', result.error);
+        setError(result.error || 'Google Sign-In failed');
+        setIsLoading(false);
+        return { success: false, error: result.error || 'Google Sign-In failed' };
+      }
     } catch (error: any) {
-      console.error('Set tokens error:', error);
-      setError('Failed to set authentication tokens.');
-    } finally {
+      console.error('🚀 AuthContext: Google sign in error:', error);
+      setError('Authentication failed. Please try again.');
       setIsLoading(false);
+      return { success: false, error: 'Authentication failed' };
+    }
+  };
+
+  const handleAppleSignIn = async (referralCode?: string): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log('🍎 AuthContext: Starting native Apple Sign-In...');
+      if (referralCode) {
+        console.log('🚀 AuthContext: With referral code:', referralCode);
+      }
+
+      const result = await appleSignInService.signIn(referralCode);
+      console.log('🍎 AuthContext: AppleSignInService result:', result);
+
+      if (result.success && result.tokens && result.user) {
+        console.log('🍎 AuthContext: Native Apple Sign-In successful');
+        console.log('🍎 AuthContext: Tokens:', result.tokens);
+        console.log('🍎 AuthContext: User:', result.user);
+
+        console.log('🍎 AuthContext: Apple sign-in successful - returning tokens and user');
+        setIsLoading(false);
+
+        return {
+          success: true,
+          tokens: result.tokens,
+          user: result.user
+        };
+      } else {
+        console.error('🍎 AuthContext: Native Apple Sign-In failed:', result.error);
+        setError(result.error || 'Apple Sign-In failed');
+        setIsLoading(false);
+        return { success: false, error: result.error || 'Apple Sign-In failed' };
+      }
+    } catch (error: any) {
+      console.error('🍎 AuthContext: Apple sign in error:', error);
+      setError('Authentication failed. Please try again.');
+      setIsLoading(false);
+      return { success: false, error: 'Authentication failed' };
     }
   };
 
@@ -403,12 +681,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user && !!tokens.accessToken,
         error,
         login,
-        loginWithGoogle,
         register,
         logout,
         clearError,
         tokens,
-        setTokensDirectly
+        setTokensDirectly: async (accessToken: string, refreshToken: string, userData?: any): Promise<void> => {
+          await setTokensDirectly(accessToken, refreshToken, userData);
+        },
+        handleGoogleSignIn,
+        handleAppleSignIn,
+        storeTokens: async (accessToken: string, refreshToken: string, userData?: any): Promise<void> => {
+          await storeTokens(accessToken, refreshToken);
+          if (userData) {
+            setUser(userData);
+          }
+        },
       }}
     >
       {children}

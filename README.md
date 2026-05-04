@@ -48,3 +48,5 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+C3:80:C2:76:83:EA:D9:28:58:EF:35:0E:4D:D9:12:FE:1C:AA:BF:7D
