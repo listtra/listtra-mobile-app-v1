@@ -214,10 +214,10 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
 
             case "PROFILE_CLICKED":
             case "NAVIGATE_TO_PROFILE":
-              if (data.nickname) {
+              if (data.publicId) {
                 router.push({
-                  pathname: "/profiles/[nickname]",
-                  params: { nickname: data.nickname },
+                  pathname: "/profiles/[publicId]",
+                  params: { publicId: data.publicId },
                 } as any);
               }
               break;
