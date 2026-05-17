@@ -1,4 +1,4 @@
-// app/profiles/[nickname].tsx
+// app/profiles/[publicId].tsx
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import PersistentWebView from '../../components/PersistentWebView';
 
 export default function ProfileScreen() {
-  const { nickname } = useLocalSearchParams<{ nickname: string }>();
+  const { publicId } = useLocalSearchParams<{ publicId: string }>();
   const router = useRouter();
 
   // Handle back button press
@@ -33,7 +33,7 @@ export default function ProfileScreen() {
       </View> */}
 
       <View style={styles.webViewContainer}>
-        <PersistentWebView route={`profiles/${nickname}`} />
+        <PersistentWebView route={`profiles/${publicId}`} />
       </View>
     </SafeAreaView>
   );

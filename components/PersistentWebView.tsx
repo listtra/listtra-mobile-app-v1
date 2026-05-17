@@ -1,6 +1,6 @@
 import NetInfo from "@react-native-community/netinfo";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import React, {
   forwardRef,
   useCallback,
@@ -12,6 +12,7 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Linking,
   Platform,
   Share,
@@ -25,7 +26,7 @@ import CameraModal from "./CameraModal";
 import OfflineScreen from "./OfflineScreen";
 
 const BASE_URL = __DEV__
-  ? "http://localhost:3000"
+  ? "https://staging.zirkly.com"
   : "https://www.zirkly.com";
 
 export interface PersistentWebViewRef {
@@ -58,7 +59,37 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
     const { handleGoogleSignIn, handleAppleSignIn, setTokensDirectly, logout } =
       useAuth();
     const router = useRouter();
+    const navigation = useNavigation();
     const insets = useSafeAreaInsets();
+
+    // Route the iOS edge-swipe / Android system-back through the WebView's
+    // internal history before letting the native stack pop. Without this, a
+    // back gesture on a screen whose WebView has navigated internally would
+    // dismiss the native screen (or exit the app at a stack root) instead of
+    // going back inside the web app.
+    useEffect(() => {
+      const sub = navigation.addListener("beforeRemove", (e: any) => {
+        if (e.data?.action?.type !== "GO_BACK") return;
+        if (canGoBackRef.current && webViewRef.current) {
+          e.preventDefault();
+          webViewRef.current.goBack();
+        }
+      });
+      return sub;
+    }, [navigation]);
+
+    useEffect(() => {
+      if (Platform.OS !== "android") return;
+      const onBack = () => {
+        if (canGoBackRef.current && webViewRef.current) {
+          webViewRef.current.goBack();
+          return true;
+        }
+        return false;
+      };
+      const sub = BackHandler.addEventListener("hardwareBackPress", onBack);
+      return () => sub.remove();
+    }, []);
 
     useImperativeHandle(
       ref,
@@ -214,10 +245,10 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
 
             case "PROFILE_CLICKED":
             case "NAVIGATE_TO_PROFILE":
-              if (data.nickname) {
+              if (data.publicId) {
                 router.push({
-                  pathname: "/profiles/[nickname]",
-                  params: { nickname: data.nickname },
+                  pathname: "/profiles/[publicId]",
+                  params: { publicId: data.publicId },
                 } as any);
               }
               break;
@@ -506,9 +537,53 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
     };
 
     const bottomInset = Math.min(insets.bottom, 12);
+
+    // Runs before the page's own scripts. Setting the viewport meta here means
+    // iOS WKWebView honors user-scalable=no at parse time instead of letting
+    // the page establish a zoomable layout first.
+    const injectedJSBeforeContentLoaded = `
+    (function () {
+      var setViewport = function () {
+        var head = document.head || document.getElementsByTagName('head')[0];
+        if (!head) return;
+        var m = document.querySelector('meta[name="viewport"]');
+        var content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        if (!m) {
+          m = document.createElement('meta');
+          m.setAttribute('name', 'viewport');
+          head.appendChild(m);
+        }
+        m.setAttribute('content', content);
+      };
+      setViewport();
+      // Re-apply if the page (or SPA route change) injects/replaces its own viewport meta.
+      try {
+        var obs = new MutationObserver(setViewport);
+        obs.observe(document.documentElement, { childList: true, subtree: true });
+      } catch (e) {}
+    })();
+    true;`;
+
     const injectedJS = `
     window.SAFE_AREA_INSETS = ${JSON.stringify({ ...insets, bottom: bottomInset })};
     document.documentElement.style.setProperty('--safe-area-bottom', '${bottomInset}px');
+    (function () {
+      // Block iOS Safari pinch gestures (gesturestart/change/end are iOS-only).
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (name) {
+        document.addEventListener(name, function (e) { e.preventDefault(); }, { passive: false });
+      });
+      // Block multi-touch pinch on Android (and as a fallback on iOS).
+      document.addEventListener('touchmove', function (e) {
+        if (e.touches && e.touches.length > 1) e.preventDefault();
+      }, { passive: false });
+      // Block iOS double-tap-to-zoom.
+      var lastTouchEnd = 0;
+      document.addEventListener('touchend', function (e) {
+        var now = Date.now();
+        if (now - lastTouchEnd < 300) e.preventDefault();
+        lastTouchEnd = now;
+      }, { passive: false });
+    })();
     true;`;
 
     return (
@@ -517,6 +592,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
           ref={webViewRef}
           source={{ uri: `${BASE_URL}/${route}` }}
           style={styles.webView}
+          injectedJavaScriptBeforeContentLoaded={injectedJSBeforeContentLoaded}
           injectedJavaScript={injectedJS}
           onLoadEnd={() => setIsLoading(false)}
           onError={handleWebViewError}
