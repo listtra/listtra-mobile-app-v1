@@ -15,13 +15,13 @@ export default {
       bundleIdentifier: "com.zirkly.app",
       appleTeamId: "7DWNYSF658",
       associatedDomains: [
-        //"applinks:zirkly.com",
-        "applinks:www.zirkly.com",
+        "applinks:www.zirkly.com.au",
+        "applinks:zirkly.com.au",
       ],
       entitlements: {
         "com.apple.developer.applesignin": ["Default"],
       },
-      buildNumber: "34",
+      buildNumber: "35",
       supportsTablet: true,
       statusBarStyle: "dark-content",
       statusBarBackgroundColor: "#ffffff",
@@ -71,29 +71,13 @@ export default {
           action: "VIEW",
           autoVerify: true,
           data: [
-            // {
-            //   scheme: "https",
-            //   host: "zirkly.com",
-            //   pathPrefix: "/listings"
-            // },
-            {
-              scheme: "https",
-              host: "www.zirkly.com",
-              pathPrefix: "/listings",
-            },
-            // {
-            //   scheme: "https",
-            //   host: "zirkly.com"
-            // },
-            {
-              scheme: "https",
-              host: "www.zirkly.com",
-            },
+            { scheme: "https", host: "www.zirkly.com.au" },
+            { scheme: "https", host: "zirkly.com.au" },
           ],
           category: ["BROWSABLE", "DEFAULT"],
         },
       ],
-      versionCode: 34,
+      versionCode: 35,
       edgeToEdgeEnabled: false,
       statusBarStyle: "dark-content",
       softInputMode: "adjustResize",
