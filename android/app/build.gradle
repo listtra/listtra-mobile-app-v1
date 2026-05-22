@@ -87,12 +87,18 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
+    lint {
+        // MainActivity extends ReactActivity (an Activity subclass via AndroidX),
+        // but lintVitalRelease can't always trace the inheritance chain. False positive.
+        disable += "Instantiatable"
+    }
+
     namespace 'com.zirkly.app'
     defaultConfig {
         applicationId 'com.zirkly.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 34
+        versionCode 35
         versionName "1.0.8"
     }
     signingConfigs {

@@ -10,7 +10,8 @@
     </array>
     <key>com.apple.developer.associated-domains</key>
     <array>
-      <string>applinks:www.zirkly.com</string>
+      <string>applinks:www.zirkly.com.au</string>
+      <string>applinks:zirkly.com.au</string>
     </array>
   </dict>
 </plist>

@@ -37,8 +37,8 @@
       </intent-filter>
       <intent-filter android:autoVerify="true" data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
-        <data android:scheme="https" android:host="www.zirkly.com" android:pathPrefix="/listings"/>
-        <data android:scheme="https" android:host="www.zirkly.com"/>
+        <data android:scheme="https" android:host="www.zirkly.com.au"/>
+        <data android:scheme="https" android:host="zirkly.com.au"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>
