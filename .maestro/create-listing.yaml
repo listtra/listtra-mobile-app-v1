@@ -1,0 +1,94 @@
+appId: com.zirkly.app
+---
+# NOTE: The full happy-path (submit succeeds → "Awesome!" screen) is blocked by
+# two required fields that aren't realistically scriptable from Maestro yet:
+#   - Photos: WebView file picker
+#   - Location: Google Maps autocomplete (async network call, no stable result text)
+# Until backend test hooks exist (or photos/location are made optional for a
+# test mode), this flow verifies form-fill behaviour and stops at submit.
+
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: shared/login.yaml
+    env:
+      EMAIL: "jibinbkp02@gmail.com"
+      PASSWORD: "Jibin@2026"
+
+# Confirm we're signed in before opening the add-listing screen
+- extendedWaitUntil:
+    visible: "Search furniture near you (sofa, desk, chair…)"
+    timeout: 15000
+
+# Mobile tab bar exposes a "Sell Now" entry that routes to /add
+- tapOn: "Sell Now"
+
+# Generate a unique suffix once so multiple inputs share the same value
+- evalScript: ${output.ts = Date.now()}
+
+- extendedWaitUntil:
+    visible: "Title *"
+    timeout: 15000
+
+# --- Title (top of form) ---
+- tapOn: "What are you selling?"
+- inputText: "Maestro test sofa ${output.ts}"
+
+# --- Categories (multiselect) ---
+- scrollUntilVisible:
+    element:
+      text: "Categories"
+    direction: DOWN
+- tapOn: "Categories"
+- tapOn:
+    text: "Select an option"
+    index: 0
+- tapOn: "Seating"
+- tapOn: "Categories"   # close the multiselect sheet
+
+# --- Condition (single-select) ---
+- scrollUntilVisible:
+    element:
+      text: "Condition"
+    direction: DOWN
+- tapOn: "Condition"
+- tapOn: "Select an option"
+- tapOn: "Good"
+
+# --- Price (must be scrolled into view before tap; was previously off-screen) ---
+- scrollUntilVisible:
+    element:
+      text: "e.g. 250"
+    direction: DOWN
+- tapOn: "e.g. 250"
+- inputText: "250"
+
+# --- Description ---
+- scrollUntilVisible:
+    element:
+      text: "Describe condition, dimensions, history..."
+    direction: DOWN
+- tapOn: "Describe condition, dimensions, history..."
+- inputText: "Listing created by Maestro e2e at ${output.ts}"
+
+# --- Assert form is filled correctly before attempting submit ---
+- scrollUntilVisible:
+    element:
+      text: "Maestro test sofa ${output.ts}"
+    direction: UP
+- assertVisible: "Maestro test sofa ${output.ts}"
+- assertVisible: "Seating"      # selected category chip
+- assertVisible: "Good"          # selected condition chip
+
+# --- Attempt submit (will fail validation without photo + location, by design) ---
+- scrollUntilVisible:
+    element:
+      text: "Post Item"
+    direction: DOWN
+- tapOn: "Post Item"
+
+# The form should still be visible (didn't navigate away) because photo+location
+# validation blocks submission. This is the expected state until those fields
+# are made scriptable.
+- assertVisible: "Post Item"

@@ -1,0 +1,66 @@
+name: e2e-test
+
+# Runs Maestro end-to-end tests on EAS-hosted devices for both platforms.
+# Each platform: build the `e2e-test` standalone app, then run the flows on it.
+#
+# Triggers:
+#   - pull_request: runs on every PR (requires the GitHub repo to be connected
+#     to this Expo project in the EAS dashboard).
+#   - You can also run it manually:  npx eas-cli@latest workflow:run .eas/workflows/e2e-test.yml
+on:
+  pull_request:
+    branches: ['*']
+
+jobs:
+  # ---------- Android ----------
+  build_android:
+    type: build
+    params:
+      platform: android
+      profile: e2e-test
+
+  maestro_android:
+    needs: [build_android]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      flow_path:
+        # Smoke-test subset — safe, read/idempotent flows. Verify these pass
+        # locally first (see README/runbook), then expand the list below.
+        - .maestro/signin.yaml
+        - .maestro/signin-invalid.yaml
+        - .maestro/search.yaml
+        - .maestro/browse-listings.yaml
+        - .maestro/logout.yaml
+        # Data-mutating flows — enable once you have test-data handling on staging:
+        # - .maestro/signup.yaml
+        # - .maestro/create-listing.yaml
+        # - .maestro/make-offer.yaml
+        # - .maestro/edit-profile.yaml
+        # - .maestro/like-unlike.yaml
+        # - .maestro/forgot-password.yaml
+
+  # ---------- iOS ----------
+  build_ios:
+    type: build
+    params:
+      platform: ios
+      profile: e2e-test
+
+  maestro_ios:
+    needs: [build_ios]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      flow_path:
+        - .maestro/signin.yaml
+        - .maestro/signin-invalid.yaml
+        - .maestro/search.yaml
+        - .maestro/browse-listings.yaml
+        - .maestro/logout.yaml
+        # - .maestro/signup.yaml
+        # - .maestro/create-listing.yaml
+        # - .maestro/make-offer.yaml
+        # - .maestro/edit-profile.yaml
+        # - .maestro/like-unlike.yaml
+        # - .maestro/forgot-password.yaml

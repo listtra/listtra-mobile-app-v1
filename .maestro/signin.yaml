@@ -1,0 +1,15 @@
+appId: com.zirkly.app
+---
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: shared/login.yaml
+    env:
+      EMAIL: "jibinbkp02@gmail.com"
+      PASSWORD: "Jibin@2026"
+
+# Signed-in landmark — search bar only renders on the home feed for signed-in users
+- extendedWaitUntil:
+    visible: "Search furniture near you (sofa, desk, chair…)"
+    timeout: 15000

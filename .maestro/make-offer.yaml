@@ -1,0 +1,57 @@
+appId: com.zirkly.app
+---
+# Test the buyer-side offer flow: open a listing → Make Offer → enter amount →
+# submit → assert the pending-offer UI appears.
+#
+# Caveat: this assumes the first listing on the home feed isn't owned by the
+# signed-in test user. If it is, the listing detail won't show "Make Offer".
+# If the test fails on that step, swap to search.yaml's "sofa" query to widen
+# the result pool.
+
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: shared/login.yaml
+    env:
+      EMAIL: "jibinbkp02@gmail.com"
+      PASSWORD: "Jibin@2026"
+
+- extendedWaitUntil:
+    visible: "Search furniture near you (sofa, desk, chair…)"
+    timeout: 15000
+
+# Signed-in home view has banner/category sections above the listings —
+# scroll until a price chip appears, then tap it to open the listing.
+- scrollUntilVisible:
+    element:
+      text: "^A\\$.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    text: "^A\\$.*"
+
+# Listing detail — "Make Offer" is the first CTA for buyers
+- extendedWaitUntil:
+    visible: "Make Offer"
+    timeout: 15000
+- tapOn: "Make Offer"
+
+# Tapping Make Offer creates a conversation and routes to /chat/{id}?offer=true.
+# The chat view shows an offer banner with input "Enter offer amount" and a
+# second "Make Offer" button (this one submits).
+
+# Two "Make Offer" buttons may be visible (listing detail had one too); the
+# chat banner button is the one currently in view, so the unindexed tap works.
+- tapOn: "Make Offer"
+
+# Pending-offer banner shows Edit + Cancel buttons (ChatView.jsx:253-264).
+# These only render when an offer is pending — proves the submit succeeded.
+# Avoid asserting on the chat bubble text ("You offered $X") because it's
+# rendered as multiple nested spans and Maestro's WebView text extraction
+# splits them, breaking substring matching.
+- extendedWaitUntil:
+    visible: "Edit"
+    timeout: 15000
+- assertVisible: "Cancel"
+- tapOn: "Cancel"

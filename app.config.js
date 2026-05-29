@@ -160,15 +160,15 @@ export default {
     },
 
     extra: {
-      apiUrl: "https://backend.listtra.com",
+      apiUrl: "https://dev.zirkly.com",
       googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
       eas: {
-        projectId: "4b354982-5b2c-4a00-8860-d4701f089a23",
+        projectId: "1667a1d9-2103-4000-b243-b36189c0d622",
       },
     },
-    owner: "jibinb",
+    owner: "zirkly",
   },
 };

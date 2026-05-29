@@ -1,0 +1,37 @@
+appId: com.zirkly.app
+---
+- launchApp:
+    clearState: true
+
+- tapOn:
+    text: "http://localhost:8081"
+
+- tapOn:
+    text: "Continue"
+
+- tapOn:
+    point: "92%,42%"
+
+- extendedWaitUntil:
+    visible: "Search furniture near you (sofa, desk, chair…)"
+    timeout: 15000
+
+# Focus the search bar and run a query
+- tapOn:
+    text: "Search furniture near you (sofa, desk, chair…)"
+- inputText: "sofa"
+- pressKey: "Enter"
+
+# Results land on /search — wait for at least one price-tagged card
+- extendedWaitUntil:
+    visible:
+      text: "^A\\$.*"
+    timeout: 15000
+
+# Open the first result
+- tapOn:
+    text: "^A\\$.*"
+
+- extendedWaitUntil:
+    visible: "Contact Seller"
+    timeout: 15000
