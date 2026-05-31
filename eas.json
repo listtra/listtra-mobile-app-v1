@@ -15,9 +15,9 @@
         }
       },
       "e2e-test": {
-        "withoutCredentials": true,
         "android": {
-          "buildType": "apk"
+          "buildType": "apk",
+          "gradleCommand": ":app:assembleRelease"
         },
         "ios": {
           "simulator": true
