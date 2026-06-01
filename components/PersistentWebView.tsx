@@ -27,7 +27,7 @@ import OfflineScreen from "./OfflineScreen";
 
 const BASE_URL = __DEV__
   ? "https://staging.zirkly.com"
-  : "https://www.zirkly.com.au";
+  : "https://staging.zirkly.com";
 
 export interface PersistentWebViewRef {
   refresh: () => void;
