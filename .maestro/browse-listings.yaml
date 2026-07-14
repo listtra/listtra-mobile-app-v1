@@ -1,0 +1,33 @@
+appId: com.zirkly.app
+---
+# Anonymous browsing — no login required.
+- launchApp:
+    clearState: true
+
+- tapOn:
+    text: "http://localhost:8081"
+
+- tapOn:
+    text: "Continue"
+
+- tapOn:
+    point: "92%,42%"
+
+# Wait for the feed to render — search bar is the most stable landmark
+- extendedWaitUntil:
+    visible: "Search furniture near you (sofa, desk, chair…)"
+    timeout: 15000
+
+# Scroll the feed to confirm cards load lazily without crashing
+- scroll
+- scroll
+
+# Tap the first price-tagged element on screen. Australian dollar prefix is
+# unique to listing cards (the search bar copy doesn't contain A$).
+- tapOn:
+    text: "^A\\$.*"
+
+# Listing detail landmark — "Contact Seller" is buyer-facing and always present
+- extendedWaitUntil:
+    visible: "Contact Seller"
+    timeout: 15000

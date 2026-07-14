@@ -1,0 +1,32 @@
+# Reusable login subflow.
+# Parent flow handles `launchApp`. This file expects EMAIL and PASSWORD via env.
+# After running this, the user is signed in and on the home screen.
+#
+# NOTE: The Expo dev-client launcher taps ("http://localhost:8081" + "Continue")
+# were removed — they only appear in `development` builds. The `e2e-test` build
+# is standalone and boots straight into the app (WebView -> staging.zirkly.com).
+appId: com.zirkly.app
+---
+# TODO(maestro-ci): The original flow had a coordinate tap here:
+#   - tapOn: { point: "92%,42%" }
+# Coordinate taps are device-size-specific and break across CI device models.
+# Re-record this step in Maestro Studio against an `e2e-test` standalone build
+# and replace it with a tapOn by text or id, or delete it if it was only needed
+# in the dev-client. Left commented so the flow doesn't tap the wrong place in CI.
+
+- tapOn: "Sell now →"
+- tapOn: "Sign In"
+
+- tapOn:
+    text: "you@example.com"
+- inputText: ${EMAIL}
+
+- tapOn:
+    text: "Enter your password"
+- inputText: ${PASSWORD}
+
+- scrollUntilVisible:
+    element:
+      text: "Sign In"
+    direction: DOWN
+- tapOn: "Sign In"

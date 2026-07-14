@@ -1,0 +1,41 @@
+appId: com.zirkly.app
+---
+# Test the inline-edit nickname flow on Profile.
+# Generates a unique nickname suffix so the test is idempotent.
+
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: shared/login.yaml
+    env:
+      EMAIL: "jibinbkp02@gmail.com"
+      PASSWORD: "Jibin@2026"
+
+- extendedWaitUntil:
+    visible: "Search furniture near you (sofa, desk, chair…)"
+    timeout: 15000
+
+- tapOn: "Profile"
+
+- extendedWaitUntil:
+    visible: "Member since"
+    timeout: 15000
+
+# Generate a unique nickname for this run
+- evalScript: ${output.nick = "jibnnn-" + Date.now().toString().slice(-6)}
+
+# Edit icon button has aria-label="Edit profile" (profile/page.jsx:567)
+- tapOn: "Edit profile"
+
+# Inline edit shows a single nickname input pre-filled with current value.
+# It has no placeholder/id — but it's the only input visible after the edit
+# button is tapped. Clear it and type new nickname.
+- eraseText
+- inputText: ${output.nick}
+
+# Save button is icon-only with aria-label="Save changes"
+- tapOn: "Save changes"
+
+# Profile header should now show the new nickname
+- assertVisible: ${output.nick}

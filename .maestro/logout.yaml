@@ -1,0 +1,38 @@
+appId: com.zirkly.app
+---
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: shared/login.yaml
+    env:
+      EMAIL: "jibinbkp02@gmail.com"
+      PASSWORD: "Jibin@2026"
+
+- extendedWaitUntil:
+    visible: "Search furniture near you (sofa, desk, chair…)"
+    timeout: 15000
+
+# Open Profile tab
+- tapOn: "Profile"
+
+# Wait for profile screen to load (nickname or "Member since" appears)
+- extendedWaitUntil:
+    visible: "Member since"
+    timeout: 15000
+
+# Sign Out is an icon button on the profile card with aria-label="Sign Out"
+# (app/profile/page.jsx:575). Maestro matches aria-label as text.
+- tapOn: "Sign Out"
+
+# Logout redirects to /listings. Confirm signed-out by tapping "Sell now →"
+# and asserting the auth modal appears (anonymous-user behaviour).
+- extendedWaitUntil:
+    visible: "Sell now →"
+    timeout: 15000
+- tapOn: "Sell now →"
+
+- extendedWaitUntil:
+    visible: "you@example.com"
+    timeout: 10000
+- assertVisible: "Sign In"

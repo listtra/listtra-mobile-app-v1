@@ -1,0 +1,17 @@
+appId: com.zirkly.app
+---
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: shared/login.yaml
+    env:
+      EMAIL: "jibinbkp02@gmail.com"
+      PASSWORD: "wrong-password-on-purpose"
+
+# Still on the sign-in form, with an error visible.
+# Backend (users/views.py) returns: "Invalid email or password." for both
+# unknown-email and wrong-password cases (deliberate, to prevent user enumeration).
+- extendedWaitUntil:
+    visible: "Invalid email or password."
+    timeout: 10000

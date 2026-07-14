@@ -1,0 +1,65 @@
+appId: com.zirkly.app
+---
+# Test that liking a listing adds it to Saved, and unliking removes it.
+# Catches optimistic-update bugs (heart toggles but state diverges from backend).
+#
+# Heart button targets:
+#   - Empty heart  → aria-label="Save listing"
+#   - Filled heart → aria-label="Remove from saved"
+# These are set in components/listings/LikeButton.jsx.
+
+- launchApp:
+    clearState: true
+
+- runFlow:
+    file: shared/login.yaml
+    env:
+      EMAIL: "jibinbkp02@gmail.com"
+      PASSWORD: "Jibin@2026"
+
+- extendedWaitUntil:
+    visible: "Search furniture near you (sofa, desk, chair…)"
+    timeout: 15000
+
+# Scroll until a listing's heart is visible
+- scrollUntilVisible:
+    element:
+      text: "Save listing"
+    direction: DOWN
+    timeout: 30000
+
+# Capture the price of the first card so we can verify it later in Saved.
+# The price chip is the nearest stable element to the heart on a card.
+- copyTextFrom:
+    text: "^A\\$.*"
+
+# Tap the first "Save listing" heart
+- tapOn: "Save listing"
+
+# Navigate to Profile → Saved tab
+- tapOn: "Profile"
+
+- extendedWaitUntil:
+    visible: "Member since"
+    timeout: 15000
+# The tabs (Listings / Saved / Reviews / Payments) sit below the subscription
+# plan section — scroll the profile page down until "Saved (N)" is in view.
+# Match the prefix with regex so the test isn't tied to a specific count.
+- scrollUntilVisible:
+    element:
+      text: "Saved \\(\\d+\\)"
+    direction: DOWN
+    timeout: 15000
+- tapOn:
+    text: "Saved \\(\\d+\\)"
+
+# The liked listing appears here — same price string we captured
+- extendedWaitUntil:
+    visible: ${maestro.copiedText}
+    timeout: 10000
+
+# Unlike from the Saved tab — heart is now in the "Remove from saved" state
+- tapOn: "Remove from saved"
+
+# After unlike, the card should disappear from Saved
+- assertNotVisible: ${maestro.copiedText}

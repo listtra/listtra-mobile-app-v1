@@ -1,0 +1,47 @@
+appId: com.zirkly.app
+---
+- launchApp:
+    clearState: true
+
+# Expo dev launcher → load Metro bundle (skip silently in prod build)
+- tapOn:
+    text: "http://localhost:8081"
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+
+# Dismiss splash/onboarding overlay
+- tapOn:
+    point: "92%,42%"
+    optional: true
+
+# Landing → enter marketplace → auth modal opens on Sign Up by default
+- tapOn: "Sell now →"
+
+# --- Fill the signup form ---
+# Unique values per run so re-running doesn't 409 on duplicate email
+- tapOn:
+    text: "Enter your nickname"
+- inputText: "TestUser${maestro.timestamp}"
+
+- tapOn:
+    text: "Enter your email"
+- inputText: "test+${maestro.timestamp}@zirkly.com"
+
+- tapOn:
+    text: "Enter your password"
+- inputText: "Password123!"
+
+- scrollUntilVisible:
+    element:
+      text: "Create Account"
+    direction: DOWN
+- tapOn: "Create Account"
+
+# --- Stop at the verify-email screen ---
+# Backend OTP bypass isn't in place yet, so we assert the verification screen
+# is reachable rather than completing the flow.
+- extendedWaitUntil:
+    visible: "Verify Code"
+    timeout: 15000
