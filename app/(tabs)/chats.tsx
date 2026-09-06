@@ -2,9 +2,10 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
+import { useNativeBg } from '../../context/WebThemeContext';
 
 export default function ChatsScreen() {
   const webViewRef = useRef<PersistentWebViewRef>(null);
@@ -12,6 +13,7 @@ export default function ChatsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [key, setKey] = useState(0);
   const [route, setRoute] = useState('chats');
+  const nativeBg = useNativeBg();
   
   // Get URL parameters
   const params = useLocalSearchParams();
@@ -61,9 +63,9 @@ export default function ChatsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.webViewContainer}>
-        <PersistentWebView 
+    <SafeAreaView style={{ flex: 1, backgroundColor: nativeBg }} edges={['top']}>
+      <View style={{ flex: 1, backgroundColor: nativeBg }}>
+        <PersistentWebView
           route={route}
           ref={webViewRef}
           key={key}
@@ -72,14 +74,3 @@ export default function ChatsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  webViewContainer: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-});

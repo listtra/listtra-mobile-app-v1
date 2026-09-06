@@ -22,11 +22,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { useAuth } from "../context/AuthContext";
+import { useNativeBg, useWebTheme } from "../context/WebThemeContext";
 import CameraModal from "./CameraModal";
 import OfflineScreen from "./OfflineScreen";
 
 const BASE_URL = __DEV__
-  ? "https://staging.zirkly.com"
+  ? "http://localhost:3000"
   : "https://www.zirkly.com.au";
 
 export interface PersistentWebViewRef {
@@ -40,7 +41,128 @@ type Props = {
   onMessage?: (event: WebViewMessageEvent) => void;
 };
 
-const MAX_PHOTOS = 3;
+const MAX_PHOTOS = 4;
+
+// Appended to the WebView's own user agent (see applicationNameForUserAgent
+// below).
+//
+// iOS only, and deliberately carries no app tag: identifying the app in the
+// user agent is what got the WebView scored as a bot by Cloudflare Turnstile,
+// so that job moved to the X-Zirkly-Platform header instead (see
+// window.ZIRKLY_PLATFORM further down). What remains here is the `Version/`
+// and `Safari/` pair that every real Safari sends and WKWebView omits — with
+// them missing, iOS solved 0 of 27 challenges while desktop managed ~70%.
+//
+// Android gets `undefined`, i.e. its real Chrome-based UA untouched, which is
+// the configuration that works there today.
+const USER_AGENT_SUFFIX =
+  Platform.OS === "ios" ? "Version/18.0 Safari/604.1" : undefined;
+
+// On-device console. Safari Web Inspector cannot reach a TestFlight or release
+// build, so errors inside the WebView are otherwise invisible on a real phone.
+// Set to false before shipping to users.
+const DEBUG_OVERLAY = false;
+
+const debugOverlayJS = `
+    (function () {
+      if (window.__zirklyDebug) return;
+      window.__zirklyDebug = true;
+
+      var panel = document.createElement('div');
+      panel.style.cssText = 'position:fixed;top:0;left:0;right:0;max-height:40%;overflow:auto;z-index:2147483647;background:rgba(0,0,0,.88);color:#7CFC7C;font:10px/1.35 -apple-system,monospace;padding:24px 6px 6px;white-space:pre-wrap;-webkit-user-select:text;user-select:text';
+
+      var hide = document.createElement('div');
+      hide.textContent = 'tap to hide';
+      hide.style.cssText = 'position:absolute;top:4px;right:8px;color:#fff;background:#c00;padding:2px 8px;border-radius:10px;font-size:10px';
+      hide.onclick = function () { panel.style.display = 'none'; };
+      panel.appendChild(hide);
+
+      // Facts that must stay visible: a repeating error would otherwise scroll
+      // them out of reach, and they are the whole point of the panel.
+      var header = document.createElement('div');
+      header.style.cssText = 'color:#8ab4f8;border-bottom:1px solid #444;padding-bottom:4px;margin-bottom:4px';
+      panel.appendChild(header);
+
+      var feed = document.createElement('div');
+      panel.appendChild(feed);
+
+      function pin(label, text) {
+        var line = document.createElement('div');
+        line.textContent = label + ': ' + text;
+        header.appendChild(line);
+      }
+
+      // Identical messages repeat many times a second; collapse them to one
+      // line with a counter so the feed stays readable.
+      var lastText = '';
+      var lastLine = null;
+      var repeats = 1;
+
+      function log(tag, colour, text) {
+        var body = '[' + tag + '] ' + text;
+
+        if (body === lastText && lastLine) {
+          repeats += 1;
+          lastLine.textContent = body + '  (x' + repeats + ')';
+          return;
+        }
+
+        repeats = 1;
+        lastText = body;
+        lastLine = document.createElement('div');
+        lastLine.style.color = colour;
+        lastLine.textContent = body;
+        feed.appendChild(lastLine);
+        panel.scrollTop = panel.scrollHeight;
+      }
+
+      function stringify(args) {
+        return Array.prototype.map.call(args, function (a) {
+          if (a instanceof Error) return a.message;
+          if (typeof a === 'object') { try { return JSON.stringify(a); } catch (e) { return String(a); } }
+          return String(a);
+        }).join(' ');
+      }
+
+      ['error', 'warn', 'log'].forEach(function (level) {
+        var original = console[level];
+        console[level] = function () {
+          try {
+            var text = stringify(arguments);
+            // console.log is far too noisy to show wholesale — keep only the
+            // lines that mention the thing being debugged.
+            if (level !== 'log' || /turnstile|cloudflare|challenge/i.test(text)) {
+              log(level, level === 'error' ? '#ff6b6b' : level === 'warn' ? '#ffd93d' : '#7CFC7C', text);
+            }
+          } catch (e) {}
+          return original.apply(console, arguments);
+        };
+      });
+
+      window.addEventListener('error', function (e) {
+        log('uncaught', '#ff6b6b', (e.message || '') + ' @ ' + (e.filename || '') + ':' + (e.lineno || ''));
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        log('promise', '#ff6b6b', String((e.reason && e.reason.message) || e.reason || ''));
+      });
+
+      function start() {
+        document.body.appendChild(panel);
+        pin('UA', navigator.userAgent);
+        pin('URL', location.href);
+
+        // Turnstile injects an iframe; report whether it ever appears, since a
+        // widget that never mounts looks identical to one that never solves.
+        setTimeout(function () {
+          var f = document.querySelector('iframe[src*="challenges.cloudflare.com"]');
+          pin('TURNSTILE', f ? 'iframe present, src=' + f.src.slice(0, 90) : 'NO iframe after 5s');
+        }, 5000);
+      }
+
+      if (document.body) start();
+      else document.addEventListener('DOMContentLoaded', start);
+    })();
+`;
 
 const calculateImageSize = (base64String: string): number => {
   const padding = (base64String.match(/=/g) || []).length;
@@ -58,6 +180,13 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
     const [currentPhotoCount, setCurrentPhotoCount] = useState(0);
     const { handleGoogleSignIn, handleAppleSignIn, setTokensDirectly, logout } =
       useAuth();
+    const { setWebTheme } = useWebTheme();
+    // This View/WebView background is native, not web content — it's what
+    // shows through in the gap before the page has painted (first load,
+    // navigation) or wherever the page doesn't cover. Hardcoded white left
+    // it stuck white in dark mode regardless of the in-app toggle, since it
+    // never read webTheme at all.
+    const nativeBg = useNativeBg();
     const router = useRouter();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
@@ -169,7 +298,13 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
             case "OPEN_WEB_OAUTH": {
               const isGoogle = data.provider === "google";
               const handler = isGoogle ? handleGoogleSignIn : handleAppleSignIn;
-              const result = await handler(data.referralCode);
+              // turnstileTicket is the Cloudflare proof the web sign-in form
+              // obtained before handing over to the native SDK — it has to
+              // reach the backend call the SDK path makes.
+              const result = await handler(
+                data.referralCode,
+                data.turnstileTicket,
+              );
 
               if (result.success && result.tokens && result.user) {
                 webViewRef.current?.postMessage(
@@ -203,10 +338,36 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
               );
               break;
 
-            case "AUTH_REQUIRED":
+            case "AUTH_REQUIRED": {
               // Don't redirect to sign-in if user just logged out
-              if (!justLoggedOut.current) {
-                router.replace("/auth/signin" as any);
+              if (justLoggedOut.current) break;
+              // There is no native /auth/signin screen — routing there falls
+              // through to +not-found, which is a bare spinner. Keep the user in
+              // the WebView and let the web sign-in modal handle it; the native
+              // OAuth bridge (OPEN_WEB_OAUTH) still works from there. `path` is
+              // where the web wants to return to after signing in.
+              const target =
+                typeof data.path === "string" && data.path.startsWith("/")
+                  ? data.path
+                  : null;
+              const signinUrl = target
+                ? `/auth/signin?callbackUrl=${encodeURIComponent(target)}`
+                : "/auth/signin";
+              webViewRef.current?.injectJavaScript(
+                `window.location.href = ${JSON.stringify(signinUrl)}; true;`,
+              );
+              break;
+            }
+
+            // ---- Theme ----
+            // The web app's own dark-mode toggle (zirkly-web's
+            // ThemeContext.jsx) reports its current theme here — this is
+            // what lets native things like the status bar (see
+            // AppStatusBar in app/_layout.tsx) follow the in-app choice
+            // rather than only the device's OS-level appearance setting.
+            case "THEME_CHANGED":
+              if (data.theme === "light" || data.theme === "dark") {
+                setWebTheme(data.theme);
               }
               break;
 
@@ -482,6 +643,7 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
         handleGoogleSignIn,
         handleAppleSignIn,
         setTokensDirectly,
+        setWebTheme,
         logout,
         router,
         onMessage,
@@ -524,6 +686,22 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
     const handleNavigationRequest = (request: any) => {
       const url = request.url;
 
+      // iOS calls this for iframes as well as real navigations; Android only
+      // for real ones. Sending an iframe's URL to Safari throws the user out
+      // of the app mid-page — which is what happened to Cloudflare Turnstile
+      // on the login form, since its challenge is an iframe on
+      // challenges.cloudflare.com. Only a top-frame request can be a link the
+      // user actually followed.
+      if (request.isTopFrame === false) return true;
+
+      // `about:` frames are content the page built in memory, never somewhere
+      // the user asked to go. Turnstile mounts its challenge as an
+      // `about:srcdoc` iframe, and iOS reports that as a top-frame request —
+      // so the check above misses it, Linking fails with "Unable to open URL:
+      // about:srcdoc", and returning false blocks the frame outright. That is
+      // what left the widget stuck on "Verifying…" forever on iOS.
+      if (url.startsWith("about:")) return true;
+
       const isInternal = INTERNAL_DOMAINS.some((domain) =>
         url.includes(domain),
       );
@@ -565,6 +743,11 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
     true;`;
 
     const injectedJS = `
+    // How the backend tells an app view from a browser one. This used to ride
+    // in the user agent, but overriding that made Cloudflare Turnstile score
+    // the WebView as a bot and refuse to solve — see detect_platform() in
+    // listings/views.py, and services/api.js for the header this becomes.
+    window.ZIRKLY_PLATFORM = ${JSON.stringify(Platform.OS)};
     window.SAFE_AREA_INSETS = ${JSON.stringify({ ...insets, bottom: bottomInset })};
     document.documentElement.style.setProperty('--safe-area-bottom', '${bottomInset}px');
     (function () {
@@ -584,14 +767,15 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
         lastTouchEnd = now;
       }, { passive: false });
     })();
+    ${DEBUG_OVERLAY ? debugOverlayJS : ""}
     true;`;
 
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: nativeBg }]}>
         <WebView
           ref={webViewRef}
           source={{ uri: `${BASE_URL}/${route}` }}
-          style={styles.webView}
+          style={[styles.webView, { backgroundColor: nativeBg }]}
           injectedJavaScriptBeforeContentLoaded={injectedJSBeforeContentLoaded}
           injectedJavaScript={injectedJS}
           onLoadEnd={() => setIsLoading(false)}
@@ -613,15 +797,32 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
           showsHorizontalScrollIndicator={false}
           pullToRefreshEnabled={false}
           bounces={false}
+          // iOS only, and the reason the chat composer jumped to the top of
+          // the screen when the keyboard opened: left at its `true` default,
+          // WKWebView adds its own bottom content inset for the keyboard and
+          // then scrolls its scroll view to reveal the focused field. Every
+          // page here lays itself out full-bleed and scrolls inside its own
+          // container, so those insets have nothing useful to contribute —
+          // they just drag the page's fixed chrome upward.
+          // automaticallyAdjustContentInsets={false}
           startInLoadingState
-          userAgent={`Zirkly-Mobile/${Platform.OS}`}
-          originWhitelist={["https://*", "http://localhost:*"]}
+          // Appends to the real browser UA rather than replacing it (which is
+          // what `userAgent` would do, and what broke Turnstile). Undefined on
+          // Android, so only iOS is affected — see USER_AGENT_SUFFIX.
+          applicationNameForUserAgent={USER_AGENT_SUFFIX}
+          // `about:*` matters: react-native-webview tests this list BEFORE
+          // calling onShouldStartLoadWithRequest, and anything that fails it is
+          // handed to Linking and blocked outright. The library only exempts
+          // `about:blank`, so Cloudflare Turnstile's `about:srcdoc` challenge
+          // frame was being rejected before our handler ever saw it — which is
+          // what left the widget stuck on "Verifying…" on iOS.
+          originWhitelist={["https://*", "http://localhost:*", "about:*"]}
           thirdPartyCookiesEnabled
           allowFileAccess
           mediaPlaybackRequiresUserAction={false}
           keyboardDisplayRequiresUserAction={false}
           renderLoading={() => (
-            <View style={styles.loader}>
+            <View style={[styles.loader, { backgroundColor: nativeBg }]}>
               <ActivityIndicator size="large" color="#2528be" />
             </View>
           )}
@@ -654,13 +855,15 @@ const PersistentWebView = forwardRef<PersistentWebViewRef, Props>(
 PersistentWebView.displayName = "PersistentWebView";
 export default PersistentWebView;
 
+// backgroundColor for container/webView/loader is applied inline via
+// `nativeBg` above (theme-aware) — these StyleSheet entries no longer set
+// it, since a static value here would always be overridden anyway.
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffff" },
-  webView: { flex: 1, backgroundColor: "#ffffff" },
+  container: { flex: 1 },
+  webView: { flex: 1 },
   loader: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ffffff",
   },
 });

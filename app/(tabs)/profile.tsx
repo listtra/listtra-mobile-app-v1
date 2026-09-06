@@ -2,15 +2,17 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView, { PersistentWebViewRef } from '../../components/PersistentWebView';
 import { useAuth } from '../../context/AuthContext';
+import { useNativeBg } from '../../context/WebThemeContext';
 
 export default function ProfileScreen() {
   const { logout: authLogout } = useAuth();
   const webViewRef = useRef<PersistentWebViewRef>(null);
   const [key, setKey] = useState(0);
+  const nativeBg = useNativeBg();
   const params = useLocalSearchParams<{ tab?: string; subTab?: string }>();
 
   // Build route with query params when tab/subTab are provided
@@ -45,8 +47,8 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.webViewContainer}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: nativeBg }} edges={['top']}>
+      <View style={{ flex: 1 }}>
         <PersistentWebView
           ref={webViewRef}
           route={webViewRoute}
@@ -57,13 +59,3 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  webViewContainer: {
-    flex: 1,
-  },
-});

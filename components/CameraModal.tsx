@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as ImagePicker from "expo-image-picker";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,9 +12,9 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // ============================================================================
 // CONSTANTS
@@ -25,9 +25,9 @@ const IMAGE_CONFIG = {
   QUALITY: {
     HIGH: 0.95,
     MEDIUM: 0.85,
-    LOW: 0.75
+    LOW: 0.75,
   },
-  CAMERA_QUALITY: 0.95
+  CAMERA_QUALITY: 0.95,
 } as const;
 
 // ============================================================================
@@ -56,18 +56,18 @@ export interface PhotoForWebView {
   height: number;
 }
 
-type ModalState = 'camera' | 'preview';
-type PhotoSource = 'camera' | 'gallery';
-type CameraFacing = 'front' | 'back';
+type ModalState = "camera" | "preview";
+type PhotoSource = "camera" | "gallery";
+type CameraFacing = "front" | "back";
 
 // ============================================================================
 // UTILITIES
 // ============================================================================
 
 const logger = {
-  info: __DEV__ ? console.log : () => { },
+  info: __DEV__ ? console.log : () => {},
   error: console.error,
-  warn: console.warn
+  warn: console.warn,
 };
 
 // ============================================================================
@@ -78,16 +78,16 @@ const CameraModal: React.FC<CameraModalProps> = ({
   visible,
   onClose,
   onPhotosSelected,
-  maxPhotos = 3,
-  currentPhotoCount = 0
+  maxPhotos = 4,
+  currentPhotoCount = 0,
 }) => {
   // State
-  const [state, setState] = useState<ModalState>('camera');
+  const [state, setState] = useState<ModalState>("camera");
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [currentPhoto, setCurrentPhoto] = useState<Photo | null>(null);
-  const [currentSource, setCurrentSource] = useState<PhotoSource>('camera');
+  const [currentSource, setCurrentSource] = useState<PhotoSource>("camera");
   const [isLoading, setIsLoading] = useState(false);
-  const [facing, setFacing] = useState<CameraFacing>('back');
+  const [facing, setFacing] = useState<CameraFacing>("back");
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   // Refs
@@ -125,7 +125,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
   const processImage = useCallback(async (uri: string): Promise<Photo> => {
     if (isProcessing.current) {
-      throw new Error('Already processing an image');
+      throw new Error("Already processing an image");
     }
 
     try {
@@ -135,22 +135,24 @@ const CameraModal: React.FC<CameraModalProps> = ({
       const startTime = Date.now();
 
       // Get original dimensions
-      const info = await ImageManipulator.manipulateAsync(
-        uri,
-        [],
-        { compress: 1.0, base64: false }
-      );
+      const info = await ImageManipulator.manipulateAsync(uri, [], {
+        compress: 1.0,
+        base64: false,
+      });
 
       const needsResize =
         info.width > IMAGE_CONFIG.MAX_DIMENSION ||
         info.height > IMAGE_CONFIG.MAX_DIMENSION;
 
       const manipulations = needsResize
-        ? [{
-          resize: info.width > info.height
-            ? { width: IMAGE_CONFIG.MAX_DIMENSION }   // Landscape
-            : { height: IMAGE_CONFIG.MAX_DIMENSION }  // Portrait
-        }]
+        ? [
+            {
+              resize:
+                info.width > info.height
+                  ? { width: IMAGE_CONFIG.MAX_DIMENSION } // Landscape
+                  : { height: IMAGE_CONFIG.MAX_DIMENSION }, // Portrait
+            },
+          ]
         : [];
 
       const quality = needsResize
@@ -163,29 +165,28 @@ const CameraModal: React.FC<CameraModalProps> = ({
         manipulations,
         {
           compress: quality,
-          format: ImageManipulator.SaveFormat.JPEG
-        }
+          format: ImageManipulator.SaveFormat.JPEG,
+        },
       );
 
       const processingTime = Date.now() - startTime;
 
-      logger.info('[CameraModal] Image processed', {
+      logger.info("[CameraModal] Image processed", {
         original: { width: info.width, height: info.height },
         final: { width: result.width, height: result.height },
         needsResize,
         quality,
-        processingTimeMs: processingTime
+        processingTimeMs: processingTime,
       });
 
       return {
         uri: result.uri,
         width: result.width,
-        height: result.height
+        height: result.height,
       };
-
     } catch (error) {
-      logger.error('[CameraModal] Error processing image:', error);
-      throw new Error('Failed to process image. Please try again.');
+      logger.error("[CameraModal] Error processing image:", error);
+      throw new Error("Failed to process image. Please try again.");
     } finally {
       isProcessing.current = false;
       setIsLoading(false);
@@ -200,56 +201,58 @@ const CameraModal: React.FC<CameraModalProps> = ({
    * Convert photos to pure base64 format for webview
    * Returns ONLY base64 string without any prefix
    */
-  const convertPhotosToBase64 = useCallback(async (
-    photosList: Photo[]
-  ): Promise<PhotoForWebView[]> => {
-    try {
-      setIsLoading(true);
-      logger.info('[CameraModal] Converting photos to base64 for webview');
+  const convertPhotosToBase64 = useCallback(
+    async (photosList: Photo[]): Promise<PhotoForWebView[]> => {
+      try {
+        setIsLoading(true);
+        logger.info("[CameraModal] Converting photos to base64 for webview");
 
-      const photosBase64 = await Promise.all(
-        photosList.map(async (photo) => {
-          // Convert file URI to base64
-          const result = await ImageManipulator.manipulateAsync(
-            photo.uri,
-            [],
-            {
-              base64: true,
-              compress: IMAGE_CONFIG.QUALITY.MEDIUM,
-              format: ImageManipulator.SaveFormat.JPEG
+        const photosBase64 = await Promise.all(
+          photosList.map(async (photo) => {
+            // Convert file URI to base64
+            const result = await ImageManipulator.manipulateAsync(
+              photo.uri,
+              [],
+              {
+                base64: true,
+                compress: IMAGE_CONFIG.QUALITY.MEDIUM,
+                format: ImageManipulator.SaveFormat.JPEG,
+              },
+            );
+
+            if (!result.base64) {
+              throw new Error("Failed to convert image to base64");
             }
-          );
 
-          if (!result.base64) {
-            throw new Error('Failed to convert image to base64');
-          }
+            // Return ONLY base64 string (no data URI prefix)
+            return {
+              base64: result.base64,
+              width: result.width,
+              height: result.height,
+            };
+          }),
+        );
 
-          // Return ONLY base64 string (no data URI prefix)
-          return {
-            base64: result.base64,
-            width: result.width,
-            height: result.height
-          };
-        })
-      );
+        const totalSizeKB = photosBase64.reduce(
+          (sum, p) => sum + (p.base64.length * 0.75) / 1024,
+          0,
+        );
 
-      const totalSizeKB = photosBase64.reduce((sum, p) =>
-        sum + (p.base64.length * 0.75 / 1024), 0
-      );
+        logger.info("[CameraModal] Base64 conversion complete", {
+          count: photosBase64.length,
+          totalSizeKB: totalSizeKB.toFixed(2),
+        });
 
-      logger.info('[CameraModal] Base64 conversion complete', {
-        count: photosBase64.length,
-        totalSizeKB: totalSizeKB.toFixed(2)
-      });
-
-      return photosBase64;
-    } catch (error) {
-      logger.error('[CameraModal] Error converting to base64:', error);
-      throw new Error('Failed to prepare images for upload');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+        return photosBase64;
+      } catch (error) {
+        logger.error("[CameraModal] Error converting to base64:", error);
+        throw new Error("Failed to prepare images for upload");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
 
   // ============================================================================
   // CAMERA ACTIONS
@@ -261,7 +264,10 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
     // ✅ CHECK TOTAL COUNT INCLUDING EXISTING PHOTOS
     if (currentPhotoCount + photos.length >= maxPhotos) {
-      Alert.alert('Maximum Reached', `You can only add ${maxPhotos} photos total.`);
+      Alert.alert(
+        "Maximum Reached",
+        `You can only add ${maxPhotos} photos total.`,
+      );
       return;
     }
 
@@ -277,19 +283,26 @@ const CameraModal: React.FC<CameraModalProps> = ({
       if (photo) {
         const processedPhoto = await processImage(photo.uri);
         setCurrentPhoto(processedPhoto);
-        setCurrentSource('camera');
-        setState('preview');
+        setCurrentSource("camera");
+        setState("preview");
       }
     } catch (error) {
-      logger.error('[CameraModal] Error taking picture:', error);
-      Alert.alert('Camera Error', 'Failed to take picture. Please try again.');
+      logger.error("[CameraModal] Error taking picture:", error);
+      Alert.alert("Camera Error", "Failed to take picture. Please try again.");
     } finally {
       isTakingPicture.current = false;
     }
-  }, [cameraPermission?.granted, photos.length, maxPhotos, currentPhotoCount, isLoading, processImage]);
+  }, [
+    cameraPermission?.granted,
+    photos.length,
+    maxPhotos,
+    currentPhotoCount,
+    isLoading,
+    processImage,
+  ]);
 
   const toggleCameraFacing = useCallback(() => {
-    setFacing(prev => prev === 'back' ? 'front' : 'back');
+    setFacing((prev) => (prev === "back" ? "front" : "back"));
   }, []);
 
   // ============================================================================
@@ -300,12 +313,13 @@ const CameraModal: React.FC<CameraModalProps> = ({
     if (isLoading) return;
 
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permissionResult.granted) {
         Alert.alert(
-          'Permission Required',
-          'Please grant photo library access to select images.'
+          "Permission Required",
+          "Please grant photo library access to select images.",
         );
         return;
       }
@@ -313,17 +327,20 @@ const CameraModal: React.FC<CameraModalProps> = ({
       // ✅ USE REMAINING SLOTS INSTEAD OF CURRENT PHOTOS LENGTH
       const availableSlots = remainingSlots - photos.length;
       if (availableSlots <= 0) {
-        Alert.alert('Maximum Reached', `You can only add ${maxPhotos} photos total.`);
+        Alert.alert(
+          "Maximum Reached",
+          `You can only add ${maxPhotos} photos total.`,
+        );
         return;
       }
 
       const allowsMultiple = availableSlots > 1;
 
-      logger.info('[CameraModal] Gallery selection', {
+      logger.info("[CameraModal] Gallery selection", {
         currentPhotoCount,
         modalPhotos: photos.length,
         availableSlots,
-        allowsMultiple
+        allowsMultiple,
       });
 
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -339,8 +356,8 @@ const CameraModal: React.FC<CameraModalProps> = ({
         if (result.assets.length === 1) {
           const processedPhoto = await processImage(result.assets[0].uri);
           setCurrentPhoto(processedPhoto);
-          setCurrentSource('gallery');
-          setState('preview');
+          setCurrentSource("gallery");
+          setState("preview");
         } else {
           // ✅ IMPROVED: Return to camera screen after adding multiple photos
           try {
@@ -351,16 +368,22 @@ const CameraModal: React.FC<CameraModalProps> = ({
                 const processed = await processImage(result.assets[i].uri);
                 processedPhotos.push(processed);
               } catch (error) {
-                logger.error(`[CameraModal] Failed to process image ${i}:`, error);
+                logger.error(
+                  `[CameraModal] Failed to process image ${i}:`,
+                  error,
+                );
                 throw error;
               }
             }
 
-            const newPhotos = [...photos, ...processedPhotos].slice(0, availableSlots);
+            const newPhotos = [...photos, ...processedPhotos].slice(
+              0,
+              availableSlots,
+            );
             setPhotos(newPhotos);
 
             // ✅ ALWAYS return to camera screen after multi-select
-            setState('camera');
+            setState("camera");
 
             // ✅ CHECK TOTAL COUNT INCLUDING EXISTING PHOTOS
             // if (currentPhotoCount + newPhotos.length >= maxPhotos) {
@@ -369,18 +392,34 @@ const CameraModal: React.FC<CameraModalProps> = ({
             //   setState('camera');
             // }
           } catch (error) {
-            logger.error('[CameraModal] Error processing multiple images:', error);
-            Alert.alert('Processing Error', 'Failed to process some images. Please try selecting fewer images or try again.');
+            logger.error(
+              "[CameraModal] Error processing multiple images:",
+              error,
+            );
+            Alert.alert(
+              "Processing Error",
+              "Failed to process some images. Please try selecting fewer images or try again.",
+            );
           } finally {
             setIsLoading(false);
           }
         }
       }
     } catch (error) {
-      logger.error('[CameraModal] Error selecting from gallery:', error);
-      Alert.alert('Gallery Error', 'Failed to select photos. Please try again.');
+      logger.error("[CameraModal] Error selecting from gallery:", error);
+      Alert.alert(
+        "Gallery Error",
+        "Failed to select photos. Please try again.",
+      );
     }
-  }, [photos, maxPhotos, currentPhotoCount, remainingSlots, isLoading, processImage]);
+  }, [
+    photos,
+    maxPhotos,
+    currentPhotoCount,
+    remainingSlots,
+    isLoading,
+    processImage,
+  ]);
 
   // ============================================================================
   // PREVIEW ACTIONS
@@ -388,7 +427,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
 
   const handleRetake = useCallback(() => {
     setCurrentPhoto(null);
-    setState('camera');
+    setState("camera");
   }, []);
 
   const handleContinueWithCurrent = useCallback(() => {
@@ -402,12 +441,12 @@ const CameraModal: React.FC<CameraModalProps> = ({
     if (currentPhotoCount + newPhotos.length >= maxPhotos) {
       handleFinish(newPhotos);
     } else {
-      setState('camera');
+      setState("camera");
     }
   }, [currentPhoto, photos, maxPhotos, currentPhotoCount]);
 
   const removePhoto = useCallback((index: number) => {
-    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   // ============================================================================
@@ -415,34 +454,37 @@ const CameraModal: React.FC<CameraModalProps> = ({
   // ============================================================================
 
   const resetState = useCallback(() => {
-    setState('camera');
+    setState("camera");
     setPhotos([]);
     setCurrentPhoto(null);
     setIsLoading(false);
-    setFacing('back');
+    setFacing("back");
   }, []);
 
-  const handleFinish = useCallback(async (finalPhotos?: Photo[]) => {
-    const photosToSend = finalPhotos || photos;
+  const handleFinish = useCallback(
+    async (finalPhotos?: Photo[]) => {
+      const photosToSend = finalPhotos || photos;
 
-    if (photosToSend.length > 0) {
-      try {
-        setIsLoading(true);
-        // Convert to base64 only when sending
-        const photosBase64 = await convertPhotosToBase64(photosToSend);
+      if (photosToSend.length > 0) {
+        try {
+          setIsLoading(true);
+          // Convert to base64 only when sending
+          const photosBase64 = await convertPhotosToBase64(photosToSend);
 
-        // Send photos with pure base64 to parent
-        onPhotosSelected(photosBase64);
-      } catch (error) {
-        logger.error('[CameraModal] Error in handleFinish:', error);
-        Alert.alert('Error', 'Failed to process images. Please try again.');
-      } finally {
-        setIsLoading(false);
+          // Send photos with pure base64 to parent
+          onPhotosSelected(photosBase64);
+        } catch (error) {
+          logger.error("[CameraModal] Error in handleFinish:", error);
+          Alert.alert("Error", "Failed to process images. Please try again.");
+        } finally {
+          setIsLoading(false);
+        }
       }
-    }
 
-    onClose();
-  }, [photos, onPhotosSelected, onClose, convertPhotosToBase64]);
+      onClose();
+    },
+    [photos, onPhotosSelected, onClose, convertPhotosToBase64],
+  );
 
   const handleCloseModal = useCallback(async () => {
     if (photos.length > 0) {
@@ -450,8 +492,8 @@ const CameraModal: React.FC<CameraModalProps> = ({
         const photosBase64 = await convertPhotosToBase64(photos);
         onPhotosSelected(photosBase64);
       } catch (error) {
-        logger.error('[CameraModal] Error in handleCloseModal:', error);
-        Alert.alert('Error', 'Failed to process images. Please try again.');
+        logger.error("[CameraModal] Error in handleCloseModal:", error);
+        Alert.alert("Error", "Failed to process images. Please try again.");
         setIsLoading(false);
         return;
       }
@@ -474,11 +516,11 @@ const CameraModal: React.FC<CameraModalProps> = ({
       </TouchableOpacity>
 
       <Text style={styles.headerTitle}>
-        {state === 'camera' && 'Take Photos'}
-        {state === 'preview' && 'Preview'}
+        {state === "camera" && "Take Photos"}
+        {state === "preview" && "Preview"}
       </Text>
 
-      {state === 'camera' && photos.length > 0 ? (
+      {state === "camera" && photos.length > 0 ? (
         <TouchableOpacity
           onPress={() => handleFinish()}
           style={styles.doneButton}
@@ -496,7 +538,11 @@ const CameraModal: React.FC<CameraModalProps> = ({
     if (!cameraPermission?.granted) {
       return (
         <View style={styles.permissionContainer}>
-          <Ionicons name="camera-outline" size={64} color="rgba(255, 255, 255, 0.5)" />
+          <Ionicons
+            name="camera-outline"
+            size={64}
+            color="rgba(255, 255, 255, 0.5)"
+          />
           <Text style={styles.permissionTitle}>Camera Permission Required</Text>
           <Text style={styles.permissionText}>
             Grant camera access to take photos for your listing.
@@ -511,7 +557,9 @@ const CameraModal: React.FC<CameraModalProps> = ({
             style={styles.galleryOnlyButton}
             onPress={selectFromGallery}
           >
-            <Text style={styles.galleryOnlyButtonText}>Select from Gallery</Text>
+            <Text style={styles.galleryOnlyButtonText}>
+              Select from Gallery
+            </Text>
           </TouchableOpacity>
         </View>
       );
@@ -536,7 +584,9 @@ const CameraModal: React.FC<CameraModalProps> = ({
           <TouchableOpacity
             style={styles.galleryButton}
             onPress={selectFromGallery}
-            disabled={isLoading || currentPhotoCount + photos.length >= maxPhotos}
+            disabled={
+              isLoading || currentPhotoCount + photos.length >= maxPhotos
+            }
           >
             <Ionicons name="images" size={28} color="white" />
           </TouchableOpacity>
@@ -544,10 +594,13 @@ const CameraModal: React.FC<CameraModalProps> = ({
           <TouchableOpacity
             style={[
               styles.captureButton,
-              (isLoading || currentPhotoCount + photos.length >= maxPhotos) && styles.captureButtonDisabled
+              (isLoading || currentPhotoCount + photos.length >= maxPhotos) &&
+                styles.captureButtonDisabled,
             ]}
             onPress={takePicture}
-            disabled={isLoading || currentPhotoCount + photos.length >= maxPhotos}
+            disabled={
+              isLoading || currentPhotoCount + photos.length >= maxPhotos
+            }
           >
             {isLoading ? (
               <ActivityIndicator color="#2528be" size="small" />
@@ -569,7 +622,10 @@ const CameraModal: React.FC<CameraModalProps> = ({
           <View style={styles.thumbnailsContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {photos.map((photo, index) => (
-                <View key={`${photo.uri}-${index}`} style={styles.thumbnailContainer}>
+                <View
+                  key={`${photo.uri}-${index}`}
+                  style={styles.thumbnailContainer}
+                >
                   <Image source={{ uri: photo.uri }} style={styles.thumbnail} />
                   <TouchableOpacity
                     style={styles.removeThumbnailButton}
@@ -588,7 +644,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#2528be" />
             <Text style={styles.loadingText}>
-              {photos.length > 0 ? 'Preparing images...' : 'Processing...'}
+              {photos.length > 0 ? "Preparing images..." : "Processing..."}
             </Text>
           </View>
         )}
@@ -609,7 +665,7 @@ const CameraModal: React.FC<CameraModalProps> = ({
           disabled={isLoading}
         >
           <Text style={styles.retakeButtonText}>
-            {currentSource === 'camera' ? 'Retake' : 'Reselect'}
+            {currentSource === "camera" ? "Retake" : "Reselect"}
           </Text>
         </TouchableOpacity>
 
@@ -622,7 +678,9 @@ const CameraModal: React.FC<CameraModalProps> = ({
             <ActivityIndicator color="white" size="small" />
           ) : (
             <Text style={styles.continueButtonText}>
-              {currentPhotoCount + photos.length + 1 >= maxPhotos ? 'Finish' : 'Add Photo'}
+              {currentPhotoCount + photos.length + 1 >= maxPhotos
+                ? "Finish"
+                : "Add Photo"}
             </Text>
           )}
         </TouchableOpacity>
@@ -637,11 +695,11 @@ const CameraModal: React.FC<CameraModalProps> = ({
       onRequestClose={handleCloseModal}
       statusBarTranslucent
     >
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={["top"]}>
         {renderHeader()}
         <View style={styles.content}>
-          {state === 'camera' && renderCameraScreen()}
-          {state === 'preview' && renderPreviewScreen()}
+          {state === "camera" && renderCameraScreen()}
+          {state === "preview" && renderPreviewScreen()}
         </View>
       </SafeAreaView>
     </Modal>
@@ -655,41 +713,41 @@ const CameraModal: React.FC<CameraModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTitle: {
-    color: 'white',
+    color: "white",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   doneButton: {
-    backgroundColor: '#2528be',
+    backgroundColor: "#2528be",
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
   },
   doneButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   placeholder: {
     width: 40,
@@ -699,99 +757,99 @@ const styles = StyleSheet.create({
   },
   permissionContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 40,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
   permissionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "white",
+    textAlign: "center",
     marginTop: 20,
     marginBottom: 10,
   },
   permissionText: {
     fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
+    color: "rgba(255, 255, 255, 0.7)",
+    textAlign: "center",
     marginBottom: 30,
     lineHeight: 24,
   },
   permissionButton: {
-    backgroundColor: '#2528be',
+    backgroundColor: "#2528be",
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 25,
     marginBottom: 15,
   },
   permissionButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   galleryOnlyButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 25,
   },
   galleryOnlyButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   cameraContainer: {
     flex: 1,
-    position: 'relative',
+    position: "relative",
   },
   camera: {
     flex: 1,
   },
   photoCountContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 20,
     right: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 8,
   },
   photoCountText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   cameraControls: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 100,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
     paddingHorizontal: 40,
   },
   galleryButton: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   captureButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "white",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   captureButtonDisabled: {
     opacity: 0.5,
@@ -800,27 +858,27 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#2528be',
+    backgroundColor: "#2528be",
   },
   flipButton: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   thumbnailsContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 20,
     left: 0,
     right: 0,
     paddingHorizontal: 20,
   },
   thumbnailContainer: {
-    position: 'relative',
+    position: "relative",
     marginRight: 10,
   },
   thumbnail: {
@@ -828,70 +886,70 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#2528be',
+    borderColor: "#2528be",
   },
   removeThumbnailButton: {
-    position: 'absolute',
+    position: "absolute",
     top: -6,
     right: -6,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 10,
   },
   previewContainer: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
   previewImage: {
     flex: 1,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   previewButtons: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 40,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     paddingHorizontal: 40,
   },
   retakeButton: {
-    backgroundColor: '#2528be',
+    backgroundColor: "#2528be",
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 25,
     minWidth: 120,
-    alignItems: 'center',
+    alignItems: "center",
   },
   retakeButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   continueButton: {
-    backgroundColor: '#2528be',
+    backgroundColor: "#2528be",
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 25,
     minWidth: 120,
-    alignItems: 'center',
+    alignItems: "center",
   },
   continueButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 10,
   },
   loadingText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
     marginTop: 15,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
 

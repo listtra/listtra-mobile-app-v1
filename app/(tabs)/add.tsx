@@ -2,13 +2,15 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PersistentWebView from '../../components/PersistentWebView';
+import { useNativeBg } from '../../context/WebThemeContext';
 
 export default function AddScreen() {
   const router = useRouter();
   const [key, setKey] = useState(0);
+  const nativeBg = useNativeBg();
 
   // Force WebView refresh every time the screen is focused
   useFocusEffect(
@@ -18,8 +20,8 @@ export default function AddScreen() {
   );
 
   return (
-      <SafeAreaView style={styles.flex} edges={['top']}>
-        <View style={styles.webViewContainer}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: nativeBg }} edges={['top']}>
+        <View style={{ flex: 1, backgroundColor: nativeBg }}>
           <PersistentWebView
             key={key}
             route="add"
@@ -28,8 +30,3 @@ export default function AddScreen() {
       </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  webViewContainer: { flex: 1, backgroundColor: 'white' },
-});

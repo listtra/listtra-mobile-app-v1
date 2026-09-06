@@ -15,6 +15,22 @@ const API_URL = Constants.expoConfig?.extra?.apiUrl;
 // Define app scheme for deep linking
 const APP_SCHEME = 'zirkly';
 
+// Tell the backend a login just succeeded, so it can record it against this
+// request's IP (the app talks to Django directly, so that IP is correct).
+// The audit endpoint is best-effort server-side and this call is fire-and-
+// forget here too — a dropped ping must never block or fail a real login.
+const recordLogin = (accessToken: string, method: 'PASSWORD' | 'GOOGLE' | 'APPLE') => {
+  axios
+    .post(
+      `${API_URL}/api/auth/record-login/`,
+      { method },
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+    .catch((error) => {
+      console.warn('Failed to record login attempt:', error?.message || error);
+    });
+};
+
 // Define types for our context
 type User = {
   id: string;
@@ -38,8 +54,8 @@ type AuthContextType = {
   };
   storeTokens: (accessToken: string, refreshToken: string, userData?: any) => Promise<void>;
   setTokensDirectly: (accessToken: string, refreshToken: string, userData?: any) => Promise<void>;
-  handleGoogleSignIn: (referralCode?: string) => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
-  handleAppleSignIn: (referralCode?: string) => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
+  handleGoogleSignIn: (referralCode?: string, turnstileTicket?: string) => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
+  handleAppleSignIn: (referralCode?: string, turnstileTicket?: string) => Promise<{ success: boolean; tokens?: any; user?: any; error?: string }>;
 };
 
 // Create the context with default values
@@ -433,6 +449,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }));
 
       if (response.data.access && response.data.refresh) {
+        recordLogin(response.data.access, 'PASSWORD');
+
         // Store tokens
         console.log('About to store tokens');
         await storeTokens(response.data.access, response.data.refresh);
@@ -592,7 +610,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Updated handleGoogleSignIn to use native Google Sign-In
-  const handleGoogleSignIn = async (referralCode?: string): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
+  const handleGoogleSignIn = async (referralCode?: string, turnstileTicket?: string): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
     setIsLoading(true);
     setError(null);
 
@@ -602,13 +620,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('🚀 AuthContext: With referral code:', referralCode);
       }
 
-      const result = await googleSignInService.signIn(referralCode);
+      const result = await googleSignInService.signIn(referralCode, turnstileTicket);
       console.log('🚀 AuthContext: GoogleSignInService result:', result);
 
       if (result.success && result.tokens && result.user) {
         console.log('🚀 AuthContext: Native Google Sign-In successful');
         console.log('🚀 AuthContext: Tokens:', result.tokens);
         console.log('🚀 AuthContext: User:', result.user);
+
+        recordLogin(result.tokens.accessToken, 'GOOGLE');
 
         console.log('🚀 AuthContext: Google sign-in successful - returning tokens and user');
         setIsLoading(false);
@@ -632,7 +652,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const handleAppleSignIn = async (referralCode?: string): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
+  const handleAppleSignIn = async (referralCode?: string, turnstileTicket?: string): Promise<{ success: boolean; tokens?: any; user?: any; error?: string }> => {
     setIsLoading(true);
     setError(null);
 
@@ -642,13 +662,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('🚀 AuthContext: With referral code:', referralCode);
       }
 
-      const result = await appleSignInService.signIn(referralCode);
+      const result = await appleSignInService.signIn(referralCode, turnstileTicket);
       console.log('🍎 AuthContext: AppleSignInService result:', result);
 
       if (result.success && result.tokens && result.user) {
         console.log('🍎 AuthContext: Native Apple Sign-In successful');
         console.log('🍎 AuthContext: Tokens:', result.tokens);
         console.log('🍎 AuthContext: User:', result.user);
+
+        recordLogin(result.tokens.accessToken, 'APPLE');
 
         console.log('🍎 AuthContext: Apple sign-in successful - returning tokens and user');
         setIsLoading(false);

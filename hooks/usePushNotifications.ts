@@ -1,7 +1,7 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { pushNotificationService } from '../services/pushNotificationService';
+import { useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
+import { useAuth } from "../context/AuthContext";
+import { pushNotificationService } from "../services/pushNotificationService";
 
 /**
  * Registers the device for push notifications when the user is authenticated,
@@ -22,9 +22,10 @@ export function usePushNotifications() {
 
     if (isAuthenticated && accessToken) {
       (async () => {
-        const deviceToken = await pushNotificationService.registerForPushNotificationsAsync(
-          accessToken,
-        );
+        const deviceToken =
+          await pushNotificationService.registerForPushNotificationsAsync(
+            accessToken,
+          );
         if (!cancelled && deviceToken) {
           registeredTokenRef.current = deviceToken;
         }
@@ -33,7 +34,9 @@ export function usePushNotifications() {
       // Already cleared; access token gone — best effort unregister
       const dt = registeredTokenRef.current;
       registeredTokenRef.current = null;
-      pushNotificationService.unregisterPushToken(accessToken, dt).catch(() => {});
+      pushNotificationService
+        .unregisterPushToken(accessToken, dt)
+        .catch(() => {});
     }
 
     return () => {
@@ -42,7 +45,10 @@ export function usePushNotifications() {
   }, [isAuthenticated, tokens?.accessToken]);
 
   // ---------- Tap handling: route via expo-router ----------
-  const handleTap = (data: Record<string, any> | null | undefined, notificationId?: string) => {
+  const handleTap = (
+    data: Record<string, any> | null | undefined,
+    notificationId?: string,
+  ) => {
     if (!data) return;
     if (notificationId && lastHandledIdRef.current === notificationId) return;
     if (notificationId) lastHandledIdRef.current = notificationId;
@@ -51,31 +57,39 @@ export function usePushNotifications() {
     const conversationId = data.conversation_id;
     const slug = data.listing_slug;
     const productId = data.product_id;
-    const objectId: string = typeof data.object_id === 'string' ? data.object_id : '';
+    const objectId: string =
+      typeof data.object_id === "string" ? data.object_id : "";
 
-    // Seller-facing offer events → chat
+    // Seller-facing offer events + accepted (buyer arranges collection in
+    // chat) → chat
     if (
-      subType === 'offer_received' ||
-      subType === 'offer_modified' ||
-      subType === 'offer_cancelled'
+      subType === "offer_received" ||
+      subType === "offer_modified" ||
+      subType === "offer_cancelled" ||
+      subType === "offer_accepted"
     ) {
-      const id = conversationId || (objectId.startsWith('conversation:') ? objectId.split(':')[1] : null);
+      const id =
+        conversationId ||
+        (objectId.startsWith("conversation:") ? objectId.split(":")[1] : null);
       if (id) {
-        router.push({ pathname: '/chat/[id]', params: { id: String(id) } } as any);
+        router.push({
+          pathname: "/chat/[id]",
+          params: { id: String(id) },
+        } as any);
         return;
       }
     }
 
     // Buyer-facing offer events + price drop + item sold → listing
     if (
-      subType === 'offer_accepted' ||
-      subType === 'offer_declined' ||
-      subType === 'price_drop' ||
-      subType === 'item_sold'
+      subType === "offer_accepted" ||
+      subType === "offer_declined" ||
+      subType === "price_drop" ||
+      subType === "item_sold"
     ) {
       if (slug && productId) {
         router.push({
-          pathname: '/listings/[slug]/[product_id]/page',
+          pathname: "/listings/[slug]/[product_id]/page",
           params: { slug: String(slug), product_id: String(productId) },
         } as any);
         return;
@@ -83,20 +97,21 @@ export function usePushNotifications() {
     }
 
     // Generic fallbacks based on object_id format
-    if (objectId.startsWith('conversation:')) {
+    if (objectId.startsWith("conversation:")) {
       router.push({
-        pathname: '/chat/[id]',
-        params: { id: objectId.split(':')[1] },
+        pathname: "/chat/[id]",
+        params: { id: objectId.split(":")[1] },
       } as any);
       return;
     }
-    if (objectId.includes(':')) {
-      const [s, pid] = objectId.split(':');
+    if (objectId.includes(":")) {
+      const [s, pid] = objectId.split(":");
       if (s && pid) {
         router.push({
-          pathname: '/listings/[slug]/[product_id]/page',
+          pathname: "/listings/[slug]/[product_id]/page",
           params: { slug: s, product_id: pid },
         } as any);
+        return;
       }
     }
   };
@@ -119,16 +134,18 @@ export function usePushNotifications() {
 
       if (cancelled) return;
 
-      responseSub = await pushNotificationService.addNotificationResponseReceivedListener(
-        (response) => {
-          const data = response?.notification?.request?.content?.data;
-          const id = response?.notification?.request?.identifier;
-          handleTap(data as any, id);
-        },
-      );
+      responseSub =
+        await pushNotificationService.addNotificationResponseReceivedListener(
+          (response) => {
+            const data = response?.notification?.request?.content?.data;
+            const id = response?.notification?.request?.identifier;
+            handleTap(data as any, id);
+          },
+        );
 
       // Foreground arrival: handler in service shows banner; nothing else here.
-      receivedSub = await pushNotificationService.addNotificationReceivedListener(() => {});
+      receivedSub =
+        await pushNotificationService.addNotificationReceivedListener(() => {});
     })();
 
     return () => {

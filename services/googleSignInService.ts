@@ -57,7 +57,7 @@ export class GoogleSignInService {
     }
   }
 
-  async signIn(referralCode?: string): Promise<GoogleSignInResult> {
+  async signIn(referralCode?: string, turnstileTicket?: string): Promise<GoogleSignInResult> {
     try {
       console.log('⭐ GoogleSignInService: Starting Google Sign-In...');
       if (referralCode) {
@@ -84,7 +84,7 @@ export class GoogleSignInService {
 
       console.log('⭐ GoogleSignInService: Exchanging token with backend...');
       // Exchange the Google ID token with your backend
-      const backendResponse = await this.exchangeTokenWithBackend(userInfo.data.idToken, referralCode);
+      const backendResponse = await this.exchangeTokenWithBackend(userInfo.data.idToken, referralCode, turnstileTicket);
       console.log('⭐ GoogleSignInService: Backend response:', backendResponse);
 
       if (backendResponse.success) {
@@ -131,7 +131,11 @@ export class GoogleSignInService {
     }
   }
 
-  private async exchangeTokenWithBackend(idToken: string, referralCode?: string) {
+  private async exchangeTokenWithBackend(
+    idToken: string,
+    referralCode?: string,
+    turnstileTicket?: string,
+  ) {
     try {
       const API_URL = Constants.expoConfig?.extra?.apiUrl;
 
@@ -149,6 +153,10 @@ export class GoogleSignInService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Cloudflare Turnstile was solved in the WebView before it handed
+          // sign-in over to the native SDK; this is that proof, exchanged for
+          // a ticket so it survives the trip.
+          ...(turnstileTicket ? { 'CF-Turnstile-Ticket': turnstileTicket } : {}),
         },
         body: JSON.stringify(requestBody),
       });
@@ -178,6 +186,7 @@ export class GoogleSignInService {
           id: data.user_id,
           email: data.email,
           nickname: data.nickname,
+          user_created: data.user_created,
         },
       };
     } catch (error: any) {

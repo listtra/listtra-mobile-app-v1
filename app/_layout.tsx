@@ -9,7 +9,38 @@ import { Animated, View } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthProvider } from '../context/AuthContext';
+import { useWebTheme, WebThemeProvider } from '../context/WebThemeContext';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+
+// Everything visible in this app is the WebView's page, so the status bar
+// follows the web app's own theme (reported over WebThemeContext by
+// zirkly-web's ThemeContext.jsx).
+//
+// The device's appearance setting is deliberately NOT the fallback here.
+// zirkly-web drives its theme purely from its in-app toggle persisted in
+// localStorage — Tailwind is `darkMode: 'class'` and nothing there reads
+// prefers-color-scheme — so a dark-mode phone still renders a light page.
+// Falling back to the OS scheme therefore styled the bar for dark while the
+// page was light, i.e. white icons on a near-white background, until the
+// first THEME_CHANGED landed. 'light' matches the web app's own default.
+function AppStatusBar({ splashVisible }: { splashVisible: boolean }) {
+  const { webTheme } = useWebTheme();
+  const scheme = webTheme ?? 'light';
+  // The splash is a dark purple gradient, so dark icons would be nearly
+  // invisible over it regardless of the theme underneath.
+  const barStyle = splashVisible ? 'light' : scheme === 'dark' ? 'light' : 'dark';
+
+  return (
+    // backgroundColor is Android-only — iOS status bars are always a
+    // transparent overlay, so `style` (icon color) is all that applies
+    // there; the app.config.js statusBarBackgroundColor values are just
+    // the static pre-JS default those platforms fall back to.
+    <StatusBar
+      style={barStyle}
+      backgroundColor={scheme === 'dark' ? '#111827' : '#F9FAFB'}
+    />
+  );
+}
 
 type RootLayoutContentProps = {
   onWebViewReady?: () => void;
@@ -75,18 +106,19 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
-      <StatusBar style="dark"/>
-      {/* Main app content */}
-      <SafeAreaProvider>
-        <AuthProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <View style={{ flex: 1 }}>
-              <RootLayoutContent onWebViewReady={() => setWebViewReady(true)} />
-            </View>
-          </ThemeProvider>
-        </AuthProvider>
-      </SafeAreaProvider>
+    <WebThemeProvider>
+      <View style={{ flex: 1, backgroundColor: '#ffffff' }}>
+        <AppStatusBar splashVisible={showSplash} />
+        {/* Main app content */}
+        <SafeAreaProvider>
+          <AuthProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <View style={{ flex: 1 }}>
+                <RootLayoutContent onWebViewReady={() => setWebViewReady(true)} />
+              </View>
+            </ThemeProvider>
+          </AuthProvider>
+        </SafeAreaProvider>
 
       {/* Splash screen as overlay - outside SafeAreaProvider to cover full screen */}
       {showSplash && (
@@ -105,6 +137,7 @@ export default function RootLayout() {
           <SplashScreen />
         </Animated.View>
       )}
-    </View>
+      </View>
+    </WebThemeProvider>
   );
 }

@@ -1,4 +1,5 @@
 import Expo
+import EXNotifications
 import FirebaseCore
 import React
 import ReactAppDependencyProvider
@@ -33,7 +34,20 @@ FirebaseApp.configure()
       launchOptions: launchOptions)
 #endif
 
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+
+    // expo-notifications (NotificationCenterManager) and @react-native-firebase/messaging
+    // both try to become UNUserNotificationCenter's delegate, with no explicit ordering
+    // between them — whichever initializes first silently wins, which can break
+    // notification-tap routing (hooks/usePushNotifications.ts never receives the tap)
+    // if Firebase ends up winning instead. Firebase's own registration runs after this
+    // method returns (via UIApplicationDidFinishLaunchingNotification), and its code
+    // detects an existing delegate and chains to it rather than replacing it — so
+    // asserting expo-notifications as the delegate here, before returning, guarantees
+    // it always wins the race deterministically.
+    UNUserNotificationCenter.current().delegate = NotificationCenterManager.shared
+
+    return result
   }
 
   // Linking API

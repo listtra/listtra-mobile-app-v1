@@ -25,7 +25,7 @@ export class AppleSignInService {
         }
     }
 
-    async signIn(referralCode?: string): Promise<AppleSignInResult> {
+    async signIn(referralCode?: string, turnstileTicket?: string): Promise<AppleSignInResult> {
         try {
             console.log('⭐ AppleSignInService: Starting Apple Sign-In...');
             if (referralCode) {
@@ -66,7 +66,8 @@ export class AppleSignInService {
                 credential.user,
                 credential.email,
                 credential.fullName,
-                referralCode
+                referralCode,
+                turnstileTicket
             );
 
             console.log('⭐ AppleSignInService: Backend response:', backendResponse);
@@ -124,7 +125,8 @@ export class AppleSignInService {
         user?: string | null,
         email?: string | null,
         fullName?: AppleAuthentication.AppleAuthenticationFullName | null,
-        referralCode?: string
+        referralCode?: string,
+        turnstileTicket?: string
     ) {
         try {
             const API_URL = Constants.expoConfig?.extra?.apiUrl;
@@ -147,6 +149,9 @@ export class AppleSignInService {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    // Turnstile was solved in the WebView before it handed
+                    // sign-in over to the native SDK; this is that proof.
+                    ...(turnstileTicket ? { 'CF-Turnstile-Ticket': turnstileTicket } : {}),
                 },
                 body: JSON.stringify(requestBody),
             });
@@ -176,6 +181,7 @@ export class AppleSignInService {
                     id: data.user_id,
                     email: data.email,
                     nickname: data.nickname,
+                    user_created: data.user_created,
                 },
             };
         } catch (error: any) {

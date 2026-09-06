@@ -1,56 +1,56 @@
 {
-    "cli": {
-      "version": ">= 0.52.0",
-      "appVersionSource": "local"
-    },
-    "build": {
-      "development": {
-        "developmentClient": true,
-        "distribution": "internal",
-        "android": {
-          "gradleCommand": ":app:assembleDebug"
-        },
-        "ios": {
-          "buildConfiguration": "Debug"
-        }
+  "cli": {
+    "version": ">= 0.52.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "gradleCommand": ":app:assembleDebug"
       },
-      "preview": {
-        "distribution": "internal",
-        "android": {
-          "buildType": "apk",
-          "gradleCommand": ":app:assembleRelease"
-        },
-        "ios": {
-          "simulator": true
-        }
-      },
-      "adhoc": {
-        "distribution": "internal",
-        "android": {
-          "buildType": "apk"
-        },
-        "ios": {
-          "simulator": false,
-          "credentialsSource": "remote"
-        }
-      },
-      "production": {
-        "distribution": "store",
-        "android": {
-          "buildType": "app-bundle"
-        },
-        "ios": {
-          "simulator": false,
-          "buildConfiguration": "Release",
-          "credentialsSource": "remote"
-        }
+      "ios": {
+        "buildConfiguration": "Debug"
       }
     },
-    "submit": {
-      "production": {
-        "ios": {
-          "appleId": "tops.listtra@gmail.com"
-        }
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "adhoc": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false,
+        "credentialsSource": "remote"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release",
+        "credentialsSource": "remote"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "tops.listtra@gmail.com"
       }
     }
   }
+}
